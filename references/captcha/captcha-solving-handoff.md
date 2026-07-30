@@ -1,0 +1,72 @@
+# 答案层接入（求解 → answer JSON → 封装）
+
+> **交叉引用**：answer JSON schema 见 `captcha-overview.md`；完整求解 recipes（ddddocr/OpenCV/Whisper/各题型）见 `web-verify-patcher` skill 的 `references/open-source-recipes.md` 与 `references/solution-playbooks.md`；坐标/轨迹脚本参数见本 skill `scripts/README.md`。
+
+本文件规定封装层（本 skill 交付物）如何消费答案层产物。原则：**本地开源优先，打码平台兜底，接口契约统一**。
+
+## 求解路径优先级
+
+```text
+① 本地开源（默认）：ddddocr / OpenCV / 自训模型 —— 零按次成本、离线、可规模化
+② 打码平台（兜底）：云码 / 超级鹰 / 2Captcha / CapSolver —— 按次付费，低通过率或语义类题型时启用
+③ 人工接管（最后）：取证基线或上述全失败时
+```
+
+切换条件（自动判断）：同一 challenge 素材本地求解置信度低，或连续失败复盘确认"视觉答案正确但验证失败"非轨迹/环境问题 → 升级路径。
+
+## ddddocr 三能力速查
+
+```python
+import ddddocr
+
+# 文字类（text/math 题面）
+ocr = ddddocr.DdddOcr(show_ad=False)
+text = ocr.classification(img_bytes)
+
+# 滑块类（双图：滑块图 + 背景图 → 缺口 x）
+det = ddddocr.DdddOcr(det=False, ocr=False, show_ad=False)
+res = det.slide_match(target_bytes, background_bytes)   # {'target_x': ..., 'target': [...]}
+
+# 目标检测（点选/图标类 → 候选框）
+det2 = ddddocr.DdddOcr(det=True, show_ad=False)
+boxes = det2.detection(img_bytes)   # [[x1,y1,x2,y2], ...]
+```
+
+注意：detection 只出候选框**不含语义**——"点所有公交车"这类需要再叠分类/CLIP 或走打码平台。
+
+## 素材获取（封装层职责）
+
+1. 素材 URL 从 load/get 响应 JSON 提取（字段名各厂商不同：极验 `bg`/`slice`/`fullbg`，注意路径可能是相对路径 + 混淆前缀）。
+2. 素材图下载用**与业务请求一致的 TLS 指纹客户端**（curl_cffi / curl-cffi-node），且带相同 Session cookie——部分厂商素材 URL 绑 Session。
+3. 素材落盘 `case/forensic/`（取证期）或内存直传 solver（交付物），禁止交付物把素材写临时文件后遗留。
+4. canvas 绘制场景：取证阶段从页面提取合成图；交付物优先找接口直出的底图字段，没有时才考虑素材 URL 拼装。
+
+## 坐标与轨迹脚本（本 skill scripts/ 已移植）
+
+```bash
+# 坐标换算：图片像素 → CSS/页面坐标（DPR/元素偏移/滚动）
+python scripts/map_coordinates.py --image-size 300x150 --display-size 300x150 --point 120,75 --pretty
+
+# 轨迹生成：slider / drag-drop / scratch / trace
+python scripts/generate_motion_track.py --mode slider --distance 128 --duration-ms 1100 --pretty
+
+# 切片乱序还原（image-restore / tile-scramble）
+python scripts/analyze_tile_restore.py --image scrambled.png --rows 3 --cols 3 --pretty
+```
+
+滑块闭环：`ddddocr slide_match → target_x → 按显示比例换算（map_coordinates 思路）→ generate_motion_track --distance <x> → track 数组 → 填 answer JSON → 加密进 w`。
+
+## 打码平台适配（兜底）
+
+- 交付物中放 `result/src/solver/` 适配器：统一接口 `solve(image, type, options) → answer JSON`。
+- 平台凭据走 `config.json` 外置（`solver.platform`、`solver.api_key`），脱敏交付，禁止硬编码。
+- 请求模板参考 `web-verify-patcher` 的 `scripts/solver_request_template.py`；平台选型见其 `references/solver-platform-recipes.md`。
+- 平台返回坐标系与厂商图片坐标系可能不一致，必须经 map_coordinates 逻辑换算后再参数化。
+
+## 接口校验
+
+交付前对 solver 输出跑 schema 校验，不通过不进 Phase 4：
+
+```bash
+node scripts/check_captcha_answer.js --file answer.json
+```
