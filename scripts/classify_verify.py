@@ -1181,14 +1181,14 @@ def classify_sources(
             "live_browser_requires_confirmation": True,
             "default_mode": "offline-first",
             "attempt_review": {
-                "script": "scripts/evaluate_verification_attempts.py",
+                "script": "node scripts/check_verification_attempts.js",
                 "failure_threshold": 5,
                 "switch_route": "platform-control",
                 "platform_role": "授权 QA 对照",
                 "send_request": False,
             },
             "success_baseline": {
-                "script": "scripts/evaluate_success_baseline.py",
+                "script": "node scripts/check_success_baseline.js",
                 "min_total_success_samples": 5,
                 "min_success_samples_per_type": 2,
                 "required_before_live_verification": "strongly_recommended",
@@ -1221,11 +1221,81 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pretty", action="store_true", help="以缩进格式输出 JSON")
     parser.add_argument("--compact", action="store_true", help="以紧凑格式输出 JSON")
     parser.add_argument("--json", action="store_true", help="兼容参数；脚本始终输出 JSON")
+    parser.add_argument("--self-test", action="store_true", help="运行内置冒烟测试，验证分类器对典型厂商的识别能力")
     return parser
+
+
+SELF_TEST_CASES = [
+    {
+        "name": "极验 geetest v3",
+        "html": '<script src="https://api.geetest.com/get.php"></script><div class="geetest_widget">',
+        "url": ["https://api.geetest.com/register.php", "https://static.geetest.com/static/tools/gt.js"],
+        "text": ["拖动滑块完成验证"],
+        "expect_provider": "geetest",
+        "expect_type": "slider",
+    },
+    {
+        "name": "数美 shumei",
+        "html": '<script src="https://castatic.fengkongcloud.cn/pr/v1.0.3/smcp.min.js"></script>',
+        "url": ["https://castatic.fengkongcloud.cn/pr/v1.0.3/smcp.min.js"],
+        "text": ["initSMCaptcha"],
+        "expect_provider": "shumei-captcha",
+        "expect_type": "slider",
+    },
+    {
+        "name": "顶象 dingxiang",
+        "html": '<script src="https://cdn.dingxiang-inc.com/du/dist/dx.captcha.js"></script><div class="dx_captcha">',
+        "url": ["https://cdn.dingxiang-inc.com/du/dist/dx.captcha.js"],
+        "text": ["_dx.Captcha"],
+        "expect_provider": "dingxiang-captcha",
+        "expect_type": "slider",
+    },
+    {
+        "name": "腾讯防水墙 tcaptcha",
+        "html": '<script src="https://captcha.gtimg.com/tdc.js?appdata=xxx"></script><div id="tcaptcha_transform">',
+        "url": ["https://captcha.tencentcloudapi.com/web"],
+        "text": ["TCaptcha"],
+        "expect_provider": "tencent-tcaptcha",
+        "expect_type": "slider",
+    },
+    {
+        "name": "网易易盾 yidun",
+        "html": '<script src="https://cstaticdun.126.net/load.min.js"></script><div id="yidun_captcha">',
+        "url": ["https://cstaticdun.126.net/load.min.js", "https://dun.163.com"],
+        "text": ["NECaptcha", "拖动滑块完成验证"],
+        "expect_provider": "netease-yidun",
+        "expect_type": "slider",
+    },
+]
+
+
+def run_self_test() -> int:
+    passed = 0
+    failed = 0
+    for case in SELF_TEST_CASES:
+        result = classify_sources(
+            html=case.get("html"),
+            url=case.get("url"),
+            text=case.get("text"),
+        )
+        provider_ok = result["provider"] == case["expect_provider"]
+        type_ok = result["captcha_type"] == case["expect_type"]
+        ok = provider_ok and type_ok
+        status = "PASS" if ok else "FAIL"
+        detail = f"provider={result['provider']}(expect {case['expect_provider']}) type={result['captcha_type']}(expect {case['expect_type']})"
+        print(f"  [{status}] {case['name']}: {detail}")
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+    print(f"\nself-test: {passed} passed, {failed} failed, {len(SELF_TEST_CASES)} total")
+    return 0 if failed == 0 else 1
 
 
 def main() -> int:
     args = build_parser().parse_args()
+    if args.self_test:
+        return run_self_test()
     result = classify_sources(
         html=read_many(args.html),
         url=read_many(args.url),

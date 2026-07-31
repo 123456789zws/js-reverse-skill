@@ -1,0 +1,19 @@
+{
+  "target": {
+    "page_url": "<目标页>",
+    "load_api": "<load/register 接口，如 https://api.geetest.com/register.php>",
+    "verify_api": "<verify 接口，如 https://api.geetest.com/ajax.php>",
+    "business_api": "<业务接口，消费 validate/ticket 等凭据>"
+  },
+  "captcha": {
+    "provider": "geetest",
+    "captcha_type": "slider",
+    "gt_or_captcha_id": "<厂商标识，极验 v3=gt，v4=captcha_id>"
+  },
+  "solver": {
+    "mode": "ddddocr",
+    "platform": "",
+    "api_key": ""
+  },
+  "verify_count": 5
+}

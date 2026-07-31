@@ -1,6 +1,6 @@
 # 交付入口模板索引
 
-本目录提供 5 类交付入口模板，复制到 `case/result/` 后按站点签名逻辑填充。
+本目录提供 6 类交付入口模板，复制到 `case/result/` 后按站点签名逻辑填充。
 
 ## 模板清单
 
@@ -11,6 +11,7 @@
 | `python-request/` | `final.py` + `client.py` + `requirements.txt` | A/B/C/D | **Python 唯一执行入口 + TLS 客户端**：`final.py` 自验（带 `__main__` 守卫，可被 `from final import sign` 取 API）、默认发真实请求（≥5 次）；`client.py` 提供 `create_request_session`+`CookieJar`（curl_cffi → cffi_curl → cyCronet 优先级）；`requirements.txt` 依赖契约 |
 | `vm-sandbox/` | `install-env.js` + `vm-context.js` + `native-protect.js` | B/D | **补环境安装**：JS 层 NativeProtect 保护（`native-protect.js` 已内联，交付物不依赖 skill 仓库） |
 | `wasm-loader/` | `loader.js` | C | **WASM 加载器**：buffer 实例化 + importObject 注入 |
+| `captcha-verify/` | `final.js` + `config.json` + `package.json` | 验证码 | **验证码逆向专用**：load→solve→verify 三段链路 + 业务接口消费凭据；answer JSON 契约衔接 solver/verifier；challenge 一次性不复用 |
 
 ## 模板间引用关系
 

@@ -2,7 +2,7 @@
 
 > 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
 >
-> 注：`evaluate_success_baseline.py` / `evaluate_verification_attempts.py` 两个评估脚本未移植，相关成功基线与失败复盘评估需手动执行；答案层 answer JSON 校验用 `scripts/check_captcha_answer.js`。
+> 注：原 xbs 的 `evaluate_success_baseline.py` / `evaluate_verification_attempts.py` 已由本 skill 的 `scripts/check_success_baseline.js` / `scripts/check_verification_attempts.js` 替代；attempts/success_samples 字段与 answer JSON（captcha_type/provider/challenge_binding）复用。
 
 本文件用于第二阶段：用户已经看到 `solution_options`，并明确选择某个方案后，再进入验证流程。默认先离线验证；真实网页操作、打码平台调用、表单提交都必须再次确认。
 
@@ -26,7 +26,7 @@
    - 真实网页验证前，先检查 `success_samples`。
    - 默认同一授权目标至少 5 次用户手动成功样本。
    - 如果取证中观察到新的验证码类型，每个新类型至少 2 次成功样本。
-   - 用 `scripts/evaluate_success_baseline.py` 输出 `success_baseline_status`、`success_baseline_summary` 和 `missing_success_samples`。
+   - 用 `node scripts/check_success_baseline.js` 输出 `status`、`groups` 和 `missing`。
    - 基线不足时强提示：当前缺少真实成功流程对照，用户确认后仍可继续离线分析或受控验证。
 5. 离线执行：
    - 用开源工具识别答案、偏移、角度、坐标、点列或 token 诊断结果。
@@ -38,7 +38,7 @@
    - 不要默认提交给真实页面。
 7. 每次验证后记录 attempts JSON：
    - 记录方案、验证码类型、厂商、授权目标、输入证据、识别结果、坐标/轨迹、切片还原结论、环境检查结论、challenge 新鲜度、成功/失败和失败原因。
-   - 同一授权目标、同一验证码类型、同一用户选择方案连续失败时，用 `scripts/evaluate_verification_attempts.py` 做失败复盘。
+   - 同一授权目标、同一验证码类型、同一用户选择方案连续失败时，用 `node scripts/check_verification_attempts.js` 做失败复盘。
    - 只有达到 5 次失败且无一次成功，且图片/坐标/轨迹/切片还原/补环境/challenge 新鲜度都无明显异常时，才主动建议切换到平台对照。
 8. 需要真实网页验证时：
    - 先读取 `references/tooling/browser-acquisition.md`。
@@ -60,7 +60,7 @@
 评估脚本：
 
 ```bash
-python scripts/evaluate_success_baseline.py --samples success_samples.json --pretty
+node scripts/check_success_baseline.js --file success_samples.json --markdown
 ```
 
 脚本只做离线评估，不打开网页、不读取 Cookie/Storage、不提交验证。
@@ -113,7 +113,7 @@ python scripts/evaluate_success_baseline.py --samples success_samples.json --pre
 复盘脚本示例：
 
 ```bash
-python scripts/evaluate_verification_attempts.py --attempts attempts.json --pretty
+node scripts/check_verification_attempts.js --file attempts.json --markdown
 ```
 
 脚本只做离线判断，不打开网页、不读取 API key、不发送平台请求。

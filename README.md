@@ -45,7 +45,7 @@ js-reverse-skill/
 ├── SKILL.md              流程骨架 + 规则 + 索引（AI 加载的主文档）
 ├── README.md             本文件
 ├── assets/               可复用资产（AST 反混淆 + 补环境片段 + fixture 模板）
-├── templates/            交付入口模板（5 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM）
+├── templates/            交付入口模板（6 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM / 验证码）
 ├── references/           知识参考（11 子域，按需读取；含 captcha/ 验证码：封装层+答案层资产）
 ├── cases/                经验案例（已验证案例 + 模板）
 └── scripts/              工具脚本（ruyipage+RuyiTrace 采集/导入/检查 + 验证码题型分类/坐标/轨迹/答案校验）
