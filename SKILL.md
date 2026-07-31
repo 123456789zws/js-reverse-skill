@@ -107,9 +107,9 @@ js-reverse-skill/
   验证码封装层（verify 接口加密参数 + 轨迹加密；题型识别/图像求解见 references/captcha/ 子域）:
     geetest / gt / challenge / captcha_id / lot_number / w 参数 / api.geetest.com / gcaptcha4.geetest.com
       → 策略: trace 成功链路（用户手动过一次）+ verify 四层链路定位 + 答案层契约接入 | 参考: references/captcha/captcha-overview.md + captcha-request-chain.md | case: 待沉淀
-    数美 shumei / smcp.min.js / initSMCaptcha / organization / rid
+    数美 shumei-captcha / smcp.min.js / initSMCaptcha / organization / rid
       → 策略: 同上（注意 conf 动态加密配置）| 参考: references/captcha/captcha-providers.md
-    顶象 dingxiang / constId / dx-captcha；腾讯 tcaptcha / aid / ticket；易盾 yidun / captchaId / validate；阿里云 nc_ / AWSC / afs
+    顶象 dingxiang-captcha / constId / dx-captcha；腾讯 tencent-tcaptcha / aid / ticket；易盾 netease-yidun / captchaId / validate；阿里云 aliyun-captcha / nc_ / AWSC / afs
       → 策略: 同上（先按题型定解法；轨迹加密见 references/captcha/captcha-motion-encryption.md）
 
   命中结果:

@@ -16,7 +16,7 @@
 | 通过凭据 | `validate`（业务侧再组装 seccode 二次校验，组装方式版本相关） | seccode 四件套：lot_number / captcha_output / pass_token / gen_time |
 | 答案类型 | 滑块为主（slide_match 可解） | 滑块 / 点选 / icon / gobang / 无感 |
 
-### 数美 Shumei
+### 数美 Shumei（标签：`shumei-captcha`）
 
 - 识别信号：`castatic.fengkongcloud.cn/pr/.../smcp.min.js`、`initSMCaptcha`、`organization`、`SMCaptcha.getResult()`
 - 关键参数：`organization`（商户标识）、`rid`（请求标识，verify 后回传）、`captchaUuid`、`pass`
@@ -24,14 +24,14 @@
 - 通过凭据：`pass: true` + `rid`，业务侧用 rid 二次验签
 - 题型：滑块 / 点选 / 语序 / 无感
 
-### 顶象 DingXiang
+### 顶象 DingXiang（标签：`dingxiang-captcha`）
 
 - 识别信号：`cdn.dingxiang-inc.com`、`captcha-ui/v5/index.js`、`_dx.Captcha`、`constId`
 - 关键参数：`appId`（业务）、`constId`（设备/会话指纹相关）、`apiServer`、dx token
 - 加密关注点：`constId` 由独立指纹 JS 生成（先逆指纹再逆验证码，两条链）；token 分段拼接（指纹段 + 行为段 + 答案段）
 - 题型极多：滑块 / 文字点选 / 图标点选 / 语序 / 刮刮卡 / 旋转 / 乱序拼图 / 面积 / 差异点击——**先按 `classify_verify.py` 定题型再定解法**
 
-### 腾讯防水墙 TCaptcha
+### 腾讯防水墙 TCaptcha（标签：`tencent-tcaptcha`）
 
 - 识别信号：`captcha.gtimg.com`、`TCaptcha`、`aid`
 - 关键参数：`aid`（业务 appid）、`ticket`、`randstr`
@@ -39,14 +39,14 @@
 - 通过凭据：`ticket` + `randstr` 两件套，业务接口都要带
 - 题型：滑块 / 点选 / 语音 / 无感
 
-### 网易易盾 Yidun
+### 网易易盾 Yidun（标签：`netease-yidun`）
 
 - 识别信号：`captcha.yidun`、`dun.163.com`、`NECaptcha`
 - 关键参数：`captchaId`、`validate`、`fp`（指纹）、`token`
 - 加密关注点：`fp` 独立指纹链（先逆 fp）；`validate` 由答案+轨迹加密生成；行为采集与题面混合
 - 题型：滑块 / 点选 / 无感
 
-### 阿里云 NoCaptcha / AWSC
+### 阿里云 NoCaptcha / AWSC（标签：`aliyun-captcha`）
 
 - 识别信号：`AWSC`、`nc_`、`afs`、`aliyuncs.com`
 - 关键参数：`appkey`、`scene`、`sessionId`、`sig`、`token`、`nc_token`
