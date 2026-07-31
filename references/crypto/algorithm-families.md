@@ -81,16 +81,16 @@ eval(...) / new Function(...)（打包）
 **特征**：`_0x` 大量前缀
 **路径**：AST 反混淆 + 通用流程
 
-## 验证码家族（交接 web-verify-patcher skill）
+## 验证码家族（封装层本 skill / 识别求解交接 web-verify-patcher）
 
 | 类型 | 特征 | 处理 |
 |---|---|---|
-| 极验 geetest3/4 | gt.js / challenge | 交接 web-verify-patcher |
-| 顶象 dingxiang | dx 验证码 | 交接 web-verify-patcher |
-| 网易 yidun | 易盾验证参数 | 交接 web-verify-patcher |
-| 同花顺验证码 | 验证码组件 | 交接 web-verify-patcher |
-| Cloudflare Turnstile | cf-turnstile | 交接 web-verify-patcher |
-| hCaptcha | h-captcha | 交接 web-verify-patcher |
-| reCAPTCHA | g-recaptcha | 交接 web-verify-patcher |
+| 极验 geetest3/4 | gt.js / challenge / w 参数 | 封装层本 skill（references/captcha/）；识别求解交接 web-verify-patcher |
+| 顶象 dingxiang | dx 验证码 | 同上 |
+| 网易 yidun | 易盾验证参数 | 同上 |
+| 同花顺验证码 | 验证码组件 | 同上 |
+| Cloudflare Turnstile | cf-turnstile | 同上 |
+| hCaptcha | h-captcha | 同上 |
+| reCAPTCHA | g-recaptcha | 同上 |
 
-验证码场景不在本 skill 范围，统一交接 `web-verify-patcher` skill（见各验证码行的「交接」标注）。
+验证码场景分层处理：封装层逆向（verify 接口加密参数/轨迹加密）走本 skill `references/captcha/` 子域；题型识别与图像求解交接 `web-verify-patcher`（源自 xbsReverseSkill）。

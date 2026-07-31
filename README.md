@@ -9,7 +9,7 @@
 | 来源 | 贡献 |
 |------|------|
 | [hello_js_reverse_skill](https://github.com/WhiteNightShadow/hello_js_reverse_skill) | 流程骨架 + 案例库 |
-| [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill) | 补环境流程 + 工具链 |
+| [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill) | 补环境流程 + 工具链 + web-verify-patcher 验证码识别/求解模块 |
 | [ruyipage](https://github.com/LoseNine/ruyipage) | Firefox WebDriver BiDi 取证 |
 | [RuyiTrace](https://github.com/LoseNine/Firefox-FingerPrint-Analyzer) | NDJSON trace 内核 |
 

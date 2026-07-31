@@ -1,6 +1,6 @@
 # 验证码逆向总览（边界 / 分工 / 交接契约）
 
-> **交叉引用**：题型识别与图像求解交接 `web-verify-patcher` skill；请求链细节见 `captcha-request-chain.md`；厂商矩阵见 `captcha-providers.md`；轨迹加密见 `captcha-motion-encryption.md`；答案层接入见 `captcha-solving-handoff.md`。Session 绑定见 `network/session-chain.md`，指纹一致性见 `fingerprint/` 子域。
+> **交叉引用**：题型识别与图像求解交接 `web-verify-patcher` skill（源自 [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill)）；请求链细节见 `captcha-request-chain.md`；厂商矩阵见 `captcha-providers.md`；轨迹加密见 `captcha-motion-encryption.md`；答案层接入见 `captcha-solving-handoff.md`。Session 绑定见 `network/session-chain.md`，指纹一致性见 `fingerprint/` 子域。
 
 本 skill 在验证码场景的**唯一职责是封装层逆向**：verify 接口加密参数（w / cb / sig / token 等）、轨迹加密、challenge 与浏览器指纹的绑定关系。题型识别、图像求解、打码平台编排不属于本 skill，交接 `web-verify-patcher`。
 
