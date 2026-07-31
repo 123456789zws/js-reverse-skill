@@ -1,6 +1,6 @@
 # js-reverse-skill
 
-通用网页端 JS 逆向工程技能：统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向还原加密参数。融合黑盒补环境（JS 层 NativeProtect）与纯算还原双路径，支持 Node.js / Python 双语言纯协议交付。已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）等真实案例场景中得到实践（见「真实案例平台与参数」）。
+通用网页端 JS 逆向工程技能：统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向还原加密参数。融合黑盒补环境（JS 层 NativeProtect）、纯算还原、验证码封装层逆向（verify 接口 w/cb/sig 加密参数、轨迹加密，题型识别/图像求解交接 web-verify-patcher）等多路径，支持 Node.js / Python 双语言纯协议交付。已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）等真实案例场景中得到实践（见「真实案例平台与参数」）。
 
 ## 来源
 
@@ -18,8 +18,9 @@
 **适用**：
 - 签名 / token / 指纹 / 设备参数生成
 - JSVMP 黑盒补环境、WASM 加载、混淆还原、TLS 指纹模拟
+- 验证码封装层逆向（verify 接口加密参数/轨迹加密/challenge 绑定）
 
-**不适用**：App / Android / iOS / 小程序 / Windows / EXE / DLL / Native / Frida / IDA
+**不适用**：App / Android / iOS / 小程序 / Windows / EXE / DLL / Native / Frida / IDA；验证码题型识别与图像求解（交接 web-verify-patcher）
 
 **默认不主动分析 JSVMP 字节码源码**：遇到 JSVMP 只做黑盒补环境
 
@@ -45,7 +46,7 @@ js-reverse-skill/
 ├── README.md             本文件
 ├── assets/               可复用资产（AST 反混淆 + 补环境片段 + fixture 模板）
 ├── templates/            交付入口模板（5 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM）
-├── references/           知识参考（按"触发条件"按需读取）
+├── references/           知识参考（11 子域，按需读取；含 captcha/ 验证码封装层）
 ├── cases/                经验案例（已验证案例 + 模板）
 └── scripts/              工具脚本（ruyipage+RuyiTrace 采集/导入/检查）
 ```
