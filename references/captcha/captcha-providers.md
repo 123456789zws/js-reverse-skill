@@ -1,6 +1,6 @@
 # 验证码厂商矩阵（封装层视角）
 
-> **交叉引用**：完整厂商识别信号表（40+ 厂商）见 `web-verify-patcher` skill 的 `references/provider-products.md`；本文件只收录与**封装层逆向直接相关**的内容：load/verify 参数构成、加密关注点、通过凭据形态。具体加密算法以每 case 的 RuyiTrace 证据为准，本表不替代取证。
+> **交叉引用**：完整厂商识别信号表（40+ 厂商）见 `provider-products.md`；本文件只收录与**封装层逆向直接相关**的内容：load/verify 参数构成、加密关注点、通过凭据形态。具体加密算法以每 case 的 RuyiTrace 证据为准，本表不替代取证。
 
 ## 国内主流厂商
 

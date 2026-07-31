@@ -1,6 +1,6 @@
 # 答案层接入（求解 → answer JSON → 封装）
 
-> **交叉引用**：answer JSON schema 见 `captcha-overview.md`；完整求解 recipes（ddddocr/OpenCV/Whisper/各题型）见 `web-verify-patcher` skill 的 `references/open-source-recipes.md` 与 `references/solution-playbooks.md`；坐标/轨迹脚本参数见本 skill `scripts/README.md`。
+> **交叉引用**：answer JSON schema 见 `captcha-overview.md`；完整求解 recipes（ddddocr/OpenCV/Whisper/各题型）见 `open-source-recipes.md` 与 `solution-playbooks.md`；坐标/轨迹脚本参数见本 skill `scripts/README.md`。
 
 本文件规定封装层（本 skill 交付物）如何消费答案层产物。原则：**本地开源优先，打码平台兜底，接口契约统一**。
 
@@ -60,7 +60,7 @@ python scripts/analyze_tile_restore.py --image scrambled.png --rows 3 --cols 3 -
 
 - 交付物中放 `result/src/solver/` 适配器：统一接口 `solve(image, type, options) → answer JSON`。
 - 平台凭据走 `config.json` 外置（`solver.platform`、`solver.api_key`），脱敏交付，禁止硬编码。
-- 请求模板参考 `web-verify-patcher` 的 `scripts/solver_request_template.py`；平台选型见其 `references/solver-platform-recipes.md`。
+- 请求模板见 `scripts/solver_request_template.py`；平台选型见 `solver-platform-recipes.md`。
 - 平台返回坐标系与厂商图片坐标系可能不一致，必须经 map_coordinates 逻辑换算后再参数化。
 
 ## 接口校验
