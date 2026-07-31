@@ -8,7 +8,7 @@
 
 | 信号 | 判定 | 处理 |
 |---|---|---|
-| HTTP 403 + 风控页 HTML（含 challenge JS） | Cloudflare/Akamai/DataDome challenge | 走 `web-verify-patcher` 交接，或换住宅代理 |
+| HTTP 403 + 风控页 HTML（含 challenge JS） | Cloudflare/Akamai/DataDome challenge | 走 `web-verify-patcher` 参考，或换住宅代理 |
 | HTTP 403 + `Server: cloudflare` + `cf-mitigated: challenge` | Cloudflare 主动挑战 | 同上 |
 | HTTP 200 + 空 body + `x-vc-bdturing-parameters` 响应头 | 字节系滑块风控（code=10000, type=verify, subtype=slide） | IP 被限流，等待或换 IP |
 | HTTP 200 + 空 body + 其他风控响应头 | 静默风控（签名通过但环境不对） | 查 `silent-failure-checklist` |
@@ -184,7 +184,7 @@ class CircuitBreaker {
 检测到风控信号
   │
   ├─ 是验证码/challenge？
-  │   ├─ 是 → 交接 web-verify-patcher 处理
+  │   ├─ 是 → 参考 web-verify-patcher 处理
   │   └─ 否 → 继续判断
   │
   ├─ 是 IP 限流（429 / 空 body + 风控头）？

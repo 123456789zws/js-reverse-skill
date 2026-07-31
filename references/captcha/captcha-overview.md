@@ -1,8 +1,8 @@
-# 验证码逆向总览（边界 / 分工 / 交接契约）
+# 验证码逆向总览（边界 / 分工 / 接口契约）
 
-> **交叉引用**：题型识别与图像求解交接 `web-verify-patcher` skill（源自 [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill)）；请求链细节见 `captcha-request-chain.md`；厂商矩阵见 `captcha-providers.md`；轨迹加密见 `captcha-motion-encryption.md`；答案层接入见 `captcha-solving-handoff.md`。Session 绑定见 `network/session-chain.md`，指纹一致性见 `fingerprint/` 子域。
+> **交叉引用**：题型识别与图像求解参考 `web-verify-patcher` skill（源自 [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill)）；请求链细节见 `captcha-request-chain.md`；厂商矩阵见 `captcha-providers.md`；轨迹加密见 `captcha-motion-encryption.md`；答案层接入见 `captcha-solving-handoff.md`。Session 绑定见 `network/session-chain.md`，指纹一致性见 `fingerprint/` 子域。
 
-本 skill 在验证码场景的**唯一职责是封装层逆向**：verify 接口加密参数（w / cb / sig / token 等）、轨迹加密、challenge 与浏览器指纹的绑定关系。题型识别、图像求解、打码平台编排不属于本 skill，交接 `web-verify-patcher`。
+本 skill 在验证码场景的核心能力：**封装层逆向**（verify 接口加密参数 w / cb / sig / token / 轨迹加密 / challenge 绑定）+ **答案层资产**（ddddocr/坐标/轨迹脚本均已集成，见 `captcha-solving-handoff.md`）。更多厂商信号表与题型分类器可参考 `web-verify-patcher`（源自 xbsReverseSkill）。
 
 ## 四层分工模型
 
@@ -21,7 +21,7 @@
 - 用户手动通过验证码的成功样本**只允许用于 Phase 1-3 取证**（建立成功链路 trace 基线），不得硬编码进 `result/`。
 - 打码平台 API key 等凭据走 `config.json` 外置，脱敏后交付，禁止硬编码。
 
-## 交接契约：answer JSON
+## 答案 JSON 接口契约
 
 答案层（web-verify-patcher 或自建 solver）产出、封装层（本 skill 交付物）消费的统一结构：
 

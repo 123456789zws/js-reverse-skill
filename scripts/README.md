@@ -72,4 +72,4 @@
 | `map_coordinates.py` | 验证码坐标换算（图片像素 → CSS/页面坐标，含 DPR/元素偏移/滚动）；移植自 web-verify-patcher | `python map_coordinates.py --image-size 300x150 --display-size 300x150 --point 120,75 --pretty` |
 | `generate_motion_track.py` | 生成滑块/拖放/刮刮卡/连线轨迹 JSON；移植自 web-verify-patcher | `python generate_motion_track.py --mode slider --distance 128 --duration-ms 1100 --pretty` |
 | `analyze_tile_restore.py` | 切片乱序图片还原分析（tile-scramble）；移植自 web-verify-patcher | `python analyze_tile_restore.py --image scrambled.png --rows 3 --cols 3 --pretty` |
-| `check_captcha_answer.js` | 校验答案层 answer JSON 是否符合 references/captcha/captcha-overview.md 交接契约 | `node check_captcha_answer.js --file answer.json --markdown` |
+| `check_captcha_answer.js` | 校验答案层 answer JSON 是否符合 references/captcha/captcha-overview.md 接口契约 | `node check_captcha_answer.js --file answer.json --markdown` |

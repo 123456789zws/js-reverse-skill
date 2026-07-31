@@ -6,7 +6,7 @@ description: >
   覆盖标准算法(md5/sha/aes/hmac/SM2/SM4/SM3)、自定义混淆、obfuscator.io、JSVMP 黑盒补环境、WASM 加密、
   TLS 指纹模拟、Session 请求链、反爬风控对抗等场景。
   新增验证码封装层逆向：geetest/数美/顶象/腾讯防水墙/易盾/阿里云等 verify 接口加密参数（w/cb/sig/token）、
-  轨迹加密、challenge 绑定的还原（题型识别与图像求解交接 web-verify-patcher skill）。
+  轨迹加密、challenge 绑定的还原（答案层资产已集成，题型分类可参考 web-verify-patcher skill）。
   统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向，支持 Node.js / Python 双语言纯协议交付。
   已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）/ 政府监管类等真实案例场景中得到实践（见 README「真实案例平台与参数」）。
   适用范围：浏览器网页 JS（含移动端 H5、微信/X5/QQB 内置浏览器）。
@@ -104,7 +104,7 @@ js-reverse-skill/
     通用 JSVMP 源码插桩
       → 策略: trace + 源码级插桩 | case: cases/universal-vmp-source-instrumentation.md
 
-  验证码封装层（verify 接口加密参数 + 轨迹加密；题型识别/图像求解交接 web-verify-patcher）:
+  验证码封装层（verify 接口加密参数 + 轨迹加密；题型识别/图像求解参考 web-verify-patcher）:
     geetest / gt / challenge / captcha_id / lot_number / w 参数 / api.geetest.com / gcaptcha4.geetest.com
       → 策略: trace 成功链路（用户手动过一次）+ verify 四层链路定位 + 答案层契约接入 | 参考: references/captcha/captcha-overview.md + captcha-request-chain.md | case: 待沉淀
     数美 shumei / smcp.min.js / initSMCaptcha / organization / rid
@@ -209,7 +209,7 @@ js-reverse-skill/
 
 ### 验证码型（挑战素材 + verify 接口）
 - **特征**：加载 geetest / smcp.min.js / dx-captcha / TCaptcha / NECaptcha / AWSC 等验证码 SDK；接口链含 register/load/get/verify；响应含素材图字段（bg/slice/fullbg）或 challenge/lot_number
-- **路径**：封装层逆向走 `references/captcha/` 子域（请求链模型 + 厂商矩阵 + 轨迹加密）；题型识别与图像求解交接 web-verify-patcher，按 `references/captcha/captcha-overview.md` 的 answer JSON 契约衔接
+- **路径**：封装层逆向走 `references/captcha/` 子域（请求链模型 + 厂商矩阵 + 轨迹加密）；题型识别与图像求解参考 web-verify-patcher，按 `references/captcha/captcha-overview.md` 的 answer JSON 契约衔接
 - **关键区别**：参数清单是两组（load 组 + verify 组）；challenge 一次性；核心证据是用户手动成功链路的 trace
 
 ### 识别标准动作
@@ -583,7 +583,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 经验法则详解 | `references/workflow/experience-rules.md` | 19 条扩展说明 |
 | Worker / Service Worker 签名 | `references/workflow/worker-signing.md` | Worker/SW 环境补全特殊性 + 分析路径 |
 | 反爬版本追踪与快速适配 | `references/workflow/version-adaptation.md` | SDK 更新后的 diff/复用方法论 |
-| 验证码边界/分工/交接契约 | `references/captcha/captcha-overview.md` | 四层分工 + answer JSON schema + 红线适配 |
+| 验证码边界/分工/接口契约 | `references/captcha/captcha-overview.md` | 四层分工 + answer JSON schema + 红线适配 |
 | 验证码请求链模型 | `references/captcha/captcha-request-chain.md` | load→solve→verify 三段链 + 极验 v3/v4 骨架 + 四层链路表 |
 | 验证码厂商矩阵 | `references/captcha/captcha-providers.md` | 极验/数美/顶象/腾讯/易盾/阿里 verify 参数与加密关注点 |
 | 轨迹加密专项 | `references/captcha/captcha-motion-encryption.md` | 采集点 hook + 轨迹结构 + 风控排查清单 |
@@ -591,7 +591,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 脚本功能索引 | `scripts/README.md` | 脚本分类索引 + 典型用法 |
 | 交付模板索引 | `templates/README.md` | 5 类模板用途 + 引用关系 |
 
-> 注：验证码场景分层处理——**封装层逆向**（verify 接口加密参数、轨迹加密、challenge 绑定）走本 skill `references/captcha/` 子域；**题型识别与图像求解**交接 `web-verify-patcher` skill，交接契约见 `references/captcha/captcha-overview.md`。
+> 注：验证码场景分层处理——**封装层逆向**（verify 接口加密参数、轨迹加密、challenge 绑定）走本 skill `references/captcha/` 子域；**题型识别与图像求解**本 skill 已集成常用资产（ddddocr/坐标/轨迹脚本），更多厂商信号与题型分类器可参考 `web-verify-patcher` skill。
 
 ---
 

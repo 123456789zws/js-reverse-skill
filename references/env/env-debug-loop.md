@@ -70,7 +70,7 @@
 - 推荐保存到 `case/fixtures/motion.fixture.json` 或 `case/result/src/verify/motion-track.js`。
 - 代码中必须有 UTF-8 中文注释，说明旧轨迹来源、用途和后续由 `web-verify-patcher` 替换。
 - 不得把旧轨迹硬编码成不可替换逻辑，不得宣称旧轨迹能稳定通过验证码。
-- 生成验证码加密参数后，如需识别图片、生成真实轨迹、坐标换算或提交验证，先运行 `scripts/check_web_verify_patcher.js --require --markdown`，确认 `web-verify-patcher` 可用后再交接。
+- 生成验证码加密参数后，如需识别图片、生成真实轨迹、坐标换算或提交验证，先运行 `scripts/check_web_verify_patcher.js --require --markdown`，确认 `web-verify-patcher` 可用后再使用。
 
 ## RuyiTrace 优先诊断门禁
 

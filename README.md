@@ -1,6 +1,6 @@
 # js-reverse-skill
 
-通用网页端 JS 逆向工程技能：统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向还原加密参数。融合黑盒补环境（JS 层 NativeProtect）、纯算还原、验证码封装层逆向（verify 接口 w/cb/sig 加密参数、轨迹加密，题型识别/图像求解交接 web-verify-patcher）等多路径，支持 Node.js / Python 双语言纯协议交付。已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）等真实案例场景中得到实践（见「真实案例平台与参数」）。
+通用网页端 JS 逆向工程技能：统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向还原加密参数。融合黑盒补环境（JS 层 NativeProtect）、纯算还原、验证码封装层逆向（verify 接口 w/cb/sig 加密参数、轨迹加密；答案层资产已集成，题型分类可参考 web-verify-patcher）等多路径，支持 Node.js / Python 双语言纯协议交付。已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）等真实案例场景中得到实践（见「真实案例平台与参数」）。
 
 ## 来源
 
@@ -20,7 +20,7 @@
 - JSVMP 黑盒补环境、WASM 加载、混淆还原、TLS 指纹模拟
 - 验证码封装层逆向（verify 接口加密参数/轨迹加密/challenge 绑定）
 
-**不适用**：App / Android / iOS / 小程序 / Windows / EXE / DLL / Native / Frida / IDA；验证码题型识别与图像求解（交接 web-verify-patcher）
+**不适用**：App / Android / iOS / 小程序 / Windows / EXE / DLL / Native / Frida / IDA；验证码题型分类（参考 web-verify-patcher）
 
 **默认不主动分析 JSVMP 字节码源码**：遇到 JSVMP 只做黑盒补环境
 

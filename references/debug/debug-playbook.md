@@ -11,7 +11,7 @@
   │   ├─ 429 → 频率限制 → 退避 + 降频（见 ip-risk-control.md）
   │   ├─ 403 → 风控 challenge 或 WAF
   │   │   ├─ 有风控响应头（cf-mitigated / x-vc-bdturing）→ IP 风控（见 ip-risk-control.md）
-  │   │   ├─ 有 challenge JS → 交接 web-verify-patcher
+  │   │   ├─ 有 challenge JS → 参考 web-verify-patcher
   │   │   └─ 无风控头 → 查签名/Cookie/UA（见下方"200 但异常"分支）
   │   ├─ 412 → Akamai/瑞数 sensor 失效
   │   │   └─ 查 high-strength-detection.md（10 步高强度排查顺序）
@@ -22,7 +22,7 @@
       ├─ 空 body 无风控头 → 环境指纹不对
       │   └─ 查 node-leakage.md（12 项静默失败清单）
       ├─ 业务码异常（code != 0）
-      │   ├─ 含 verify/captcha 字样 → 验证码触发（交接 web-verify-patcher）
+      │   ├─ 含 verify/captcha 字样 → 验证码触发（参考 web-verify-patcher）
       │   └─ 其他业务码 → 查业务码含义
       ├─ 签名参数缺失/null
       │   └─ 查 node-leakage.md + 下方"签名 7 环节对比"
