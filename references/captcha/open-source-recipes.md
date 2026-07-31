@@ -1,8 +1,8 @@
-> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
-
 # 开源/本地方案示例
 
-本文件只给授权场景下的离线求解和诊断示例。真实网页点击、拖动、提交前必须回到 `references/verification-workflow.md` 做确认。
+> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
+
+本文件只给授权场景下的离线求解和诊断示例。真实网页点击、拖动、提交前必须回到 `references/captcha/verification-workflow.md` 做确认。
 
 ## 通用准备
 
@@ -153,7 +153,7 @@ python scripts/analyze_tile_restore.py --image scrambled.png --rows 3 --cols 3 -
 1. 页面逻辑优先：从 `tileOrder`、`pieceOrder`、`sliceOrder`、CSS `background-position`、sprite、canvas `drawImage` 或接口字段还原每个目标位置对应的来源切片。
 2. 只有图片时：按 `rows/cols` 或 `tile-width/tile-height` 切片，用左右/上下边缘连续性、颜色/纹理连续性、特征点匹配或 VLM 得到候选顺序。
 3. 输出 `order_source_by_target`、`confidence`、`restore_strategy` 和还原图；低置信度时不要硬猜。
-4. 如果还原结果还要换算拖动距离或交换动作，再回到 `references/motion-and-coordinate.md` 处理坐标和轨迹。
+4. 如果还原结果还要换算拖动距离或交换动作，再回到 `references/captcha/captcha-motion-encryption.md` 处理坐标和轨迹。
 
 边界：
 

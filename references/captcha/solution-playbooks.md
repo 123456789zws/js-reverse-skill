@@ -1,6 +1,6 @@
-> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
-
 # 解决方案手册
+
+> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
 
 这些方案用于授权场景下的验证码识别和验证分析。
 
@@ -23,9 +23,9 @@
 
 ## 第二阶段方案切换规则
 
-在用户确认方案并开始授权验证后，按 `references/verification-workflow.md` 记录 attempts JSON，并用 `scripts/evaluate_verification_attempts.py` 判断是否切换：
+在用户确认方案并开始授权验证后，按 `references/captcha/verification-workflow.md` 记录 attempts JSON，并用 `scripts/check_captcha_answer.js` 校验答案层产物（web-verify-patcher 的 `evaluate_verification_attempts.py` 评估脚本未移植，方案切换判断需手动执行）：
 
-- 先用 `scripts/evaluate_success_baseline.py` 检查用户手动成功样本；缺少成功基线时，不要把失败原因过早归咎于图片识别、轨迹或平台。
+- 先检查用户手动成功样本基线（web-verify-patcher 的 `evaluate_success_baseline.py` 未移植，需手动核对 ≥5 次成功基线）；缺少成功基线时，不要把失败原因过早归咎于图片识别、轨迹或平台。
 - `slider`、`image-restore/tile-scramble`、`click-select`、`grid`、`rotate`、`token-widget`：满足 5 次失败门槛且诊断均为 `ok` 时，优先推荐平台对照，输出 `recommended_next_route: platform-control`。
 - `text`、`math`、`audio`、`qa-logic`：满足 5 次失败门槛且图片/OCR/ASR/题面解析无明显异常时，可切平台或人工复核，用来判断本地识别是否低通过率。
 - `drag-drop`、`trace-draw`、`scratch`、`area-select`、`difference-click`、`font-identify`、`semantic-reasoning`、`game-challenge`、`multi-step`：先检查坐标、轨迹、多轮状态和题面变化；诊断均为 `ok` 后再推荐平台/人工接管对照。

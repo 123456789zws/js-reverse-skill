@@ -1,6 +1,6 @@
-> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
-
 # 厂商与产品特征
+
+> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
 
 使用本文件把 HTML、JS、iframe、接口名和参数线索转成厂商判断。报告高置信度前，尽量要求两个以上独立信号。
 

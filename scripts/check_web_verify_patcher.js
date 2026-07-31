@@ -36,7 +36,7 @@ function usage() {
   node scripts/check_web_verify_patcher.js --skill-dir <web-verify-patcher-dir> --markdown
   node scripts/check_web_verify_patcher.js --skills-root <skills-root> --require --markdown
 
-说明：在把验证码识别、轨迹生成或验证提交任务交给 web-verify-patcher 前，检查该 Skill 是否已安装，并输出未安装时的中文安装指引。`;
+说明：检测可选参考资源 web-verify-patcher skill 是否已安装。本 skill 验证码答案层资产（ddddocr/坐标/轨迹脚本 + 题型分类器 classify_verify.py）已内化，web-verify-patcher 仅作扩展参考，非必需依赖。未安装时输出中文安装指引。`;
 }
 
 function exists(p) {

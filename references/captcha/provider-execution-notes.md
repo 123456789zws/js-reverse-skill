@@ -1,6 +1,6 @@
-> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
-
 # 厂商执行注意点
+
+> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
 
 本文件用于第二阶段的授权验证流程。厂商识别只决定注意点，不代表可以自动通过。
 

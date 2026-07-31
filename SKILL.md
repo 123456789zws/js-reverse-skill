@@ -32,7 +32,7 @@ js-reverse-skill/
 │   ├── env-patch-snippets/ ← 补环境代码片段（NativeProtect），可被 templates 直接 require
 │   └── fixture-templates/  ← fixture 模板（constructor-errors / resource-manifest），复制到 case 后填充
 ├── templates/            ← 交付入口模板（5 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM）
-├── references/           ← 知识参考（11 子域，按"触发条件"按需读取；含 captcha/ 验证码封装层）
+├── references/           ← 知识参考（11 子域，按"触发条件"按需读取；含 captcha/ 验证码：封装层+答案层资产）
 ├── cases/                ← 经验案例（已验证案例 + 模板，CHECK-2 速查）
 └── scripts/              ← 工具脚本（ruyipage+RuyiTrace 采集/导入/检查 + 验证码坐标/轨迹/答案校验）
 ```

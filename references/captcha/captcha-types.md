@@ -1,6 +1,6 @@
-> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
-
 # 验证码类型
+
+> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
 
 在 `scripts/classify_verify.py` 给出初步类型后读取本文件。这里整理的是判断依据、证据需求和方案方向，不包含未授权求解或自动提交步骤。
 

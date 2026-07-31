@@ -1,6 +1,6 @@
-> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
-
 # 打码平台与请求模板
+
+> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
 
 打码平台在本技能中只作为“授权 QA 对照”路线：用来判断问题究竟在本地识别/坐标/轨迹链路，还是在厂商绑定、服务端校验、session/IP/UA 或 challenge TTL 链路。它不是默认替代所有本地方案，也不是未授权流程的自动通过工具。
 

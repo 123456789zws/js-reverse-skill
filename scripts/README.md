@@ -9,7 +9,7 @@
 | `check_external_tools.js` | 检测 ruyiPage / RuyiTrace 安装状态 | `node check_external_tools.js --markdown` |
 | `check_node_leakage.js` | 检查 Node 宿主常见泄露变量（含 undici），给出阻断清单 | `node check_node_leakage.js --markdown` |
 | `check_tls_clients.js` | 检测 TLS 指纹兼容客户端（CycleTLS / impers / curl-cffi-node / curl_cffi / cyCronet） | `node check_tls_clients.js --markdown` |
-| `check_web_verify_patcher.js` | 检查 web-verify-patcher skill 是否已安装 | `node check_web_verify_patcher.js --markdown` |
+| `check_web_verify_patcher.js` | 检测可选参考资源 web-verify-patcher 是否可用（非必需，验证码答案层已内化） | `node check_web_verify_patcher.js --markdown` |
 | `precheck_runtime.js` | 六项纯计算预检（Node.js 侧） | `node precheck_runtime.js --markdown` |
 
 ## 质量检查 / 交付门禁（9 个）

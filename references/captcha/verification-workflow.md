@@ -1,6 +1,8 @@
-> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
-
 # 授权验证流程
+
+> 移植自 xbsReverseSkill/web-verify-patcher（2026-07-31），内容未改动；交叉引用中指向 web-verify-patcher SKILL.md 的请转为本 skill 对应文档。
+>
+> 注：`evaluate_success_baseline.py` / `evaluate_verification_attempts.py` 两个评估脚本未移植，相关成功基线与失败复盘评估需手动执行；答案层 answer JSON 校验用 `scripts/check_captcha_answer.js`。
 
 本文件用于第二阶段：用户已经看到 `solution_options`，并明确选择某个方案后，再进入验证流程。默认先离线验证；真实网页操作、打码平台调用、表单提交都必须再次确认。
 
@@ -39,7 +41,7 @@
    - 同一授权目标、同一验证码类型、同一用户选择方案连续失败时，用 `scripts/evaluate_verification_attempts.py` 做失败复盘。
    - 只有达到 5 次失败且无一次成功，且图片/坐标/轨迹/切片还原/补环境/challenge 新鲜度都无明显异常时，才主动建议切换到平台对照。
 8. 需要真实网页验证时：
-   - 先读取 `references/browser-acquisition.md`。
+   - 先读取 `references/tooling/browser-acquisition.md`。
    - 让用户确认 ruyiPage/Camoufox/CloakBrowser 模式。
    - 让用户确认具体动作：打开页面、截图、拖动、点击、提交或人工接管。
 9. 结束时输出报告：
@@ -156,13 +158,13 @@ attempts JSON 可以使用这个最小结构：
 
 | 类型 | 首选参考 |
 | --- | --- |
-| `text`、`math`、`audio` | `references/open-source-recipes.md` |
-| `slider`、`rotate`、`image-restore` | `references/open-source-recipes.md` + `references/motion-and-coordinate.md` |
-| `click-select`、`grid`、`area-select`、`difference-click`、`font-identify`、`semantic-reasoning` | `references/open-source-recipes.md` + `references/motion-and-coordinate.md` |
-| `drag-drop`、`trace-draw`、`scratch` | `references/motion-and-coordinate.md` |
-| `token-widget`、`game-challenge`、`risk-score` | `references/provider-execution-notes.md` + `references/solver-platform-recipes.md` |
-| `pow-challenge` | `references/provider-execution-notes.md` |
-| `waf-challenge` | `references/browser-acquisition.md` + `references/provider-execution-notes.md` |
+| `text`、`math`、`audio` | `references/captcha/open-source-recipes.md` |
+| `slider`、`rotate`、`image-restore` | `references/captcha/open-source-recipes.md` + `references/captcha/captcha-motion-encryption.md` |
+| `click-select`、`grid`、`area-select`、`difference-click`、`font-identify`、`semantic-reasoning` | `references/captcha/open-source-recipes.md` + `references/captcha/captcha-motion-encryption.md` |
+| `drag-drop`、`trace-draw`、`scratch` | `references/captcha/captcha-motion-encryption.md` + `scripts/generate_motion_track.py` |
+| `token-widget`、`game-challenge`、`risk-score` | `references/captcha/provider-execution-notes.md` + `references/captcha/solver-platform-recipes.md` |
+| `pow-challenge` | `references/captcha/provider-execution-notes.md` |
+| `waf-challenge` | `references/tooling/browser-acquisition.md` + `references/captcha/provider-execution-notes.md` |
 | `biometric-liveness` | 只做合规接入和人工复核建议 |
 
 ## 输出模板
