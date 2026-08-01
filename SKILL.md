@@ -114,14 +114,27 @@ js-reverse-skill/
 
   命中结果:
     - 命中案例 = ______ (case 文件名 or "未命中")
-    - 命中 → 读取 case 文件，踩坑记录内化为约束，Phase 1-5 仍正常走
+    - 命中 → 读取 case 文件提取策略假设，踩坑记录内化为约束，但必须过下方"案例时效性校验"，Phase 1-5 仍正常走
     - 未命中 → 走标准 Phase 0-5，结束时把新经验沉淀到 `result/`（不写 skill 的 `cases/`）
+
+  案例时效性校验（命中后必做，防过时经验误导）:
+    定位: 案例是"假设来源"不是"事实来源"——站点 SDK 随时更新，案例记录的算法/参数结构可能已过时；
+         直接按过时案例写代码 = 白费功夫。本次 RuyiTrace NDJSON 证据永远是第一事实源。
+    校验动作（Phase 1 抓包后立即对比，三项全过才可复用案例策略）:
+      1. JS 资源一致性: 案例记录的 JS URL/文件名 vs 本次 ruyipage 落盘结果
+      2. 内容一致性: 案例记录的 sha256/资源清单 vs 本次落盘 JS（案例有记录时必比）
+      3. 参数结构一致性: 案例记录的参数名/长度/写入位置 vs 本次网络包实测
+    判定:
+      - 全部一致 → 复用案例策略（算法细节+踩坑约束直接采用）
+      - 任一不一致 → 案例降级为"方法论参考"（仅路径选择/坑点类型可借鉴），
+        算法/参数结构/环境项一律以本次 trace 证据重新分析（diff 方法见 references/workflow/version-adaptation.md）
+    铁律: 案例结论与本次 trace 证据冲突时，以 trace 证据为准；禁止"先按案例写代码、对不上再返工"
 
 [CHECK-3] 最终方案意图声明 + 用户确认
   本次目标: ______ (一句话)
   用户输入: URL = ______, 目标参数 = ______ (可为空，自动识别)
   取证模式: ruyipage + RuyiTrace（统一模式，不再分级）
-  合规: 最终方案必须为纯协议脚本（见红线 3-4）
+  合规: 最终方案必须为纯协议脚本（见红线 4-5）
   参数范围: 初始=用户指定; Phase 1.2 识别完整加密参数清单后，若发现额外参数需再次向用户确认拟解决范围（默认=用户指定，额外参数逐项勾选），确认后才继续
 
 ═══ 三项全部通过 + 用户确认方案，开始 Phase 0 ═══
@@ -133,12 +146,13 @@ js-reverse-skill/
 
 ---
 
-## ❌ 四条红线（任一违反即失败）
+## ❌ 五条红线（任一违反即失败）
 
 1. **未做 CHECK-1 到 CHECK-3 完整复述**，直接调用工具
-2. **跳过 cases/ 经验库速查**，对已有案例重新分析
-3. **最终方案使用浏览器自动化方式完成**（禁止用自动化过反爬挑战、禁止用浏览器拿 cookie 硬编码、禁止交付物含 Playwright/Puppeteer/Selenium/ruyipage 等任何浏览器自动化代码）
-4. **关键业务 cookie 从浏览器抓包硬编码到最终代码**
+2. **跳过 cases/ 经验库速查**，对已有案例重新分析（注意：命中案例≠直接复用，必须过 CHECK-2 的版本时效性校验）
+3. **取证环节使用禁用工具**——取证只允许三个来源：① ruyipage 定制 Firefox（经 `scripts/forensic_ruyipage.py` 通用脚本）② RuyiTrace 定制 trace Firefox（经 `scripts/capture_ruyitrace_log.js`）③ 用户手动提供材料。严禁：chrome-devtools 类 MCP、agent-browser / browser 类 skill、Playwright/Puppeteer/Selenium 及其 MCP、系统 Chrome/Firefox/Edge 打开目标站、requests/urllib/curl 直接下载目标 JS、向任何非 ruyi 系浏览器注入 hook
+4. **最终方案使用浏览器自动化方式完成**（禁止用自动化过反爬挑战、禁止用浏览器拿 cookie 硬编码、禁止交付物含 Playwright/Puppeteer/Selenium/ruyipage 等任何浏览器自动化代码）
+5. **关键业务 cookie 从浏览器抓包硬编码到最终代码**
 
 > **判定标准**：最终代码在无浏览器、无显示器、无 X11 的 Docker 容器中能否独立运行？不能 → 违规。ruyipage/RuyiTrace 等浏览器工具仅允许 Phase 1-3 取证，产出物可被纯协议代码引用，但浏览器工具本身严禁出现在 `result/` 交付物中。
 
@@ -158,8 +172,8 @@ js-reverse-skill/
 
 ## 第一原则
 
-1. **协议优先 + 日志驱动**：最终交付必须是纯协议脚本（Node.js `final.js` 或 Python `final.py`），**默认向真实 API 发请求验证**（≥5 次交叉验证，确认 200 响应 + 正确数据）。所有加密参数的还原必须以 RuyiTrace NDJSON 日志为优先证据源——先采集日志，再基于日志证据逆向，禁止猜测。工具失败时按"方案梯度"逐级尝试：纯 crypto 还原 → 最小环境复现 → vm 沙箱执行 JS → TLS 指纹模拟。浏览器自动化不在梯度内（见红线 3）。仅用户明确说"只输出参数不验证"时，才用 `--sign-only` 跳过 HTTP 请求。
-2. **证据驱动，禁止猜测**：所有关键结论必须有证据（RuyiTrace NDJSON 日志、Network 请求记录、运行时变量值、调用栈、Hook 捕获、代码定位、中间值对比）。
+1. **协议优先 + 日志驱动**：最终交付必须是纯协议脚本（Node.js `final.js` 或 Python `final.py`），**默认向真实 API 发请求验证**（≥5 次交叉验证，确认 200 响应 + 正确数据）。所有加密参数的还原必须以 RuyiTrace NDJSON 日志为优先证据源——先采集日志，再基于日志证据逆向，禁止猜测。工具失败时按"方案梯度"逐级尝试：纯 crypto 还原 → 最小环境复现 → vm 沙箱执行 JS → TLS 指纹模拟。浏览器自动化不在梯度内（见红线 4）。仅用户明确说"只输出参数不验证"时，才用 `--sign-only` 跳过 HTTP 请求。
+2. **证据驱动，禁止猜测**：所有关键结论必须有证据（RuyiTrace NDJSON 日志、Network 请求记录、运行时变量值、调用栈、Hook 捕获、代码定位、中间值对比）。历史案例经验不是证据，只是待验证的假设——与本次证据冲突时一律以本次证据为准（见 CHECK-2 案例时效性校验）。
 3. **一次执行到底**：默认连续完成全部步骤，仅在登录态缺失、验证码、关键分支需用户决策时中断。
 4. **环境检测验证原则**：看到环境检测代码时，先验证该项是否真正参与服务端校验（trace 确认是否发送到服务端 + 对比测试），只补真正参与校验的最小环境项。
 
@@ -173,14 +187,28 @@ js-reverse-skill/
 
 ## 取证工具链（两步，不可跳过）
 
-> 取证工具仅用于 Phase 1-2。限制见红线 3。
+> 取证工具仅用于 Phase 1-2。限制见红线 3-4。
 
 **两步取证流程**（对应 ruyiTrace 官方提示词模板）：
 
 | 步骤 | 工具 | 产出 | 用途 |
 |---|---|---|---|
-| Step 1：网络取证 | ruyipage | 网络包（HAR）、JS 文件、Cookie、指纹基线 | 建立网站轮廓，识别反爬类型，定位加密参数 |
-| Step 2：日志采集 | RuyiTrace | NDJSON 运行时日志 | 环境指纹采集，调用链追踪，补环境证据 |
+| Step 1：网络取证 | ruyipage（`scripts/forensic_ruyipage.py`） | 网络包（HAR）、JS 文件落盘、Cookie、指纹基线 | 建立网站轮廓，识别反爬类型，定位加密参数 |
+| Step 2：日志采集 | RuyiTrace（`scripts/capture_ruyitrace_log.js`） | NDJSON 运行时日志 | 环境指纹采集，调用链追踪，补环境证据 |
+
+**取证来源白名单（仅这三个，无例外）**：
+1. ruyipage 定制 Firefox —— 一律经通用脚本 `scripts/forensic_ruyipage.py`，JS 由脚本落盘 `case/js/original/`
+2. RuyiTrace 定制 trace Firefox —— 经 `scripts/capture_ruyitrace_log.js` 采集 NDJSON
+3. 用户手动提供材料 —— cURL / HAR / JS 文件 / 调用栈截图 / NDJSON
+
+**取证禁用清单（任一使用即违反红线 3）**：
+- ❌ chrome-devtools 类 MCP（Chrome/Edge DevTools 抓包、截图、evaluate、hook）
+- ❌ agent-browser / browser 类 skill、Playwright/Puppeteer/Selenium 及其 MCP
+- ❌ 系统 Chrome / Firefox / Edge 直接打开目标站取证
+- ❌ requests / urllib / curl 直接下载目标 JS —— 丢失指纹上下文，且可能拿到与浏览器实际执行不同的版本；JS 合法出处只有白名单 ① 和 ③
+- ❌ 向上述任何非 ruyi 系浏览器注入 hook / 断点
+
+**Hook 的定位（默认不走）**：主流程 = ruyipage + RuyiTrace 两步取证 → NDJSON 日志分析，**全程不需要 hook**。仅当 NDJSON 证据缺失 / 未覆盖 / 疑似截断时，才按 Phase 3.4 的 hook 模板补充观察，且 hook 只能注入 ruyipage 定制 Firefox（白名单 ①），禁止注入其他任何浏览器。
 
 **用户提供完整 cURL/HAR + JS 文件时**，可跳过 Step 1，直接进入 Step 2 + 参数识别。
 **用户未选择前不启动任何浏览器工具**。默认走两步取证；用户明确要求手动取证时，按用户提供材料分析。
@@ -284,7 +312,7 @@ case 根目录只允许两个子目录：
 > 输出：`case/forensic/capture.json`（全部包元数据）、`case/forensic/target-hits.json`（目标命中，含响应体截断）、`case/js/original/`（JS 文件）、`case/notes/fingerprint-baseline.json`。
 1. 运行上述通用脚本完成抓包（一次抓完，不复抓）。
 2. 收集：网络包（HAR）、Cookie、JS 文件 URL、响应状态码——均来自脚本输出。
-3. 目标 JS 文件已由脚本落盘到 `case/js/original/`，无需再用 `requests` 重新下载（会丢失指纹上下文）。
+3. 目标 JS 文件已由脚本落盘到 `case/js/original/`——JS 仅此两个合法来源：ruyipage 脚本落盘 或 用户手动提供；禁止再用 `requests`/`curl` 重新下载（丢失指纹上下文，且可能拿到与浏览器实际执行不同的版本，红线 3）。
 4. 指纹基线已由脚本写入 `case/notes/fingerprint-baseline.json`。
 5. 抓包结果复用到 Phase 2 RuyiTrace 采集 + Phase 3 日志分析，**不重抓**。
 
@@ -341,7 +369,7 @@ case 根目录只允许两个子目录：
 
 **3.3 多次请求对比**：≥3 次请求，确认变化因子（时间戳/随机数/签名值）
 
-**3.4 Hook 验证**（13 Hook 模板见 `references/hooks/hook-templates.md`）：纪律：**只观察不篡改，命中后尽快移除**
+**3.4 Hook 验证**（按需启用，非默认路径；13 Hook 模板见 `references/hooks/hook-templates.md`）：仅当 NDJSON 证据缺失 / 未覆盖 / 疑似截断时启用，且只注入 ruyipage 定制 Firefox（红线 3，禁止其他浏览器）；纪律：**只观察不篡改，命中后尽快移除**
 
 ### Phase 4：算法还原 / 补环境
 
@@ -362,7 +390,7 @@ case 根目录只允许两个子目录：
 | C WASM 加载 | 日志显示加密逻辑在 WebAssembly 中 | `templates/wasm-loader/` |
 | D 环境伪装 | 日志显示 JSVMP 深度绑定环境指纹 | 见 `references/env/`（默认纯 vm，按需升级 sdenv） |
 
-> **禁止**：浏览器自动化不作为解法模式（见红线 3）。ruyipage/RuyiTrace 仅用于分析取证，产出可被 A-D 路径引用。
+> **禁止**：浏览器自动化不作为解法模式（见红线 4）。ruyipage/RuyiTrace 仅用于分析取证，产出可被 A-D 路径引用。
 
 **4.3 补环境子流程**（路径 D）：详见 `references/workflow/phase-flow.md`（基于 RuyiTrace NDJSON 证据补环境）
 
@@ -396,7 +424,7 @@ result/
 - 唯一执行入口 `final.js` / `final.py`（带 `require.main` / `__main__` 守卫，被 `require` / `import` 时只导出 API、不自动执行、不发请求）
 - 外置 `config.json`（Node）/ `requirements.txt`（Python）依赖契约，复制方 `npm install` / `pip install -r` 即可
 - `native-protect.js` 内联进 `result/src/env/`，交付物不依赖 skill 仓库目录
-- 无浏览器自动化代码（见红线 3）
+- 无浏览器自动化代码（见红线 4）
 - **≥5 次真实 API 请求验证通过**（默认向目标 API 发请求，确认 200 响应 + 正确数据）
 - `result/最终项目总结.md`（必选，模板见 `references/quality/final-summary.md`）
 - `result/经验沉淀-<站点>.md`（必选，默认产出，详见 5.6；仅用户明确拒绝时才跳过并传 `--no-require-experience`）
@@ -444,7 +472,7 @@ result/
 - **梯度 4** 路径 D 变体（升级补环境方案）：默认纯 vm → 遇 document.all 升级 sdenv → 遇上下文逃逸隔离 global（详见 `references/env/env-native-protection.md`）
 - **梯度 5** 合法出口：写"卡在哪/已知什么/需要什么"报告 + 沉淀踩坑案例草稿到 `result/`（后续由开发者周期回写 `cases/`）
 
-**禁止**：跳过中间排查梯度直接用浏览器自动化方式完成交付（违反红线 3）
+**禁止**：跳过中间排查梯度直接用浏览器自动化方式完成交付（违反红线 4）
 
 ---
 
@@ -474,7 +502,7 @@ result/
 2. **`Function.prototype.toString` 是第一杀手**——所有 native 伪装必须通过 toString 检测
 3. **JSVMP 环境伪装优先于算法追踪**——路径 D 比 A 成功率高，不反编译字节码
 4. **环境补丁必须在 JSVMP 脚本加载前完成**——补丁晚于脚本等于没补
-5. **命中案例后必须精读踩坑记录并内化为约束**——case 是经验资产，不是参考资料
+5. **命中案例后先做时效性校验再复用**——case 是经验资产不是事实源；版本不一致时只借方法论，算法细节以本次 trace 为准（CHECK-2）
 
 其余 14 条（JSVMP 寄存器/签名入口/中间值对比/execjs 复用/evaluate_js IIFE 等）详见详解文档。
 

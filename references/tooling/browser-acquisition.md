@@ -27,14 +27,14 @@
 | ruyiPage + RuyiTrace | ruyiPage 做 Firefox/BiDi 自动化取证，RuyiTrace 采集内核层 NDJSON 环境日志 | 默认推荐，高风控、需要补环境日志时首选 |
 | 用户手动取证 | 用户提供 cURL、HAR、JS 文件、调用栈截图、RuyiTrace 日志 | 用户不允许自动化或需要真实登录态时 |
 
-用户未选择前，不要启动 ruyiPage、RuyiTrace、Playwright 或 Puppeteer。
+用户未选择前，不要启动 ruyiPage、RuyiTrace、Playwright 或 Puppeteer；同样禁止使用 chrome-devtools 类 MCP、agent-browser / browser 类 skill、系统 Chrome / Firefox / Edge 打开目标站，或用 requests / curl 直接抓取目标站 JS——这些不属于任何合法取证模式（见 SKILL.md 红线 3 取证禁用清单）。
 
 用户确认后，将其记录为本 case 的“取证模式”。后续所有取证操作必须沿用该模式：
 
 - 已选 ruyiPage + RuyiTrace：用 ruyiPage 做页面/网络/JS 取证，用 RuyiTrace 采集环境日志；不要临时改用普通 Playwright。
 - 已选用户手动取证：不要启动本机浏览器自动化；只让用户提供 cURL、HAR、JS 文件、调用栈截图、RuyiTrace 日志等材料。
 
-如果所选工具不可用、路径缺失、runtime 不合格、需要登录、或后续必须更换工具，必须暂停并让用户确认，不得自动 fallback 到普通系统 Firefox、普通 Playwright、Puppeteer 或其他 Playwright Firefox。
+如果所选工具不可用、路径缺失、runtime 不合格、需要登录、或后续必须更换工具，必须暂停并让用户确认，不得自动 fallback 到普通系统 Firefox、普通 Playwright、Puppeteer 或其他 Playwright Firefox，也不得 fallback 到 chrome-devtools 类 MCP、agent-browser / browser 类 skill 等任何 AI 浏览器工具。
 
 详细 ruyiPage / RuyiTrace 流程见 `ruyi-tooling.md`；自动点击、拖拽、键盘、滚动和验证码交互的 `isTrusted` 可信输入规则见 `quality/trusted-input.md`。
 
