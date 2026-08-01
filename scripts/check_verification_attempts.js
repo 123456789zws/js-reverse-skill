@@ -56,6 +56,8 @@ function evaluate(data) {
   let consecutiveFailures = 0;
   let maxConsecutiveFailures = 0;
   let allDiagnosisOk = true;
+  let failureCount = 0;
+  let diagnosedFailures = 0;
   const failureReasons = [];
 
   for (const att of attempts) {
@@ -66,13 +68,21 @@ function evaluate(data) {
       continue;
     }
     consecutiveFailures++;
+    failureCount++;
     if (consecutiveFailures > maxConsecutiveFailures) maxConsecutiveFailures = consecutiveFailures;
 
     const diag = att.diagnosis_status || {};
+    if (DIAGNOSIS_KEYS.some((k) => diag[k])) diagnosedFailures++;
     for (const k of DIAGNOSIS_KEYS) {
       if (diag[k] && diag[k] !== 'ok') allDiagnosisOk = false;
     }
     if (att.failure_reason) failureReasons.push(att.failure_reason);
+  }
+
+  const diagnosisMissing = failureCount - diagnosedFailures;
+  if (diagnosisMissing > 0) {
+    allDiagnosisOk = false;
+    warnings.push(`${diagnosisMissing} 次失败缺少 diagnosis_status，不能视为"诊断全 ok"；补齐诊断证据后再评估是否切平台`);
   }
 
   let decision = 'continue';
@@ -84,6 +94,9 @@ function evaluate(data) {
   } else if (maxConsecutiveFailures < FAILURE_THRESHOLD) {
     decision = 'collect-more';
     reason = `连续失败 ${maxConsecutiveFailures} 次 < ${FAILURE_THRESHOLD}，继续收集样本和诊断证据`;
+  } else if (diagnosisMissing > 0) {
+    decision = 'need-diagnosis';
+    reason = `${diagnosisMissing} 次失败缺少 diagnosis_status，无法确认图片/坐标/轨迹/环境/challenge 均无异常；先补齐诊断证据`;
   } else if (!allDiagnosisOk) {
     decision = 'fix-blocking-issue';
     reason = '诊断存在非 ok 项，优先修复对应问题（图片/坐标/轨迹/补环境/challenge）';
@@ -105,6 +118,8 @@ function evaluate(data) {
     has_success: hasSuccess,
     max_consecutive_failures: maxConsecutiveFailures,
     failure_threshold: FAILURE_THRESHOLD,
+    diagnosed_failures: diagnosedFailures,
+    diagnosis_missing: diagnosisMissing,
     all_diagnosis_ok: allDiagnosisOk,
     platform_role: '授权 QA 对照',
     send_request: false,
@@ -119,6 +134,7 @@ function renderMarkdown(r) {
     'continue': 'CONTINUE',
     'optimize-current': 'OPTIMIZE',
     'collect-more': 'COLLECT',
+    'need-diagnosis': 'DIAGNOSE',
     'fix-blocking-issue': 'FIX',
     'recommend-platform-control': 'ESCALATE',
     'official-or-manual': 'MANUAL',
@@ -132,6 +148,7 @@ function renderMarkdown(r) {
   lines.push(`- 题型：${r.captcha_type} / 方案：${r.chosen_solution}`);
   lines.push(`- 总尝试：${r.total_attempts} / 有成功：${r.has_success ? '是' : '否'}`);
   lines.push(`- 最大连续失败：${r.max_consecutive_failures} / 阈值：${r.failure_threshold}`);
+  lines.push(`- 诊断覆盖：${r.diagnosed_failures} 次已诊断 / ${r.diagnosis_missing} 次缺诊断`);
   lines.push(`- 诊断全 ok：${r.all_diagnosis_ok ? '是' : '否'}`);
   if (r.errors.length) { lines.push(''); lines.push('### Errors'); r.errors.forEach(e => lines.push(`- ${e}`)); }
   if (r.warnings.length) { lines.push(''); lines.push('### Warnings'); r.warnings.forEach(w => lines.push(`- ${w}`)); }

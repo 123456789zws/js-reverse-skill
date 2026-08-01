@@ -183,7 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--box", type=parse_box, help="scratch 区域 left,top,right,bottom")
     parser.add_argument("--points", type=parse_points, help='trace 点列，如 "10,10 80,30 120,90"')
     parser.add_argument("--duration-ms", type=int, default=1200)
-    parser.add_argument("--steps", type=int, default=24)
+    parser.add_argument("--steps", type=int, default=64, help="采样点数；真实鼠标事件流约 8-16ms/点，24 点/1.1s 密度过低易被风控识别，默认 64")
     parser.add_argument("--rows", type=int, default=6)
     parser.add_argument("--jitter", type=float, default=1.2)
     parser.add_argument("--seed", type=int, default=7)

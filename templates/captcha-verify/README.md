@@ -40,13 +40,18 @@ final.js（唯一执行入口）
 
 ## answer JSON 契约
 
-`solveCaptcha()` 返回的 answer JSON 必须符合 `references/captcha/captcha-overview.md` 的接口契约：
+`solveCaptcha()` 返回的 answer JSON 必须符合 `references/captcha/captcha-overview.md` 的接口契约（`source_image_size` 必填，缺了会被 `check_captcha_answer.js` 判 FAIL）：
 ```json
 {
   "captcha_type": "slider",
   "provider": "geetest",
   "solver": "ddddocr-slide_match",
+  "confidence": 0.95,
+  "coordinate_space": "image-pixel",
+  "source_image_size": [260, 160],
+  "display_size": [260, 160],
   "offset": { "x": 87, "y": null, "angle": null },
+  "points": [],
   "track": [{ "x": 0, "y": 0, "t": 0 }],
   "challenge_binding": { "gt": "", "challenge": "", "lot_number": "" }
 }
