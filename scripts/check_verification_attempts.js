@@ -59,6 +59,7 @@ function evaluate(data) {
   let failureCount = 0;
   let diagnosedFailures = 0;
   const failureReasons = [];
+  const unknownDiagKeys = new Set();
 
   for (const att of attempts) {
     if (!att || typeof att !== 'object') { warnings.push('存在非对象 attempt，已跳过'); continue; }
@@ -76,7 +77,14 @@ function evaluate(data) {
     for (const k of DIAGNOSIS_KEYS) {
       if (diag[k] && diag[k] !== 'ok') allDiagnosisOk = false;
     }
+    for (const k of Object.keys(diag)) {
+      if (!DIAGNOSIS_KEYS.includes(k)) unknownDiagKeys.add(k);
+    }
     if (att.failure_reason) failureReasons.push(att.failure_reason);
+  }
+
+  if (unknownDiagKeys.size > 0) {
+    warnings.push(`诊断 key 不在已知清单（${[...unknownDiagKeys].join('、')}），不参与全 ok 判定；已知 key 为 ${DIAGNOSIS_KEYS.join('/')}`);
   }
 
   const diagnosisMissing = failureCount - diagnosedFailures;

@@ -54,3 +54,4 @@
 - 主标准：verify 接口返回通过凭据（极验 `validate` / `seccode`，腾讯 `ticket`+`randstr`，数美 `pass`+`rid` 等）且业务接口消费该凭据返回 200 + 正确数据。
 - ≥5 次真实请求交叉验证不变；每次必须**完整走 load → solve → verify 新链路**（challenge 一次性，禁止复用旧 challenge 刷验证）。
 - 视觉答案正确 ≠ 验证通过。失败时按 `captcha-motion-encryption.md` 的风控校验点清单排查（轨迹、环境、challenge 新鲜度、答案精度），不要盲目重试。
+- **验证码验证执行流程（成功样本基线 ≥5 次手动成功、attempts 失败复盘、动作分级确认表）见 `verification-workflow.md`**——Phase 5 进入真实网页验证或连续失败复盘时必读。

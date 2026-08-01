@@ -594,7 +594,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 开源求解 recipes | `references/captcha/open-source-recipes.md` | ddddocr/OpenCV/Whisper 各题型示例（移植自 xbs） |
 | 打码平台接入 | `references/captcha/solver-platform-recipes.md` | 云码/超级鹰/2Captcha/CapSolver 选型（移植自 xbs） |
 | 厂商执行注意点 | `references/captcha/provider-execution-notes.md` | 各厂商特有坑点（移植自 xbs） |
-| 验证码工作流 | `references/captcha/verification-workflow.md` | 第二阶段执行流程 + 成功基线 + 失败复盘（移植自 xbs） |
+| 验证码验证执行流程 | `references/captcha/verification-workflow.md` | 成功样本基线 + 失败复盘 + 动作分级（Phase 5 验证码场景必读，移植自 xbs） |
 | 脚本功能索引 | `scripts/README.md` | 脚本分类索引 + 典型用法 |
 | 交付模板索引 | `templates/README.md` | 6 类模板用途 + 引用关系 |
 
