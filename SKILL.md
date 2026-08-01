@@ -101,6 +101,10 @@ js-reverse-skill/
       → 策略: trace 补环境 + 常驻加载 | case: cases/jsvmp-bundle-bdms-a_bogus-douyin.md
     百度 WAF 三件套（gangplank + nox + tox）/ nox_jst_v1 cookie / tox_token query / wafbotsr.baidu.com / mejd42mp 标识
       → 策略: trace 补环境（vm 沙箱 + 构造函数 + Object.create，需 eval: eval + window.Tox.getToken 异步等待） | case: cases/jsvmp-baidu-waf-nox-tox-gitee.md
+    xiaohongshu.com / X-s / X-s-common / XYS_ / as-v2-ds.js + 修改版 CRC32 + 自定义 Base64
+      → 策略: trace 双轨（A 纯算 X-S-Common + B vm 沙箱 X-s）| case: cases/jsvmp-dual-sign-purealgo-vm-xiaohongshu.md
+    kuaishou.com / __NS_hxfalcon / kww / Jose 模块 / kwpsec JSVMP
+      → 策略: trace 双轨（A 纯算 __NS_hxfalcon/kww SSR fallback + D 黑盒 kww 浏览器端）| case: cases/kuaishou-hxfalcon-kww-reverse.md
     通用 JSVMP 源码插桩
       → 策略: trace + 源码级插桩 | case: cases/universal-vmp-source-instrumentation.md
 

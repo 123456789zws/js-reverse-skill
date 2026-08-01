@@ -48,6 +48,7 @@ CHECK-2 速查:
 | `X-s` / `X-s-common` / `XYS_` + `as-v2-ds.js` + 修改版 CRC32 + 自定义 Base64 | jsvmp-dual-sign-purealgo-vm-xiaohongshu | 高(小红书双轨) |
 | `RM4hZBv0dDon443M` / 修改版 MD5(T常量含动态时间戳) + `$_zw` 指纹数组 + charCode 反hook | browser-extract-modified-md5-yuanrenxue | 高(猿人学浏览器提取) |
 | `nox_jst_v1` cookie / `tox_token` query / `gangplank`+`nox`+`tox` 三件套 / `wafbotsr.baidu.com` / `mejd42mp` 标识 / `window.Tox.getToken` | jsvmp-baidu-waf-nox-tox-gitee | 高(百度 WAF 三件套) |
+| `__NS_hxfalcon` / `kww` / `Jose` 模块 + `kwpsec` JSVMP | kuaishou-hxfalcon-kww-reverse | 高(快手双轨) |
 
 ## 新增案例
 
