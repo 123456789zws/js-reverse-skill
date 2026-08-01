@@ -77,7 +77,7 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <fi
 - Python 环境具备 `requests`，或已准备 `smart_fingerprint(manual_geo=...)` 所需地理信息；否则默认智能指纹地理探测会失败。
 - Firefox 可执行文件来自 ruyiPage managed runtime，或来自用户明确提供且可验证的 ruyiPage 定制 Firefox。
 - runtime 根目录存在 `install.json`。
-- `install.json.release`、`install.json.asset` 或 runtime 目录名体现 `ruyi` 定制标识，例如官方 manifest 当前使用的 `151-ruyi`。
+- `install.json.release`、`install.json.asset`、`install.json.url` 或 runtime 目录名体现 `ruyi` 定制标识。兼容三代命名：`151-ruyi`（含 ruyi）、`151-proxy` / `155-proxy`（Firefox 版本号前缀）、`v1.2.57` 类语义化 tag + `firefox-155.0a1...` 定制 asset（新版命名，检测脚本同时按 LoseNine/ruyipage 来源 url 判定）。
 - `install.json.executable` 指向的 Firefox 文件确实存在。
 
 如果检测结果显示“系统 Firefox fallback / 未验证路径风险”，判定 ruyiPage 绕检测方案 **不通过**，暂停流程并要求用户提供定制 Firefox 路径或安装目录。
@@ -287,7 +287,7 @@ new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: 3, clien
 通用脚本已覆盖绝大多数场景（打开页面、抓全部包、过滤目标、落盘 JS、指纹基线、登录前暂停、单点拟人点击 / 滚动）。仅在脚本参数无法覆盖的**复杂多步业务交互**时才手写，且必须遵守：
 
 1. 复用通用脚本同一套启动硬约束（定制 Firefox、有头、独立 profile、smart_fingerprint + apply_emulation、capture.start 在 get 之前、navigator.webdriver 自检）。
-2. **正确 API（基于 ruyipage >=1.2.45 / 151-proxy runtime 内省确认，避免重蹈覆辙）**：
+2. **正确 API（基于 ruyipage >=1.2.45 内省确认，151/155 runtime 均适用，含 v1.2.57+，避免重蹈覆辙）**：
    - `page.capture.start(targets=True, collect_bodies=True)`：`targets=True` 抓**全部**请求；用字符串 / `list` 只做子串过滤，会漏掉 JS 文件。
    - `page.capture.wait(timeout=, count=1)` 返回**单个** `CapturePacket` 或 `None`；`count>1` 才返回列表。
    - 全部已抓包用 `page.capture.steps`（**不是** `get_all`）读取。

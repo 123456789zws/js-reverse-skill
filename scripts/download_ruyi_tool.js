@@ -7,7 +7,8 @@ const https = require('https');
 const { spawnSync } = require('child_process');
 
 const REPOS = {
-  ruyitrace: { owner: 'LoseNine', repo: 'Firefox-FingerPrint-Analyzer', asset: /RuyiTrace\.zip$/i },
+  // 资产命名兼容两代：RuyiTrace.zip（旧）/ RuyiTrace-2.5.5-win64.zip（新）
+  ruyitrace: { owner: 'LoseNine', repo: 'Firefox-FingerPrint-Analyzer', asset: /^RuyiTrace.*\.zip$/i },
   'ruyipage-firefox': { owner: 'LoseNine', repo: 'ruyipage', asset: null },
 };
 
@@ -108,6 +109,10 @@ function downloadFile(url, file) {
   }));
 }
 
+function isDirectory(p) {
+  try { return !!p && fs.statSync(p).isDirectory(); } catch { return false; }
+}
+
 // ----- 资产名净化（防 Zip Slip / 路径穿越）-----
 function sanitizeAssetName(name) {
   const base = path.basename(String(name || ''));
@@ -163,22 +168,26 @@ function extractZip(zipFile, destDir) {
   // Zip Slip 兜底：解压后校验所有条目真实路径均落在 destDir 内
   assertTreeInside(destDir);
 
-  // 修复嵌套目录：zip 内部可能有一个与 destDir 同名的根目录（如 RuyiTrace.zip → RuyiTrace/）
+  // 修复嵌套目录：zip 内部常有单个根目录（如 RuyiTrace.zip → RuyiTrace/，
+  // 新版 RuyiTrace-2.5.5-win64.zip → RuyiTrace-2.5.5-win64/ 或 RuyiTrace/），统一提升一层
   const entries = fs.readdirSync(destDir);
-  const dirName = path.basename(destDir);
-  if (entries.length === 1 && entries[0] === dirName) {
+  if (entries.length === 1) {
     const nestedDir = path.join(destDir, entries[0]);
-    for (const entry of fs.readdirSync(nestedDir)) {
-      fs.renameSync(path.join(nestedDir, entry), path.join(destDir, entry));
+    if (isDirectory(nestedDir)) {
+      for (const entry of fs.readdirSync(nestedDir)) {
+        fs.renameSync(path.join(nestedDir, entry), path.join(destDir, entry));
+      }
+      fs.rmdirSync(nestedDir);
     }
-    fs.rmdirSync(nestedDir);
   }
   return { ok: true, stdout: (ret.stdout || '').trim(), stderr: (ret.stderr || '').trim(), error: '' };
 }
 
 function pickRuyiPageAsset(assets) {
-  if (process.platform === 'win32') return assets.find(a => /win64\.zip$/i.test(a.name));
-  if (process.platform === 'linux' && process.arch === 'x64') return assets.find(a => /linux.*x86_64.*\.tar\.xz$/i.test(a.name));
+  // 资产命名兼容两代：firefox-<ver>.en-US.win64.zip（旧）/ firefox-<ver>.en-US.win64-<date>.zip（新，win64 后带日期戳）
+  if (process.platform === 'win32') return assets.find(a => /firefox.*win64.*\.zip$/i.test(a.name)) || assets.find(a => /win64.*\.zip$/i.test(a.name));
+  if (process.platform === 'linux' && process.arch === 'x64') return assets.find(a => /linux.*(x86_64|amd64).*\.tar\.(xz|gz)$/i.test(a.name));
+  if (process.platform === 'darwin') return assets.find(a => /(mac|darwin|osx).*\.(zip|tar\.(xz|gz))$/i.test(a.name)) || assets.find(a => /firefox/i.test(a.name));
   return assets.find(a => /firefox/i.test(a.name));
 }
 
@@ -207,7 +216,10 @@ async function plan(args) {
   const apiUrl = mirrorUrl(`https://api.github.com/repos/${repo.owner}/${repo.repo}/releases/latest`);
   const release = await getJson(apiUrl);
   const asset = selectAsset(args.tool, release.assets || []);
-  if (!asset) throw new Error(`未找到适合当前工具 / 平台的 release asset：${args.tool}`);
+  if (!asset) {
+    const available = (release.assets || []).map(a => a.name).join(', ') || '(无资产)';
+    throw new Error(`未找到适合当前工具 / 平台的 release asset：${args.tool}（release ${release.tag_name || ''} 可用资产：${available}）`);
+  }
   const safeName = sanitizeAssetName(asset.name);
   const destDir = path.resolve(args.dest);
   const file = path.join(destDir, safeName);

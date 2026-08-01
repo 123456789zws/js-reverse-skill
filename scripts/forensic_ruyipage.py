@@ -15,7 +15,7 @@ ruyiPage 通用取证脚本
   - 导航后自检 navigator.webdriver === false
   - 抓所有包（targets=True），事后从 steps 过滤，避免漏掉 JS 文件
 
-正确 API（基于 ruyipage >=1.2.45 / 151-proxy runtime 内省确认）：
+正确 API（基于 ruyipage >=1.2.45 内省确认，151/155 runtime 均适用，含 v1.2.57+）：
   - page.capture.start(targets=True, collect_bodies=True)  # True=抓全部
   - page.capture.wait(timeout=, count=1)  -> 单个 CapturePacket 或 None
   - page.capture.steps                     -> list[CapturePacket]（全部包）
@@ -52,22 +52,43 @@ def detect_ruyipage() -> Tuple[bool, str, str]:
 
 
 def is_ruyi_custom_firefox(path: str) -> bool:
-    """判断 Firefox 路径是否来自 ruyiPage 定制 runtime（禁止系统 Firefox 回退）。"""
+    """判断 Firefox 路径是否来自 ruyiPage 定制 runtime（禁止系统 Firefox 回退）。
+
+    兼容三代命名：151-ruyi（含 ruyi）/ 151-proxy、155-proxy（版本前缀）/
+    v1.2.57 语义化 tag + firefox-155.0a1... 定制 asset（新版）。
+    install.json 在 runtime 根目录（firefox.exe 的上级或更上），向上多级查找。
+    """
     if not path:
         return False
     low = path.lower().replace("\\", "/")
     if "ruyi" in low:
         return True
-    runtime_dir = os.path.dirname(path)
-    marker = os.path.join(runtime_dir, "install.json")
-    if os.path.isfile(marker):
-        try:
-            with open(marker, "r", encoding="utf-8") as f:
-                txt = f.read().lower()
-            if "ruyi" in txt:
-                return True
-        except Exception:
-            pass
+    cur = os.path.dirname(os.path.abspath(path))
+    for _ in range(8):
+        marker = os.path.join(cur, "install.json")
+        if os.path.isfile(marker):
+            try:
+                with open(marker, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                release = str(data.get("release", "") or data.get("tag", ""))
+                asset = str(data.get("asset", ""))
+                url = str(data.get("url", ""))
+                text = " ".join([release, asset, url, os.path.basename(cur)]).lower()
+                if "ruyi" in text:
+                    return True
+                if re.match(r"^1\d{2,}-", release):
+                    return True
+                if re.match(r"^v?\d+\.\d+(\.\d+)?$", release) and re.search(r"firefox-\d+\.0a1", asset, re.I):
+                    return True
+                if "github.com/losenine/ruyipage" in url.lower():
+                    return True
+            except Exception:
+                pass
+            return False
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
     return False
 
 

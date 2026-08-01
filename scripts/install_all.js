@@ -78,15 +78,22 @@ const MIRROR_CANDIDATES = [
   'https://ghproxy.net',
 ];
 
+// 镜像连通性测试路径候选：优先用最新 release asset，旧版作后备（历史 release 可能被作者清理）
+const MIRROR_TEST_PATHS = [
+  'https://github.com/LoseNine/ruyipage/releases/download/v1.2.57/firefox-155.0a1.en-US.win64-20260801.zip',
+  'https://github.com/LoseNine/ruyipage/releases/download/151-ruyi/firefox-151.0a1.en-US.win64.zip',
+];
+
 function detectBestMirror() {
   if (process.env.GITHUB_MIRROR) return process.env.GITHUB_MIRROR;
   // 用已知的 release URL + 范围请求测试（只下载 1 字节，避免全量下载）
   // ghproxy 等镜像只转发 releases/download 路径，不代理仓库主页和 api.github.com
-  const testPath = 'https://github.com/LoseNine/ruyipage/releases/download/151-proxy/firefox-151.0a1.en-US.win64.zip';
   for (const m of MIRROR_CANDIDATES) {
-    const ret = run('curl', ['-sk', '--max-time', '10', '-r', '0-0', '-o', 'NUL', '-w', '%{http_code}', `${m}/${testPath}`], 15000);
-    const code = ret.stdout.trim();
-    if (ret.ok && (code === '200' || code === '206')) return m;
+    for (const testPath of MIRROR_TEST_PATHS) {
+      const ret = run('curl', ['-sk', '--max-time', '10', '-r', '0-0', '-o', 'NUL', '-w', '%{http_code}', `${m}/${testPath}`], 15000);
+      const code = ret.stdout.trim();
+      if (ret.ok && (code === '200' || code === '206')) return m;
+    }
   }
   return '';
 }
@@ -163,8 +170,17 @@ function downloadAndExtractRuyiTrace(mirror) {
   const ret = run(process.execPath, [script, '--tool', 'ruyitrace', '--dest', TOOLS_DIR, '--extract', '--json'], 600000, env);
   let parsed = null;
   try { parsed = JSON.parse(ret.stdout.replace(/^\uFEFF/, '')); } catch { /* ignore */ }
+  const ok = ret.ok && parsed && parsed.downloaded && parsed.extracted;
+  // 解压目录归一：新版资产名带版本号（如 RuyiTrace-2.5.5-win64），统一重命名为 tools/RuyiTrace
+  // 以匹配 check_external_tools.js / 文档约定的默认检测路径
+  if (ok && parsed.extractDir && path.resolve(parsed.extractDir) !== path.resolve(RUYITRACE_DIR) && !exists(RUYITRACE_DIR)) {
+    try {
+      fs.renameSync(parsed.extractDir, RUYITRACE_DIR);
+      parsed.extractDir = RUYITRACE_DIR;
+    } catch { /* 重命名失败时保留原目录，由用户手动指定 --ruyitrace-home */ }
+  }
   return {
-    ok: ret.ok && parsed && parsed.downloaded && parsed.extracted,
+    ok,
     output: (ret.stdout || ret.stderr || ret.error || '').slice(0, 2000),
     extractDir: parsed ? parsed.extractDir : '',
   };

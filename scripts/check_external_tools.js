@@ -334,8 +334,18 @@ function verifyRuyiRuntimeCandidate(label, executablePath) {
   ret.executableMatchesInstallJson = ret.executableDeclared ? samePath(ret.executableDeclared, exe) : false;
 
   const textForRuyi = [ret.runtimeRelease, ret.runtimeAsset, path.basename(near.installRoot)].join(' ');
-  // 匹配两种 ruyiPage 命名约定：旧版含 "ruyi" 标识（如 151-ruyi），新版 151- 前缀（如 151-proxy）
-  ret.releaseLooksRuyi = /ruyi/i.test(textForRuyi) || /^151-/i.test(ret.runtimeRelease);
+  // ruyiPage 命名约定兼容三代：
+  // 1) 含 "ruyi" 标识（如 151-ruyi / 155-ruyi）
+  // 2) Firefox 版本号前缀（如 151-proxy / 155-proxy）
+  // 3) 语义化版本 tag（如 v1.2.57）+ firefox nightly 定制 asset（如 firefox-155.0a1.en-US.win64-20260801.zip）
+  // 4) install.json 下载来源 url 指向 LoseNine/ruyipage 仓库
+  const releaseIsSemverTag = /^v?\d+\.\d+(\.\d+)?$/i.test(ret.runtimeRelease);
+  const assetIsRuyiFirefox = /firefox-\d+\.0a1/i.test(ret.runtimeAsset);
+  const urlIsRuyiRepo = /github\.com\/LoseNine\/ruyipage/i.test(String(json.url || ''));
+  ret.releaseLooksRuyi = /ruyi/i.test(textForRuyi)
+    || /^1\d{2,}-/i.test(ret.runtimeRelease)
+    || (releaseIsSemverTag && assetIsRuyiFirefox)
+    || urlIsRuyiRepo;
   ret.assetLooksFirefox = /firefox/i.test(ret.runtimeAsset || exe);
   ret.managedRuntimeInstalled = ret.installJsonValid && ret.executableExists;
   ret.managedRuntimeVerified = ret.managedRuntimeInstalled
