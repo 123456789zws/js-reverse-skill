@@ -198,7 +198,7 @@ JSVMP 的 a_bogus 能否纯算还原？
 
 | 参考文档 | 关联点 |
 |---------|--------|
-| `references/workflow/trace.md` | 标准流程 |
+| `references/workflow/trace-flow.md` | 标准流程 |
 | `references/workflow/decision-tree.md` | 题型判定边界 |
 | `references/env/env-debug-loop.md` | 环境补丁调试循环 |
 | `references/workflow/common-pitfalls.md` | 反模式 7（signer 无状态并发） |

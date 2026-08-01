@@ -16,9 +16,13 @@ cases/*/*.html
 yuanrenxue/
 tools/
 
-# Node.js 依赖（实战产物，非 skill 内容）
-package.json
-package-lock.json
+# Node.js 依赖（skill 根目录实战产物，非 skill 内容；仅锚定根级，避免误伤子目录模板）
+/package.json
+/package-lock.json
+
+# skill 根目录实战工作目录（SKILL.md：运行期 skill 目录只读，实战应在独立项目目录）
+/case/
+/result/
 
 # 通用
 *.log

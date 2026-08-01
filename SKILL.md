@@ -596,7 +596,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 厂商执行注意点 | `references/captcha/provider-execution-notes.md` | 各厂商特有坑点（移植自 xbs） |
 | 验证码工作流 | `references/captcha/verification-workflow.md` | 第二阶段执行流程 + 成功基线 + 失败复盘（移植自 xbs） |
 | 脚本功能索引 | `scripts/README.md` | 脚本分类索引 + 典型用法 |
-| 交付模板索引 | `templates/README.md` | 5 类模板用途 + 引用关系 |
+| 交付模板索引 | `templates/README.md` | 6 类模板用途 + 引用关系 |
 
 > 注：验证码场景分层处理——**封装层逆向**（verify 接口加密参数、轨迹加密、challenge 绑定）走本 skill `references/captcha/` 子域；**题型识别与图像求解**本 skill 已集成常用资产（ddddocr/坐标/轨迹脚本），完整厂商信号表与题型分类器已集成于 references/captcha/ + scripts/classify_verify.py。
 
