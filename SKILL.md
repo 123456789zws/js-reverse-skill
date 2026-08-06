@@ -31,7 +31,7 @@ js-reverse-skill/
 │   ├── ast-patterns/     ← 【可选/进阶】AST 反混淆子工具链（14 流水线步骤：7 通用 + 7 站点专用），仅 AST 反混淆路径按需加载，非默认路线
 │   ├── env-patch-snippets/ ← 补环境代码片段（NativeProtect），可被 templates 直接 require
 │   └── fixture-templates/  ← fixture 模板（constructor-errors / resource-manifest），复制到 case 后填充
-├── templates/            ← 交付入口模板（6 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM / 验证码）
+├── templates/            ← 交付入口模板（7 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM / 验证码Node / 验证码Python）
 ├── references/           ← 知识参考（11 子域，按"触发条件"按需读取；含 captcha/ 验证码：封装层+答案层资产）
 ├── cases/                ← 经验案例（已验证案例 + 模板，CHECK-2 速查）
 └── scripts/              ← 工具脚本（ruyipage+RuyiTrace 采集/导入/检查 + 验证码坐标/轨迹/答案校验）
@@ -41,14 +41,81 @@ js-reverse-skill/
 
 ---
 
+## 会话续接判定（新会话激活时首先执行）
+
+> **本段在硬约束 Checklist 之前。** 用于解决"会话被 context 限制切断后另开会话重走 CHECK-1 环境自检"的问题。新会话激活时，先判定是否可跳过 CHECK-1 完整环境自检，直接读最新阶段报告续接。
+
+**判定流程**：
+
+```text
+═══ 会话续接判定 ═══
+
+输入: case 目录路径（用户告知或从最近工作目录推断）
+
+[STEP 1] 运行: node scripts/check_session_resume.js --case-dir <case> --markdown
+  输出: mode = resume | fresh
+         resume = 环境快照与当前一致，可跳过 CHECK-1
+         fresh  = 无快照 / 快照不一致 / 检测失败，需走完整 CHECK-1
+
+[STEP 2] 分支:
+  mode = resume（续接模式）:
+    1. 跳过 CHECK-1 完整环境自检（环境快照已证明 Node/ruyipage/RuyiTrace 未变化）
+    2. 读取最新阶段报告 case/阶段报告/<最新>.md，恢复上次推进现场
+    3. 浏览 result/ 目录已有产出（final.js / 最终项目总结.md / 经验沉淀 / src/）
+    4. 直接进入 CHECK-2 经验库速查 + CHECK-3 意图声明
+    5. 用户确认本次范围后继续推进
+
+  mode = fresh（全新模式）:
+    1. 走完整 CHECK-1 → CHECK-2 → CHECK-3
+    2. CHECK-1 通过后，运行: node scripts/check_session_resume.js --case-dir <case> --write-snapshot
+       写入 case/notes/env-snapshot.json，供下次会话续接
+
+[STEP 3] 用户显式覆盖:
+  用户明确表示环境已变更（重装 Node / 换 Firefox / 迁移 tools/ 目录 / 升级 ruyipage 或 RuyiTrace）时，
+  即使快照存在也走 fresh 模式，并在 CHECK-1 通过后用 --write-snapshot 覆盖旧快照。
+```
+
+**快照字段**（`case/notes/env-snapshot.json`）：
+```json
+{
+  "schemaVersion": "env-snapshot/v1",
+  "projectRoot": "<absolute path>",
+  "nodeVersion": "v20.11.0",
+  "ruyipageRuntime": "<verified runtime executable or empty>",
+  "ruyipagePackageInstalled": true,
+  "ruyipageManagedRuntimeVerified": true,
+  "ruyitraceHome": "<RuyiTrace home or empty>",
+  "ruyitraceKernelVerified": true,
+  "caseDir": "<case directory absolute path>",
+  "createdAt": "ISO-8601（首次写入）",
+  "lastCheckAt": "ISO-8601（最近一次 CHECK-1 通过时间）"
+}
+```
+
+**注意事项**：
+- 续接模式只跳过 CHECK-1 环境自检，**不跳过** CHECK-2 经验库速查和 CHECK-3 用户确认
+- 阶段报告是续接现场的事实来源；若无阶段报告且 result/ 为空，即使快照存在也建议走 fresh 模式
+- 快照只记录环境工具状态，不记录 case 进度；case 进度由阶段报告 + result/ 产出体现
+- 快照不替代 CHECK-1：环境变更后必须重跑 CHECK-1 重建快照
+
+---
+
 ## ⚠️ 硬约束 Checklist（分析启动前必做，不可跳过）
 
 > **本段是 skill 的最高优先级。AI 在激活 skill 后、第一次调用任何工具前，必须先复述这三项并逐项输出执行结果。跳过复述或跳过任何一项视为违规。**
+>
+> **续接模式例外**：会话续接判定为 `resume` 时，可跳过 CHECK-1 完整环境自检（环境快照已证明工具链未变化），直接从 CHECK-2 开始。续接判定见上方"会话续接判定"段。
 
 ```text
 ═══ SKILL 启动 Checklist ═══
 
-[CHECK-1] 环境自检 + 工具检测
+[CHECK-0] 会话续接判定（必做）
+  运行: node scripts/check_session_resume.js --case-dir <case> --markdown
+  输出: mode = resume | fresh
+  resume → 跳过 CHECK-1，读最新阶段报告续接，直接进 CHECK-2
+  fresh  → 走完整 CHECK-1，通过后用 --write-snapshot 写入/更新快照
+
+[CHECK-1] 环境自检 + 工具检测（续接模式下可跳过）
   运行: node scripts/check_external_tools.js --markdown
   检测: Node.js 版本 + ruyipage Python 包 + ruyipage 定制 Firefox runtime + RuyiTrace + RuyiTrace 定制 trace Firefox
   输出: node.ok / ruyiPage.packageInstalled / ruyiPage.managedRuntimeVerified / ruyiTrace.installed / ruyiTrace.kernelVerified / nextRequiredInput
@@ -61,6 +128,7 @@ js-reverse-skill/
     ruyitrace-kernel = ______ (verified / missing)   ← 必备，trace 定制 Firefox
   通过: 五项全部 ok/installed/verified → 进入 CHECK-2
   未通过: 按 nextRequiredInput 计划安装（见"环境配置"段），用户确认后才继续
+  通过后: node scripts/check_session_resume.js --case-dir <case> --write-snapshot（写入/更新快照，供下次续接）
 
 [CHECK-2] 经验库速查
   目标域名 = ______
@@ -110,7 +178,7 @@ js-reverse-skill/
 
   验证码封装层（verify 接口加密参数 + 轨迹加密；题型识别/图像求解见 references/captcha/ 子域）:
     geetest / gt / challenge / captcha_id / lot_number / w 参数 / api.geetest.com / gcaptcha4.geetest.com
-      → 策略: trace 成功链路（用户手动过一次）+ verify 四层链路定位 + 答案层契约接入 | 参考: references/captcha/captcha-overview.md + captcha-request-chain.md + captcha-solving-handoff.md（硬约束） | case: cases/geetest-slide-popup.md
+      → 策略: trace 成功链路（用户手动过一次）+ verify 四层链路定位 + 答案层契约接入（坐标来源先判定 A/B/C，极验 v4 注意 bg 隐写）| 参考: references/captcha/captcha-overview.md + captcha-request-chain.md + captcha-solving-handoff.md（硬约束） + gap-coordinate-source.md | case: cases/geetest-slide-popup.md
     数美 shumei-captcha / smcp.min.js / initSMCaptcha / organization / rid
       → 策略: 同上（注意 conf 动态加密配置）| 参考: references/captcha/captcha-providers.md
     顶象 dingxiang-captcha / constId / dx-captcha；腾讯 tencent-tcaptcha / aid / ticket；易盾 netease-yidun / captchaId / validate；阿里云 aliyun-captcha / nc_ / AWSC / afs
@@ -241,7 +309,8 @@ js-reverse-skill/
 
 ### 验证码型（挑战素材 + verify 接口）
 - **特征**：加载 geetest / smcp.min.js / dx-captcha / TCaptcha / NECaptcha / AWSC 等验证码 SDK；接口链含 register/load/get/verify；响应含素材图字段（bg/slice/fullbg）或 challenge/lot_number
-- **路径**：封装层逆向走 `references/captcha/` 子域（请求链模型 + 厂商矩阵 + 轨迹加密）；题型识别与图像求解见 references/captcha/ 子域，按 `references/captcha/captcha-overview.md` 的 answer JSON 契约衔接
+- **路径**：封装层逆向走 `references/captcha/` 子域（请求链模型 + 厂商矩阵 + 轨迹加密）；题型识别与图像求解见 references/captcha/ 子域，按 `references/captcha/captcha-overview.md` 的 answer JSON 契约衔接；缺口坐标先判来源（A 参数/B 像素/C 图像，见 `references/captcha/gap-coordinate-source.md`）
+- **交付模板**：答案层用 ddddocr/OpenCV/Whisper（Python 生态）→ `templates/captcha-verify-py/`（solver 直接 import ddddocr）；封装层加密只在 Node 侧还原（vm 沙箱）→ `templates/captcha-verify/`
 - **关键区别**：参数清单是两组（load 组 + verify 组）；challenge 一次性；核心证据是用户手动成功链路的 trace
 
 ### 识别标准动作
@@ -342,9 +411,9 @@ case 根目录只允许两个子目录：
 
 > 基于 Phase 1 ruyipage 抓包结果（JS 文件 + 网络包；Phase 1 已用通用脚本 `scripts/forensic_ruyipage.py` 抓完，**此处复用、不再重抓**，不要每 case 手写），RuyiTrace 采集运行时日志。
 
-**2.1 RuyiTrace NDJSON 采集**（核心证据源）：
-- 自动捕获优先：`scripts/capture_ruyitrace_log.js` 自动启动 trace Firefox 采集 NDJSON
-- 手动采集兜底：自动捕获失败/需登录验证/用户明确要求手动时
+**2.1 RuyiTrace NDJSON 采集**（核心证据源，采集方式先让用户选择）：
+- 手动 trace：用户用 RuyiTrace 采集后提供 NDJSON → `node scripts/capture_ruyitrace_log.js --input <日志> --case-dir case --markdown` 导入生成摘要（适合需登录/验证码/复杂交互）
+- 自动 trace：`node scripts/capture_ruyitrace_log.js --url <目标页> --case-dir case --ruyitrace-home <RuyiTrace-dir> --import-after --markdown` 自动启动 trace Firefox 采集（需 RuyiTrace 完整安装）
 - 导入摘要：`scripts/import_ruyitrace_log.js` 生成 `notes/ruyitrace-summary.md`
 
 **2.2 关键词搜索 + 调用链追踪**：
@@ -582,18 +651,26 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 识别加密算法 | `references/crypto/crypto-patterns.md` | 10 类加密识别 |
 | 算法家族站点 | `references/crypto/algorithm-families.md` | 站点清单 |
 | JS 层 native 保护 | `references/env/env-native-protection.md` | toString/descriptor/原型链保护策略 |
+| 对象形状审计 + 私有状态泄露 | `references/env/object-shape-private-state.md` | ownKeys/descriptor/prototype walk/`_`/`__` 私有状态（移植自 xbs） |
 | 补环境调试循环 | `references/env/env-debug-loop.md` | 迭代调试方法论 |
 | 环境检测绕过 | `references/env/env-detect-bypass.md` | 绕过清单 |
+| **iframe 补环境专项** | `references/env/env-iframe.md` | frame 上下文/cross-origin/postMessage/验证码 iframe/Realm 隔离 |
+| WebAPI 行为矩阵门禁 | `references/env/webapi-env-detection-matrix.md` | iframe/Worker/PerformanceTimeline/DOM-CSSOM/EventTarget/timer/writer 分支行为 diff（移植自 xbs） |
 | WASM 加载（不需补环境） | `references/env/env-wasm.md` | WASM 专项（基础加载） |
 | WASM 进阶（import/memory/streaming/Worker） | `references/env/env-wasm-advanced.md` | WASM 深度方法论 |
 | native 能力缺口 | `references/env/native-capability-gap.md` | document.all 等原生行为缺口 |
-| 框架选择策略 | `references/env/runtime-frameworks.md` | 默认纯 vm，何时升级 sdenv |
+| **addon 新版 API**（native collection/plugins/mimeTypes/jsEnv） | `references/env/addon-api.md` | C++ Addon native-first 实现 + private API（移植自 xbs） |
+| **xbs isolated-vm API**（`window.xbs`/`xbs.dom.createDocument`） | `references/env/xbs-isolated-vm-api.md` | 随包魔改 isolated-vm 框架（移植自 xbs） |
+| Node ABI 不兼容恢复 | `references/env/node-version-recovery.md` | addon.node/xbs ABI 不兼容排查（移植自 xbs） |
+| 框架选择策略 | `references/env/runtime-frameworks.md` | 默认纯 vm，何时升级 sdenv/xbs isolated-vm |
 | 反调试 | `references/hooks/anti-debug.md` | 7 类反调试 |
 | 混淆识别 | `references/deobfuscation/obfuscation-identify.md` | 识别层（AST 执行在 assets/ast-patterns/） |
 | TLS 指纹 | `references/network/tls-validation.md` | TLS 客户端选择 + ja3/akamai 对齐 |
 | IP 风控识别 + 代理策略 | `references/network/ip-risk-control.md` | 风控信号识别 + 退避策略 + 代理选型 |
 | WebSocket/SSE 消息签名 | `references/network/websocket-signing.md` | WS 消息帧签名分析 + 心跳保活 |
 | HTTP2/UA/CORS/频率 + 字段分类 | `references/network/protocol-analysis.md` | 协议层分析 + 6 类字段归属分类法 |
+| **XHR/fetch 语义审计**（no-send/Realm/actor/reload） | `references/network/xhr-fetch-semantics-audit.md` | XHR/fetch/sendBeacon 行为比较 + 真实请求前 no-send diff（移植自 xbs） |
+| **XHR/fetch Session bridge**（TLS 指纹兼容） | `references/network/xhr-fetch-session-bridge.md` | 同 TLS Session 复用 + curl_cffi/curl-cffi-node 桥接（移植自 xbs） |
 | Session 请求链 | `references/network/session-chain.md` | Session 模式硬性 |
 | Node 泄露阻断 | `references/network/node-leakage.md` | Node 21+ navigator 等 |
 | 动态资源保鲜 | `references/network/dynamic-resource.md` | 资源过期识别 |
@@ -604,6 +681,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 代码变更记忆 | `references/quality/code-change-memory.md` | 防回退机制 |
 | 高强度检测 | `references/quality/high-strength-detection.md` | 触发条件 + 行为 diff |
 | trace 覆盖矩阵 | `references/quality/trace-api-coverage.md` | 8 种 API 状态（有 Trace 时硬性） |
+| **Trace-runtime 一致性闭环** | `references/quality/trace-runtime-conformance.md` | runtime contract + audit-only/no-send + realm/descriptor/brand/prototype 深度 diff（移植自 xbs） |
 | isTrusted 可信输入 | `references/quality/trusted-input.md` | 验证码交互防检测 |
 | 阶段报告 | `references/quality/stage-reports.md` | 阶段报告规范 |
 | 最终总结 | `references/quality/final-summary.md` | 最终总结规范 |
@@ -616,6 +694,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | Worker / Service Worker 签名 | `references/workflow/worker-signing.md` | Worker/SW 环境补全特殊性 + 分析路径 |
 | 反爬版本追踪与快速适配 | `references/workflow/version-adaptation.md` | SDK 更新后的 diff/复用方法论 |
 | 验证码边界/分工/接口契约 | `references/captcha/captcha-overview.md` | 四层分工 + answer JSON schema + 红线适配 |
+| 滑块缺口坐标来源判定 | `references/captcha/gap-coordinate-source.md` | A 参数 / B 像素 / C 图像三路线 + 极验 v4 隐写 |
 | 验证码请求链模型 | `references/captcha/captcha-request-chain.md` | load→solve→verify 三段链 + 极验 v3/v4 骨架 + 四层链路表 |
 | 验证码厂商矩阵 | `references/captcha/captcha-providers.md` | 极验/数美/顶象/腾讯/易盾/阿里 verify 参数与加密关注点 |
 | 轨迹加密专项 | `references/captcha/captcha-motion-encryption.md` | 采集点 hook + 轨迹结构 + 风控排查清单 |
@@ -628,7 +707,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 厂商执行注意点 | `references/captcha/provider-execution-notes.md` | 各厂商特有坑点（移植自 xbs） |
 | 验证码验证执行流程 | `references/captcha/verification-workflow.md` | 成功样本基线 + 失败复盘 + 动作分级（Phase 5 验证码场景必读，移植自 xbs） |
 | 脚本功能索引 | `scripts/README.md` | 脚本分类索引 + 典型用法 |
-| 交付模板索引 | `templates/README.md` | 6 类模板用途 + 引用关系 |
+| 交付模板索引 | `templates/README.md` | 7 类模板用途 + 引用关系 |
 
 > 注：验证码场景分层处理——**封装层逆向**（verify 接口加密参数、轨迹加密、challenge 绑定）走本 skill `references/captcha/` 子域；**题型识别与图像求解**本 skill 已集成常用资产（ddddocr/坐标/轨迹脚本），完整厂商信号表与题型分类器已集成于 references/captcha/ + scripts/classify_verify.py。
 

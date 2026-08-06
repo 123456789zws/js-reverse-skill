@@ -8,6 +8,7 @@ const { spawn, spawnSync } = require('child_process');
 function parseArgs(argv) {
   const args = {
     url: '',
+    input: '',
     caseDir: '.',
     outDir: '',
     profileDir: '',
@@ -24,6 +25,7 @@ function parseArgs(argv) {
     const a = argv[i];
     const nextVal = (fb) => (i + 1 < argv.length && typeof argv[i + 1] === 'string' && !argv[i + 1].startsWith('-')) ? argv[++i] : fb;
     if (a === '--url') args.url = nextVal('');
+    else if (a === '--input') args.input = nextVal('');
     else if (a === '--case-dir' || a === '--dir') args.caseDir = nextVal('');
     else if (a === '--out-dir') args.outDir = nextVal('');
     else if (a === '--profile-dir') args.profileDir = nextVal('');
@@ -45,12 +47,16 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return `用法：
-  node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir . --ruyitrace-home <RuyiTrace-dir> --markdown
-  node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir . --duration 90 --import-after --markdown
+  return `用法（自动 trace / 手动 trace 二选一）：
+  # 自动 trace：自动启动随 RuyiTrace 提供的 trace Firefox 捕获 NDJSON
+  node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir . --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
+  # 手动 trace：用户已用 RuyiTrace 手动 trace 完成，指定 NDJSON 日志直接导入生成摘要
+  node scripts/capture_ruyitrace_log.js --input <用户trace生成的.ndjson> --case-dir . --markdown
+  # 仅检测环境并打印计划（不启动浏览器）
   node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir . --dry-run --json
 
-说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。确认 RuyiTrace 已安装后，优先使用随 RuyiTrace 提供的 trace Firefox 和 MOZ_DOM_TRACE 环境变量自动捕获 NDJSON。自动捕获失败、需要登录/验证码/权限交互、或目标路径未覆盖时，才要求用户手动协助。`;
+说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。
+--url 与 --input 互斥：--url 为自动捕获（需 RuyiTrace 完整安装）；--input 为手动 trace 后直接导入用户指定的 NDJSON，无需 RuyiTrace 安装检测。`;
 }
 
 function exists(p) {
@@ -230,9 +236,9 @@ function renderMarkdown(obj) {
     lines.push('', '## Dry-run 结果');
     lines.push('- 未启动浏览器，未创建日志文件。');
     if (trace.installed) {
-      lines.push('- RuyiTrace 检测通过且用户授权后，应优先执行本脚本自动捕获 NDJSON，而不是默认等待用户手动 trace。');
+      lines.push('- RuyiTrace 检测通过：自动 trace 可用；用户也可选择手动 trace（--input 指定日志）。');
     } else {
-      lines.push('- RuyiTrace 检测未通过，不能进入自动捕获；应先让用户安装 / 提供 RuyiTrace 路径，或明确确认降级为仅 ruyiPage。');
+      lines.push('- RuyiTrace 检测未通过，不能进入自动 trace；可让用户安装 / 提供 RuyiTrace 路径，或改用手动 trace（用户 trace 后 --input 指定日志），或明确确认降级为仅 ruyiPage。');
     }
     return lines.join('\n') + '\n';
   }
@@ -244,7 +250,7 @@ function renderMarkdown(obj) {
   lines.push(`- 发现 NDJSON 数量：${result.logs.length}`);
   for (const file of result.logs) lines.push(`  - ${file}`);
   if (!result.logs.length) {
-    lines.push('- 未发现 NDJSON：应检查 RuyiTrace trace Firefox 是否能写入日志、目标页面是否触发了环境访问、是否需要登录/验证码/权限交互；自动捕获失败后才要求用户手动协助采集。');
+    lines.push('- 未发现 NDJSON：应检查 RuyiTrace trace Firefox 是否能写入日志、目标页面是否触发了环境访问、是否需要登录/验证码/权限交互；自动 trace 失败后可改用手动 trace（--input 指定用户采集的日志）。');
   }
   if (result.importResults && result.importResults.length) {
     lines.push('', '## 导入结果');
@@ -264,7 +270,35 @@ async function main() {
     console.log(usage());
     return;
   }
-  if (!args.url) throw new Error('缺少 --url；自动捕获需要目标页面 URL。');
+  // 手动 trace 模式：用户已用 RuyiTrace 手动采集完成，直接导入指定 NDJSON
+  if (args.input) {
+    const inputPath = path.resolve(args.input);
+    if (!exists(inputPath)) throw new Error(`日志文件不存在：${inputPath}`);
+    const ret = importLog(args.caseDir || '.', inputPath, args.markdown);
+    if (args.markdown) {
+      const lines = ['# RuyiTrace 手动日志导入', ''];
+      lines.push(`- 手动 trace 日志：${inputPath}`);
+      lines.push(`- case 目录：${path.resolve(args.caseDir || '.')}`);
+      lines.push(`- 导入是否成功：${ret.ok ? '是' : '否'}`);
+      lines.push('', '> 以下为 import_ruyitrace_log.js 生成的摘要：', '');
+      if (ret.stdout.trim()) lines.push('```text', ret.stdout.trim(), '```');
+      if (ret.stderr.trim()) lines.push('', '```text', ret.stderr.trim(), '```');
+      process.stdout.write(lines.join('\n') + '\n');
+    } else {
+      process.stdout.write(JSON.stringify({
+        ok: ret.ok,
+        mode: 'manual',
+        input: inputPath,
+        caseDir: path.resolve(args.caseDir || '.'),
+        importStatus: ret.status,
+        importStdout: ret.stdout,
+        importStderr: ret.stderr,
+      }, null, 2) + '\n');
+    }
+    process.exitCode = ret.ok ? 0 : 1;
+    return;
+  }
+  if (!args.url) throw new Error('缺少 --url（自动 trace）或 --input（手动 trace 指定日志）之一。');
   const trace = detectRuyiTrace(args);
   const plan = buildPlan(args, trace);
   if (!trace.installed) {

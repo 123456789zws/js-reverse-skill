@@ -51,11 +51,14 @@ def parse_points(value: str) -> list[tuple[float, float]]:
     return points
 
 
-def ease_out_cubic(t: float) -> float:
-    return 1 - (1 - t) ** 3
+def ease_in_out_cubic(t: float) -> float:
+    """先加速后减速，比纯 ease_out 更接近人类滑动手势。"""
+    if t < 0.5:
+        return 4 * t ** 3
+    return 1 - ((-2 * t + 2) ** 3) / 2
 
 
-def make_line_track(
+def make_slider_track(
     start: tuple[float, float],
     end: tuple[float, float],
     duration_ms: int,
@@ -63,21 +66,69 @@ def make_line_track(
     jitter: float,
     rng: random.Random,
 ) -> list[dict[str, float]]:
-    if steps < 2:
-        raise ValueError("steps 必须至少为 2")
-    result: list[dict[str, float]] = []
+    """生成拟人滑块轨迹：起手静止 → 加速 → 减速 → 末端微调回弹。
+
+    人类滑动的关键特征（缺一容易被风控识别）：
+    - 起手 1-3 个点静止（按下后犹豫/瞄准）
+    - 主体段先加速后减速（ease_in_out），不是匀速也不是纯 ease_out
+    - 末端有 1-2 个微调点（超出再回拉，或不到再前推）
+    - 时间间隔不均匀（人手速度波动，±2-5ms）
+    - y 轴有微小抖动（±1-3px，不是均匀分布）
+    """
+    if steps < 8:
+        raise ValueError("steps 必须至少为 8（拟人轨迹需要起手+主体+末端段）")
+
     sx, sy = start
     ex, ey = end
-    for index in range(steps):
-        progress = index / (steps - 1)
-        eased = ease_out_cubic(progress)
-        x = sx + (ex - sx) * eased
+    total_dx = ex - sx
+
+    # 段分配：起手静止(约8%) + 主体滑动(约80%) + 末端微调(约12%)
+    hold_count = max(1, steps // 12)
+    tail_count = max(1, steps // 8)
+    main_count = steps - hold_count - tail_count
+
+    result: list[dict[str, float]] = []
+
+    # 起手静止段（按下后不动，模拟瞄准）
+    for i in range(hold_count):
+        t = round(duration_ms * i / (steps - 1) * 0.08)
+        result.append({"x": round(sx, 3), "y": round(sy, 3), "t": t})
+
+    # 主体滑动段（先加速后减速）
+    main_duration_start = 0.08
+    main_duration_end = 0.88
+    for i in range(main_count):
+        progress = i / max(1, main_count - 1)
+        eased = ease_in_out_cubic(progress)
+        x = sx + total_dx * eased
         y = sy + (ey - sy) * eased
-        if 0 < index < steps - 1 and jitter:
+        if jitter:
             x += rng.uniform(-jitter, jitter)
             y += rng.uniform(-jitter * 0.45, jitter * 0.45)
-        t = round(duration_ms * progress)
+        t = round(duration_ms * (main_duration_start + (main_duration_end - main_duration_start) * progress))
         result.append({"x": round(x, 3), "y": round(y, 3), "t": t})
+
+    # 末端微调段：超出目标 1-3px 再回拉（模拟人手 overshoot 纠正）
+    overshoot = rng.uniform(1.0, 3.0)
+    for i in range(tail_count):
+        progress = (i + 1) / tail_count
+        if progress < 0.5:
+            x = ex + overshoot * (1 - progress * 2)
+        else:
+            x = ex
+        y = ey + rng.uniform(-jitter * 0.3, jitter * 0.3)
+        t = round(duration_ms * (main_duration_end + (1.0 - main_duration_end) * progress))
+        result.append({"x": round(x, 3), "y": round(y, 3), "t": t})
+
+    # 时间间隔抖动（人手速度波动，±2-5ms）
+    if len(result) > 2:
+        for i in range(1, len(result) - 1):
+            result[i]["t"] = round(result[i]["t"] + rng.uniform(-3, 3))
+        # 确保时间单调递增
+        for i in range(1, len(result)):
+            if result[i]["t"] <= result[i - 1]["t"]:
+                result[i]["t"] = result[i - 1]["t"] + 1
+
     return result
 
 
@@ -146,11 +197,11 @@ def build_track(args: argparse.Namespace) -> dict[str, Any]:
     if args.mode == "slider":
         start = args.start or (0.0, 0.0)
         end = (start[0] + args.distance, start[1] + args.vertical)
-        points = make_line_track(start, end, args.duration_ms, args.steps, args.jitter, rng)
+        points = make_slider_track(start, end, args.duration_ms, args.steps, args.jitter, rng)
     elif args.mode == "drag-drop":
         if args.start is None or args.end is None:
             raise ValueError("drag-drop 需要 --start 和 --end")
-        points = make_line_track(args.start, args.end, args.duration_ms, args.steps, args.jitter, rng)
+        points = make_slider_track(args.start, args.end, args.duration_ms, args.steps, args.jitter, rng)
     elif args.mode == "scratch":
         if args.box is None:
             raise ValueError("scratch 需要 --box")

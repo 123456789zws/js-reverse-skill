@@ -1,7 +1,9 @@
 # captcha-verify 验证码逆向交付模板
 
-验证码逆向专用模板（load → solve → verify 三段链路 + 业务接口消费凭据）。
+验证码逆向专用模板（load → solve → verify 三段链路 + 业务接口消费凭据），Node.js 版。
 与签名逆向模板（final-entry/）的区别：签名是"生成参数→请求"单段；验证码是三段链路，challenge 一次性。
+
+> **模板选择**：答案层用 ddddocr/OpenCV/Whisper（Python 生态）时，优先选 Python 版 `templates/captcha-verify-py/`（solver 直接 `import ddddocr`，免跨语言桥接）。本模板适用于封装层加密只在 Node 侧还原（vm 沙箱/JS 执行）的场景。
 
 ## 文件清单
 

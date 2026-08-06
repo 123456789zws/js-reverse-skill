@@ -72,9 +72,11 @@ python scripts/forensic_ruyipage.py --url <目标页> --targets "pc_home_feed" -
 
 ## RuyiTrace 日志采集流程
 
-### 自动捕获优先
+用户选择 RuyiTrace 后，采集方式由用户选择（二选一，已选择后沿用；切换需再次确认）：手动 trace（用户用 RuyiTrace 采集后指定日志）或自动 trace（脚本自动启动 trace Firefox 捕获）。
 
-检测到 `RuyiTrace.exe`、`firefox/` 子目录、`firefox/firefox.exe` 和 `firefox/RUYI_DOMTRACE.txt` 完整后，不要默认让用户手动打开 GUI。优先使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
+### 方式一：自动 trace
+
+检测到 `RuyiTrace.exe`、`firefox/` 子目录、`firefox/firefox.exe` 和 `firefox/RUYI_DOMTRACE.txt` 完整后，可使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
 
 ```bash
 node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
@@ -87,23 +89,18 @@ node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --
 2. 使用 RuyiTrace 随包 trace Firefox，而不是普通系统 Firefox、普通 Playwright 或 ruyiPage 的 Firefox runtime。
 3. 设置 `MOZ_DOM_TRACE=1`、`MOZ_DOM_TRACE_FILE=<case trace file>`、`MOZ_DOM_TRACE_LIMIT=<limit>` 和 `MOZ_DISABLE_LAUNCHER_PROCESS=1`。
 4. 打开目标页面后触发最少量必要业务动作；如果需要登录、验证码、MFA、设备验证或权限确认，暂停让用户在该 trace Firefox 中手动完成，再继续采集。
-5. 自动捕获结束后，立即运行 `import_ruyitrace_log.js` 导入日志、生成 `notes/ruyitrace-summary.md`，并检查长字段截断风险。
-6. 如果自动捕获没有生成 NDJSON，先记录失败原因和已执行命令，再进入手动兜底；不要把"没有日志"误写成目标没有环境访问。
+5. 自动 trace 结束后，立即运行 `import_ruyitrace_log.js` 导入日志、生成 `notes/ruyitrace-summary.md`，并检查长字段截断风险。
+6. 如果自动 trace 没有生成 NDJSON，先记录失败原因和已执行命令，再转手动 trace（方式二）；不要把"没有日志"误写成目标没有环境访问。
 
-自动捕获成功后继续：
+自动 trace 成功后继续：
 
 ```bash
 node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
 ```
 
-### 手动采集兜底
+### 方式二：手动 trace（用户指定日志）
 
-只有在以下情况才要求用户手动采集：
-
-- 自动捕获启动失败或 RuyiTrace trace Firefox 无法写日志。
-- 目标必须由用户登录、验证、MFA、设备确认或完成复杂交互。
-- 用户明确要求使用 RuyiTrace GUI。
-- 自动采集的日志未覆盖目标参数生成路径，需要用户按指定动作重新采集。
+适用场景：用户选择手动 trace；或自动 trace 启动失败 / trace Firefox 无法写日志 / 需登录验证等复杂交互 / 日志未覆盖目标参数生成路径时转手动。
 
 手动流程：
 
@@ -113,11 +110,15 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --tr
 4. 点击"开始采集"。
 5. 在浏览器中正常浏览并触发目标指纹 / 加密参数生成逻辑。
 6. 点击"停止采集"。
-7. 找到 `trace_<时间戳>_<PID>.ndjson`。
-8. 使用脚本复制到 case 并生成摘要：
+7. 找到 `trace_<时间戳>_<PID>.ndjson`，将路径提供给 AI / 直接用脚本导入：
 
 ```bash
-node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown
+node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown
+```
+
+该命令内部调用 `import_ruyitrace_log.js`：把日志复制到 `case/ruyi-trace/logs/`、生成 `notes/ruyitrace-summary.md`、检查长字段截断风险。如需调整截断阈值，直接使用导入脚本：
+
+```bash
 node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
 ```
 

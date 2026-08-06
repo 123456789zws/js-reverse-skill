@@ -11,7 +11,7 @@
 1. **滑块/拼图/旋转题型的偏移量必须由图像求解器计算**（ddddocr `slide_match` / OpenCV 模板匹配 / 打码平台），**禁止用随机值、固定值、`Math.random()` 模拟距离**。即使封装层加密参数全部正确，错误答案也会导致 verify 接口返回 `fail`。
 2. **点选/网格/区域题型的坐标必须由求解器给出**（ddddocr `detection` + 语义分类 / 打码平台），禁止人工瞎猜坐标或用图片中心点。
 3. 答案正确是验证通过的**必要非充分条件**：仍需配合人类轨迹（`scripts/generate_motion_track.py`）、合理 passtime/imgload、challenge 新鲜度。
-4. **求解失败时的正确动作**：报告"答案层求解失败/置信度低"，提示用户切换打码平台或补充素材——**不是**继续用错误答案提交并把失败归因为"视觉解题范畴不属逆向目标"。答案层求解是验证码逆向交付的组成部分，不是可跳过的可选步骤。
+4. **求解失败时的正确动作**：报告"答案层求解失败/置信度低"，按 `gap-coordinate-source.md` 的「滑动距离获取失败预案」逐步升级（复核来源 → B 路线三级降级 / C 路线升级 → 打码平台 → 人工接管）——**不是**继续用错误答案提交并把失败归因为"视觉解题范畴不属逆向目标"。答案层求解是验证码逆向交付的组成部分，不是可跳过的可选步骤。
 5. 检测点：交付门禁 `scripts/check_final_artifact.js` 会检查 result 是否含答案层接入；连续失败复盘按 `verification-workflow.md` 的 5 次门槛走，不要把答案错误当作封装层 bug 反复调试。
 
 ## 求解路径优先级
@@ -21,6 +21,8 @@
 ② 打码平台（兜底）：云码 / 超级鹰 / 2Captcha / CapSolver —— 按次付费，低通过率或语义类题型时启用
 ③ 人工接管（最后）：取证基线或上述全失败时
 ```
+
+**交付语言选择**：ddddocr / OpenCV / Whisper 均为 Python 生态，答案层用这些工具时**优先选 `templates/captcha-verify-py/`（Python 版）**——solver 直接 `import ddddocr`，无需跨语言桥接。仅当封装层加密逻辑只在 Node 侧还原（vm 沙箱/JS 执行）时才用 `templates/captcha-verify/`（Node 版），此时 solver 需通过 `child_process` 或 HTTP 微服务调 Python ddddocr。
 
 切换条件（自动判断）：同一 challenge 素材本地求解置信度低，或连续失败复盘确认"视觉答案正确但验证失败"非轨迹/环境问题 → 升级路径。
 

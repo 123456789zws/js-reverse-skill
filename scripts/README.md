@@ -77,3 +77,5 @@
 | `check_captcha_answer.js` | 校验答案层 answer JSON 是否符合 references/captcha/captcha-overview.md 接口契约 | `node check_captcha_answer.js --file answer.json --markdown` |
 | `check_success_baseline.js` | 验证码成功样本基线评估（Phase 5，≥5 次成功 + 新类型≥2 次） | `node check_success_baseline.js --file success_samples.json --markdown` |
 | `check_verification_attempts.js` | 验证码验证失败复盘（Phase 5，连续 5 次失败+诊断全 ok → 建议切打码平台） | `node check_verification_attempts.js --file attempts.json --markdown` |
+
+> 滑块缺口坐标来源判定（A 接口参数 / B 图片像素 / C 纯图像三路线）见 `references/captcha/gap-coordinate-source.md`；本组脚本负责 C 类坐标换算/轨迹生成/答案校验与打码模板，A/B 类走封装层逆向。

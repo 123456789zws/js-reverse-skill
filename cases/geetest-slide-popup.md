@@ -84,6 +84,7 @@ distance = res['target'][0]  # 缺口 x 像素，按显示比例换算后填入 
 | `references/captcha/captcha-overview.md` | 四层分工 + answer JSON schema + 红线适配 |
 | `references/captcha/captcha-request-chain.md` | load→solve→verify 三段链 + 极验 v3/v4 骨架 |
 | `references/captcha/captcha-solving-handoff.md` | ddddocr slide_match 三能力 + 滑块闭环 |
+| `references/captcha/gap-coordinate-source.md` | 坐标来源判定 A/B/C（本案为 C 路线；v4 注意 bg 隐写 B 路线） |
 | `references/captcha/captcha-motion-encryption.md` | 轨迹加密 + 风控校验点清单 |
 | `references/captcha/open-source-recipes.md` | slider 题型 ddddocr recipe |
 | `references/workflow/experience-rules.md` | 命中案例后先做时效性校验 |

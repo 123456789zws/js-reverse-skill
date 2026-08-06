@@ -54,6 +54,8 @@ print(text)
 
 ## `slider`
 
+> **前置**：先按 `gap-coordinate-source.md` 判定坐标来源（A 参数/B 像素/C 图像）。本 recipe 仅适用 C 路线（纯图像识别）；A/B 走逆向取坐标，不在此列。
+
 开源优先：
 
 1. 先确认图片模式：双图、单图、canvas。

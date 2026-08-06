@@ -1,6 +1,6 @@
 # 验证码逆向总览（边界 / 分工 / 接口契约）
 
-> **交叉引用**：题型识别与图像求解见 `captcha-types.md` + `provider-products.md`（移植自 xbsReverseSkill）；请求链细节见 `captcha-request-chain.md`；厂商矩阵见 `captcha-providers.md`；轨迹加密见 `captcha-motion-encryption.md`；答案层接入见 `captcha-solving-handoff.md`。Session 绑定见 `network/session-chain.md`，指纹一致性见 `fingerprint/` 子域。
+> **交叉引用**：题型识别与图像求解见 `captcha-types.md` + `provider-products.md`（移植自 xbsReverseSkill）；缺口坐标来源判定见 `gap-coordinate-source.md`；请求链细节见 `captcha-request-chain.md`；厂商矩阵见 `captcha-providers.md`；轨迹加密见 `captcha-motion-encryption.md`；答案层接入见 `captcha-solving-handoff.md`。Session 绑定见 `network/session-chain.md`，指纹一致性见 `fingerprint/` 子域。
 
 本 skill 在验证码场景的核心能力：**封装层逆向**（verify 接口加密参数 w / cb / sig / token / 轨迹加密 / challenge 绑定）+ **答案层资产**（ddddocr/坐标/轨迹脚本均已集成，见 `captcha-solving-handoff.md`）。完整厂商信号表与题型分类器见 `provider-products.md` / `captcha-types.md` / `scripts/classify_verify.py`（移植自 xbsReverseSkill）。
 

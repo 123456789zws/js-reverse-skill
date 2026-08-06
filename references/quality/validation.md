@@ -90,21 +90,22 @@ node scripts/check_external_tools.js --markdown
 - 只有"ruyiPage 包可用 + 定制 Firefox runtime 验证通过"才判定 ruyiPage 可用。
 - 系统 Firefox fallback 判定不合格。
 
-### 测试 13：RuyiTrace 已安装时必须自动捕获优先
+### 测试 13：RuyiTrace 采集方式由用户选择
 
-当取证模式为 ruyiPage + RuyiTrace，检测结果均通过，case 中尚无 NDJSON时。
+当取证模式为 ruyiPage + RuyiTrace，检测结果均通过，case 中尚无 NDJSON 时。
 
 期望：
-- 不提示用户"先手动打开 RuyiTrace 采集日志"。
-- 先运行自动捕获计划：
+- 不替用户默认采集方式，先让用户在"手动 trace（指定日志）"与"自动 trace"之间选择。
+- 用户选择自动 trace 时，运行自动捕获计划：
 
 ```bash
 node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
 node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
 ```
 
-- 自动捕获成功后必须导入 NDJSON 并生成摘要。
-- 只有自动捕获失败、需要登录/验证/权限交互、或用户明确选择手动时，才要求用户手动采集。
+- 自动 trace 成功后必须导入 NDJSON 并生成摘要。
+- 用户选择手动 trace 时，等待用户采集完成并提供 NDJSON 路径，用 `node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown` 导入。
+- 自动 trace 失败、需要登录/验证/权限交互时，转手动 trace（用户指定日志）。
 
 ### 测试 14：RuyiTrace 日志导入
 

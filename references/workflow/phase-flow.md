@@ -90,9 +90,9 @@ case 根目录只允许两个子目录：
 
 > 基于 Phase 1 ruyipage 抓包结果（JS 文件 + 网络包），RuyiTrace 采集运行时日志。
 
-### 2.1 RuyiTrace NDJSON 采集（核心证据源）
-- 自动捕获优先：`scripts/capture_ruyitrace_log.js` 自动启动 trace Firefox 采集 NDJSON
-- 手动采集兜底：自动捕获失败/需登录验证/用户明确要求手动时
+### 2.1 RuyiTrace NDJSON 采集（核心证据源，采集方式先让用户选择）
+- 手动 trace：用户用 RuyiTrace 采集后提供 NDJSON → `node scripts/capture_ruyitrace_log.js --input <日志> --case-dir case --markdown` 导入生成摘要（适合需登录/验证码/复杂交互）
+- 自动 trace：`node scripts/capture_ruyitrace_log.js --url <目标页> --case-dir case --ruyitrace-home <RuyiTrace-dir> --import-after --markdown` 自动启动 trace Firefox 采集（需 RuyiTrace 完整安装）
 - 导入摘要：`scripts/import_ruyitrace_log.js` 生成 `notes/ruyitrace-summary.md`
 - 详见 `references/workflow/trace-flow.md`
 

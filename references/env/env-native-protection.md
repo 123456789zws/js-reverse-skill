@@ -255,6 +255,18 @@ navigator.constructor.name
   2. 提供 HAR / cURL / JS 文件离线分析。
   3. 在授权环境中更换合规网络环境。
 
+## 深度行为审计（移植自 xbs）
+
+toString / descriptor / 原型链保护只是 native-like 的"形似"层。下列三个移植自 xbs 的深度审计文档负责"神似"层——验证补环境对象在 realm 隔离、网络对象语义、TLS Session 复用等维度上是否与真实浏览器一致：
+
+| 审计层 | 文档 | 触发条件 | 关注点 |
+|---|---|---|---|
+| Trace-runtime 一致性闭环 | `references/quality/trace-runtime-conformance.md` | 高强度检测命中 realm / descriptor / brand / prototype 深度 diff | runtime contract + audit-only/no-send + realm/descriptor/brand/prototype 深度 diff |
+| XHR/fetch 语义审计 | `references/network/xhr-fetch-semantics-audit.md` | 目标 JS 调用 `XMLHttpRequest` / `fetch` / `sendBeacon` 且行为被检测 | XHR/fetch/sendBeacon 行为比较 + 真实请求前 no-send diff（no-send / Realm / actor / reload） |
+| XHR/fetch Session bridge | `references/network/xhr-fetch-session-bridge.md` | 最终交付需复用同 TLS Session 跨请求保活 | 同 TLS Session 复用 + curl_cffi / curl-cffi-node 桥接 |
+
+`NativeProtect` 的多通道 toString 保护覆盖了上述审计的"函数源码泄露"维度；但 realm 隔离、网络对象语义、Session 复用需要额外的运行时桥接实现，不在 `NativeProtect` 范围内。
+
 ## 相关案例
 
 | 案例文件 | 关联点 |

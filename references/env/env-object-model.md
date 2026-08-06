@@ -373,6 +373,19 @@ HTMLElement → HTMLCanvasElement
 
 不要为了"完整"一次性补所有 DOM。只补 RuyiTrace / Node trace / fixtures / 目标检测证明目标 JS 会访问或依赖的部分；但已补的部分必须完整真实性。
 
+## 深度行为审计（移植自 xbs）
+
+对象模型补齐后，还要通过两层"行为像不像真实浏览器"的深度审计。这两层回答的是**访问到的浏览器行为是否一致**，而不是"访问了什么 API"（后者由 Trace 覆盖矩阵负责）。
+
+| 审计层 | 文档 | 触发条件 | 关注点 |
+|---|---|---|---|
+| 对象形状审计 + 私有状态泄露 | `references/env/object-shape-private-state.md` | 目标检测命中 `Reflect.ownKeys` / `Object.getOwnPropertyDescriptors` / prototype walk / `_${__}` 私有字段枚举 | ownKeys 顺序、descriptor 完整性、prototype 链路 walk、`WeakMap` 私有状态不泄露 |
+| WebAPI 行为矩阵门禁 | `references/env/webapi-env-detection-matrix.md` | iframe / Worker / PerformanceTimeline / DOM-CSSOM / EventTarget / timer / writer 分支行为被检测 | iframe Realm 隔离、Worker 入口语义、PerformanceTimeline 时序、CSSOM 计算值、EventTarget 派发顺序、timer 排序、writer 分支 |
+
+对象模型补齐清单只解决"对象长什么样"；上述两层解决"对象行为像不像浏览器"。两者都通过才算补环境完成。
+
+> iframe Realm 隔离的专项补环境（独立 context、跨域通信、frameElement 双向引用、sandbox 策略）详见 `references/env/env-iframe.md`。
+
 ## 相关案例
 
 | 案例文件 | 关联点 |
