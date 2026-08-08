@@ -41,10 +41,12 @@
 
 ### 网易易盾 Yidun（标签：`netease-yidun`）
 
-- 识别信号：`captcha.yidun`、`dun.163.com`、`NECaptcha`
-- 关键参数：`captchaId`、`validate`、`fp`（指纹）、`token`
+- 识别信号：`captcha.yidun`、`dun.163.com`、`c.dun.163.com`、`NECaptcha`
+- 关键参数：`captchaId`、`validate`、`fp`（指纹）、`token`、`data{d,m,p,ext}`
 - 加密关注点：`fp` 独立指纹链（先逆 fp）；`validate` 由答案+轨迹加密生成；行为采集与题面混合
-- 题型：滑块 / 点选 / 无感
+- 接口链：`GET c.dun.163.com/api/v3/get`（JSONP，拿 token/type）→ `GET /api/v3/check`（JSONP，提交 data）→ 业务二次校验 `POST ir-sdk.dun.163.com/v4/j/up`（neguardian tk）+ `POST dun.163.com/node/api/check-guardian.json`（token=<tk> → 204）
+- 题型：滑块 / 点选 / 无感（type=5 INTELLISENSE 智能无感，`data.d` 恒空串；滑块 type=2 `data.d` 非空）
+- 实测要点（见 `cases/yidun-intellisense-vm-env.md`）：SDK `core-optimi.*.min.js` obfuscator.io 混淆，vm 沙箱补环境直跑；自定义 AES（`__SEED_KEY__` 共享）+ 带 token 的 XOR 编码双层加密 `aes(xorEncode(token, 明文))`；行为采集 SDK neguardian 与 core-optimi **共用同一套 AES key**，`/v4/j/up` 的 `d` 服务端只校验可解密性，`p` 为页面固定 appId（错 → 5509）
 
 ### 阿里云 NoCaptcha / AWSC（标签：`aliyun-captcha`）
 

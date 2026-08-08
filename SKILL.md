@@ -181,8 +181,10 @@ js-reverse-skill/
       → 策略: trace 成功链路（用户手动过一次）+ verify 四层链路定位 + 答案层契约接入（坐标来源先判定 A/B/C，极验 v4 注意 bg 隐写）| 参考: references/captcha/captcha-overview.md + captcha-request-chain.md + captcha-solving-handoff.md（硬约束） + gap-coordinate-source.md | case: cases/geetest-slide-popup.md
     数美 shumei-captcha / smcp.min.js / initSMCaptcha / organization / rid
       → 策略: 同上（注意 conf 动态加密配置）| 参考: references/captcha/captcha-providers.md
-    顶象 dingxiang-captcha / constId / dx-captcha；腾讯 tencent-tcaptcha / aid / ticket；易盾 netease-yidun / captchaId / validate；阿里云 aliyun-captcha / nc_ / AWSC / afs
+    顶象 dingxiang-captcha / constId / dx-captcha；腾讯 tencent-tcaptcha / aid / ticket；阿里云 aliyun-captcha / nc_ / AWSC / afs
       → 策略: 同上（先按题型定解法；轨迹加密见 references/captcha/captcha-motion-encryption.md）
+    易盾 netease-yidun / dun.163.com / c.dun.163.com / NECaptcha / core-optimi.*.min.js / gdxidpyhxde / fp+validate+data{d,m,p,ext}
+      → 策略: trace 成功链路（智能无感 type=5 无感直过）+ vm 沙箱补环境直跑 core-optimi（不反编译）+ 自定义 AES/XOR 双层还原 + neguardian 共用 AES | 参考: references/captcha/captcha-providers.md | case: cases/yidun-intellisense-vm-env.md
 
   命中结果:
     - 命中案例 = ______ (case 文件名 or "未命中")
