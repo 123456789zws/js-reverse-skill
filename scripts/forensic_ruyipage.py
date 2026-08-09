@@ -131,9 +131,11 @@ def apply_smart_fingerprint(opts, args: argparse.Namespace):
     kwargs: Dict[str, Any] = {
         "userdir": args.profile_dir,
         "base_dir": args.fp_dir,
+        # 默认禁用国家强校验：1.2.6x 起 smart_fingerprint 默认 require_country="US"，
+        # 代理/出口 IP 与 US 不一致（如 JP）会抛 CountryMismatchError，阻断取证。
+        # 用户显式 --require-country 时用用户值；否则 None = 不校验出口国家。
+        "require_country": args.require_country or None,
     }
-    if args.require_country:
-        kwargs["require_country"] = args.require_country
     if args.manual_geo:
         kwargs["manual_geo"] = load_manual_geo(args.manual_geo)
 
@@ -282,6 +284,11 @@ def build_options(args: argparse.Namespace, browser_path: str):
     w, h = (args.window_size or "1366,900").split(",")[:2]
     opts.set_window_size(int(w), int(h))
     opts.set_human_algorithm(args.human_algorithm)
+    # 进程级兜底：Python 进程退出（含异常/被杀前未走 finally）时自动关闭浏览器并清理临时 profile
+    try:
+        opts.close_on_exit(True)
+    except Exception as e:
+        logger.warning("close_on_exit 设置失败（%s），依赖 finally 关闭", e)
     return opts
 
 
@@ -402,9 +409,21 @@ def _write_outputs(args, browser_path, records_meta, target_hits, fingerprint, b
 
 
 def _resolve_browser_pid(page) -> Optional[int]:
-    """尽力从 ruyipage 页面对象解析浏览器主进程 PID；解析不到返回 None。"""
+    """尽力从 ruyipage 页面对象解析浏览器主进程 PID；解析不到返回 None。
+
+    兼容两代对象模型：
+    - 新版（>=1.2.5x）：pid 在 page.browser.process.pid（subprocess 对象）
+    - 旧版：page / page.browser / page.driver 上的 pid/process_id/browser_pid 属性
+    """
     if page is None:
         return None
+    # 优先新版 subprocess 对象链：page.browser.process.pid
+    try:
+        proc = page.browser.process
+        if proc is not None and getattr(proc, "pid", None):
+            return int(proc.pid)
+    except Exception:
+        pass
     for holder in (page, getattr(page, "browser", None), getattr(page, "driver", None)):
         if holder is None:
             continue
@@ -436,25 +455,38 @@ def _kill_process_tree(pid: int) -> bool:
 def _close_browser(page) -> str:
     """主动关闭取证浏览器。
 
+    注意（ruyipage >= 1.2.5x 行为变化）：`page.close()` 只关闭当前标签页，
+    不再关闭整个浏览器；关闭浏览器必须用 `page.quit()`。这里优先 quit 整个
+    浏览器，quit 不可用或失败时回退 close，再失败做进程树兜底。
+
     返回状态：none（未启动）/ closed（优雅关闭）/ force-killed（优雅失败后进程树兜底）/
     failed（优雅与兜底均失败，可能残留进程）。
     """
     if page is None:
         return "none"
-    try:
-        page.close()
-        return "closed"
-    except Exception as e:
-        logger.warning("page.close() 失败（%s），尝试进程树兜底结束", e)
-        pid = _resolve_browser_pid(page)
-        if pid is None:
-            logger.warning("无法解析浏览器进程 PID，无法兜底结束，浏览器可能残留")
-            return "failed"
-        if _kill_process_tree(pid):
-            logger.info("已强制结束浏览器进程树（PID %s）", pid)
-            return "force-killed"
-        logger.warning("进程树兜底结束失败（PID %s）", pid)
+    # 优先整浏览器关闭：新版 quit(timeout, force)；旧版无 quit 时回退 close
+    for method in ("quit", "close"):
+        closer = getattr(page, method, None)
+        if closer is None:
+            continue
+        try:
+            if method == "quit":
+                closer(timeout=8, force=False)
+            else:
+                closer()
+            return "closed"
+        except Exception as e:
+            logger.warning("page.%s() 失败（%s），尝试下一关闭方式", method, e)
+    logger.warning("优雅关闭全部失败，尝试进程树兜底结束")
+    pid = _resolve_browser_pid(page)
+    if pid is None:
+        logger.warning("无法解析浏览器进程 PID，无法兜底结束，浏览器可能残留")
         return "failed"
+    if _kill_process_tree(pid):
+        logger.info("已强制结束浏览器进程树（PID %s）", pid)
+        return "force-killed"
+    logger.warning("进程树兜底结束失败（PID %s）", pid)
+    return "failed"
 
 
 def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
@@ -574,7 +606,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--targets-regex", default="", help="目标接口正则过滤（逗号分隔）")
     p.add_argument("--human-algorithm", default="windmouse", help="拟人算法：windmouse / bezier，默认 windmouse")
     p.add_argument("--window-size", default="1366,900", help="窗口尺寸 wxh，默认 1366,900")
-    p.add_argument("--require-country", default="", help="smart_fingerprint require_country；缺省用库默认(US)")
+    p.add_argument("--require-country", default="", help="smart_fingerprint require_country（ISO-2）；缺省不校验出口国家（适配代理出口 IP 与目标国家不一致）")
     p.add_argument("--manual-geo", default="", help="地理探测失败时的 manual_geo（JSON 字符串或文件路径）")
     p.add_argument("--no-fp", action="store_true", help="跳过 smart_fingerprint（禁用智能指纹）")
     p.add_argument("--wait", type=int, default=30, help="等待首个包的超时秒，默认 30")

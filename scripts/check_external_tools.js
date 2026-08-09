@@ -429,8 +429,17 @@ function detectRuyiPage(args) {
   const verified = dedupedChecks.filter(c => c.managedRuntimeVerified);
   const defaultCheck = dedupedChecks.find(c => c.label.startsWith('ruyiPage 默认解析路径')) || null;
   const explicitCheck = dedupedChecks.find(c => c.label.startsWith('用户指定')) || null;
+  // 多版本 runtime 并存时（如 151-ruyi 旧版 + 155 新版），按 Firefox 主版本号降序选最新
+  const pickLatest = (list) => {
+    if (!list.length) return null;
+    const rank = (c) => {
+      const m = /firefox[-_]?(\d+)(?:\.\d+)*[a-z]?/i.exec((c.runtimeAsset || '') + ' ' + (c.runtimeVersion || '') + ' ' + path.basename(c.installRoot || ''));
+      return m ? parseInt(m[1], 10) : 0;
+    };
+    return list.slice().sort((a, b) => rank(b) - rank(a))[0];
+  };
   const selected = explicitCheck && explicitCheck.managedRuntimeVerified ? explicitCheck
-    : (defaultCheck && defaultCheck.managedRuntimeVerified ? defaultCheck : verified[0] || null);
+    : (defaultCheck && defaultCheck.managedRuntimeVerified ? defaultCheck : pickLatest(verified));
   const defaultIsSystemFallback = !!defaultCheck && !!defaultCheck.executable && !defaultCheck.managedRuntimeVerified;
   const explicitPathNotVerified = !!explicitCheck && !explicitCheck.managedRuntimeVerified;
   const managedRuntimeVerified = !!selected;
@@ -494,9 +503,24 @@ function normalizeTraceHome(args) {
   if (args.ruyitraceExe) return path.dirname(path.resolve(args.ruyitraceExe));
   if (process.env.RUYI_TRACE_HOME) return path.resolve(process.env.RUYI_TRACE_HOME);
   if (process.env.RUYITRACE_HOME) return path.resolve(process.env.RUYITRACE_HOME);
-  // install_all.js 默认安装到 <项目根>/tools/RuyiTrace/
-  const projectTrace = path.join(findProjectRoot(), 'tools', 'RuyiTrace');
-  if (isDir(projectTrace)) return projectTrace;
+  const toolsDir = path.join(findProjectRoot(), 'tools');
+  // 优先带版本号的 RuyiTrace-* 目录（新版 2.5+，Electron 壳 + resources/kernel 内核），
+  // 按版本号降序取最新；无版本目录 tools/RuyiTrace 兜底（旧版 1.x 结构或归一目录）
+  let candidates = [];
+  if (isDir(toolsDir)) {
+    try {
+      candidates = fs.readdirSync(toolsDir)
+        .filter((n) => /^RuyiTrace/i.test(n) && isDir(path.join(toolsDir, n)))
+        .map((n) => path.join(toolsDir, n));
+    } catch { candidates = []; }
+  }
+  const versioned = candidates
+    .map((p) => ({ p, v: (/RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(p)) || [])[1] || '' }))
+    .filter((x) => x.v)
+    .sort((a, b) => compareVersion(b.v, a.v) || 0);
+  if (versioned.length) return versioned[0].p;
+  const legacy = candidates.find((p) => /^RuyiTrace$/i.test(path.basename(p)));
+  if (legacy) return legacy;
   const found = whereCommand(process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace');
   if (found.length) return path.dirname(found[0]);
   return '';
@@ -511,9 +535,18 @@ function detectRuyiTrace(args) {
   };
   const exeName = process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace';
   const exe = args.ruyitraceExe ? path.resolve(args.ruyitraceExe) : path.join(home, exeName);
-  const firefoxExe = process.platform === 'win32' ? path.join(home, 'firefox', 'firefox.exe') : path.join(home, 'firefox', 'firefox');
-  const marker = path.join(home, 'firefox', 'RUYI_DOMTRACE.txt');
   const exeExists = exists(exe);
+  // 兼容两代 RuyiTrace 内核路径：
+  //   新版 2.5+（Electron 壳）：<home>/resources/kernel/firefox(.exe) + RUYI_DOMTRACE.txt
+  //   旧版 1.x（自带 firefox/）：<home>/firefox/firefox(.exe) + RUYI_DOMTRACE.txt
+  const firefoxName = process.platform === 'win32' ? 'firefox.exe' : 'firefox';
+  const candidates = [
+    { kind: 'new', firefoxExe: path.join(home, 'resources', 'kernel', firefoxName), marker: path.join(home, 'resources', 'kernel', 'RUYI_DOMTRACE.txt') },
+    { kind: 'legacy', firefoxExe: path.join(home, 'firefox', firefoxName), marker: path.join(home, 'firefox', 'RUYI_DOMTRACE.txt') },
+  ];
+  const kernel = candidates.find((c) => exists(c.firefoxExe) && exists(c.marker)) || candidates[0];
+  const firefoxExe = kernel.firefoxExe;
+  const marker = kernel.marker;
   const firefoxExists = exists(firefoxExe);
   const markerExists = exists(marker);
   const kernelVerified = firefoxExists && markerExists;
@@ -528,6 +561,7 @@ function detectRuyiTrace(args) {
   return {
     installed: exeExists && kernelVerified,
     kernelVerified,
+    kernelKind: kernel.kind,
     home,
     exe,
     exeExists,
@@ -536,7 +570,7 @@ function detectRuyiTrace(args) {
     marker,
     markerExists,
     version,
-    reason: exeExists && kernelVerified ? '' : 'RuyiTrace 目录不完整：需要 RuyiTrace 可执行文件、firefox/firefox(.exe) 以及 firefox/RUYI_DOMTRACE.txt',
+    reason: exeExists && kernelVerified ? '' : `RuyiTrace 目录不完整：需要 RuyiTrace 可执行文件，以及 ${kernel.kind === 'new' ? 'resources/kernel' : 'firefox'}/firefox(.exe) 与同目录 RUYI_DOMTRACE.txt`,
   };
 }
 

@@ -87,16 +87,66 @@ function normalizeTraceHome(args) {
   if (args.ruyitraceExe) return path.dirname(path.resolve(args.ruyitraceExe));
   if (process.env.RUYI_TRACE_HOME) return path.resolve(process.env.RUYI_TRACE_HOME);
   if (process.env.RUYITRACE_HOME) return path.resolve(process.env.RUYITRACE_HOME);
+  // 优先带版本号的 RuyiTrace-* 目录（新版 2.5+，Electron 壳 + resources/kernel 内核），
+  // 按版本号降序取最新；无版本目录 tools/RuyiTrace 兜底
+  const projectRoot = findProjectRoot();
+  const toolsDir = path.join(projectRoot, 'tools');
+  let candidates = [];
+  if (isDir(toolsDir)) {
+    try {
+      candidates = fs.readdirSync(toolsDir)
+        .filter((n) => /^RuyiTrace/i.test(n) && isDir(path.join(toolsDir, n)))
+        .map((n) => path.join(toolsDir, n));
+    } catch { candidates = []; }
+  }
+  const versioned = candidates
+    .map((p) => ({ p, v: (/RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(p)) || [])[1] || '' }))
+    .filter((x) => x.v)
+    .sort((a, b) => compareVersion(b.v, a.v) || 0);
+  if (versioned.length) return versioned[0].p;
+  const legacy = candidates.find((p) => /^RuyiTrace$/i.test(path.basename(p)));
+  if (legacy) return legacy;
   const found = whereCommand(process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace');
   return found.length ? path.dirname(found[0]) : '';
+}
+
+function compareVersion(a, b) {
+  const pa = String(a || '').split('.').map((x) => parseInt(x, 10) || 0);
+  const pb = String(b || '').split('.').map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    const va = pa[i] || 0;
+    const vb = pb[i] || 0;
+    if (va !== vb) return va > vb ? 1 : -1;
+  }
+  return 0;
+}
+
+function findProjectRoot() {
+  let cur = path.dirname(__dirname);
+  for (let i = 0; i < 5; i += 1) {
+    if (exists(path.join(cur, 'SKILL.md'))) return cur;
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return process.cwd();
 }
 
 function detectRuyiTrace(args) {
   const home = normalizeTraceHome(args);
   const exeName = process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace';
   const exe = args.ruyitraceExe ? path.resolve(args.ruyitraceExe) : (home ? path.join(home, exeName) : '');
-  const firefoxExe = home ? path.join(home, 'firefox', process.platform === 'win32' ? 'firefox.exe' : 'firefox') : '';
-  const marker = home ? path.join(home, 'firefox', 'RUYI_DOMTRACE.txt') : '';
+  // 兼容两代 RuyiTrace 内核路径：
+  //   新版 2.5+（Electron 壳）：<home>/resources/kernel/firefox(.exe) + RUYI_DOMTRACE.txt
+  //   旧版 1.x（自带 firefox/）：<home>/firefox/firefox(.exe) + RUYI_DOMTRACE.txt
+  const firefoxName = process.platform === 'win32' ? 'firefox.exe' : 'firefox';
+  const candidates = [
+    { kind: 'new', firefoxExe: path.join(home || '', 'resources', 'kernel', firefoxName), marker: path.join(home || '', 'resources', 'kernel', 'RUYI_DOMTRACE.txt') },
+    { kind: 'legacy', firefoxExe: path.join(home || '', 'firefox', firefoxName), marker: path.join(home || '', 'firefox', 'RUYI_DOMTRACE.txt') },
+  ];
+  const kernel = candidates.find((c) => exists(c.firefoxExe) && exists(c.marker)) || candidates[0];
+  const firefoxExe = kernel.firefoxExe;
+  const marker = kernel.marker;
   const installed = exists(exe) && exists(firefoxExe) && exists(marker);
   return {
     installed,
@@ -107,7 +157,7 @@ function detectRuyiTrace(args) {
     firefoxExists: exists(firefoxExe),
     marker,
     markerExists: exists(marker),
-    reason: installed ? '' : 'RuyiTrace 不完整：需要 RuyiTrace 可执行文件、firefox 可执行文件以及 firefox/RUYI_DOMTRACE.txt',
+    reason: installed ? '' : `RuyiTrace 不完整：需要 RuyiTrace 可执行文件，以及 ${kernel.kind === 'new' ? 'resources/kernel' : 'firefox'}/firefox(.exe) 与同目录 RUYI_DOMTRACE.txt`,
   };
 }
 
@@ -139,15 +189,36 @@ function buildPlan(args, trace) {
   };
 }
 
+// 递归扫描目录下 NDJSON（兼容新版分目录结构：domtrace/ 主日志 + cookie/descriptor/event/storage 分类；
+// 也兼容旧版顶层单文件）。优先返回 domtrace/ 下的主日志，其余按修改时间倒序。
+// sinceMs 容差 10s：新版内核启动较慢（Firefox 155 重 fork），日志文件可能晚于采集起点才创建/写入。
 function listNdjsonFiles(dir, sinceMs) {
   if (!isDir(dir)) return [];
-  return fs.readdirSync(dir)
-    .filter((name) => name.toLowerCase().endsWith('.ndjson'))
-    .map((name) => path.join(dir, name))
-    .filter((file) => {
-      try { return fs.statSync(file).mtimeMs >= sinceMs - 1000; } catch { return false; }
-    })
-    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+  const out = [];
+  const walk = (d) => {
+    let entries = [];
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { entries = []; }
+    for (const ent of entries) {
+      const p = path.join(d, ent.name);
+      if (ent.isDirectory()) walk(p);
+      else if (/\.ndjson$/i.test(ent.name)) out.push(p);
+    }
+  };
+  walk(dir);
+  const fresh = out.filter((file) => {
+    try { return fs.statSync(file).mtimeMs >= sinceMs - 10000; } catch { return false; }
+  });
+  const rank = (p) => {
+    const inDom = /[\\/]domtrace[\\/]/.test(p) ? 0 : 1;
+    let m = 0;
+    try { m = fs.statSync(p).mtimeMs; } catch { m = 0; }
+    return [inDom, -m];
+  };
+  return fresh.sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    return ra[0] - rb[0] || ra[1] - rb[1];
+  });
 }
 
 function wait(ms) {
@@ -162,27 +233,72 @@ function waitForExit(child, timeoutMs) {
       done = true;
       resolve(value);
     };
+    // child 已退出（exitCode !== null）时 once('exit') 不会触发，直接按已退出处理
+    if (child.exitCode !== null || child.signalCode !== null) {
+      finish({ exited: true, code: child.exitCode, signal: child.signalCode });
+      return;
+    }
     child.once('exit', (code, signal) => finish({ exited: true, code, signal }));
-    setTimeout(() => finish({ exited: false, code: null, signal: null }), timeoutMs).unref();
+    // 不用 unref：若 child 已死且无其他引用，unref 定时器不阻止进程退出，
+    // 会导致 promise 链被截断（输出丢失 / kill 未完成 / 残留进程）。保留引用等待超时。
+    setTimeout(() => finish({ exited: false, code: null, signal: null }), timeoutMs);
   });
 }
 
-// 结束整个浏览器进程树（Firefox 多进程）：Windows 用 taskkill /T /F，其他平台杀进程组。
-// 仅 child.kill() 只杀直接 spawn 的主进程，content/GPU 子进程会残留并锁住 profile。
-function killProcessTree(pid) {
+// 结束 trace Firefox 进程（多进程树 + 内核迁移兜底）：
+// 1. 先按 spawn 主 PID 用 taskkill /T /F 杀进程树（旧版结构有效）；
+// 2. 新版（2.5+ / Firefox 155）主进程可能重 fork，CommandLine 不含 profile，
+//    因此再按 firefox 可执行文件路径精确匹配（ExecutablePath == kernel firefox）
+//    杀掉全部实例（主进程 + content/GPU 子进程），避免残留锁 profile；
+//    profile 匹配作为第三层兜底（旧版结构 CommandLine 含 profile）。
+function killProcessTree(pid, profileDir, firefoxExe) {
   return new Promise((resolve) => {
-    if (!pid) { resolve(false); return; }
-    const cmd = process.platform === 'win32'
-      ? spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true })
-      : spawn('kill', ['-TERM', `-${pid}`], { windowsHide: true });
     let done = false;
     const finish = (ok) => {
       if (done) return;
       done = true;
       resolve(ok);
     };
-    cmd.once('error', () => finish(false));
-    cmd.once('exit', (code) => finish(code === 0));
+
+    const attempts = [];
+    if (pid) {
+      attempts.push(new Promise((res) => {
+        const cmd = process.platform === 'win32'
+          ? spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true })
+          : spawn('kill', ['-TERM', `-${pid}`], { windowsHide: true });
+        cmd.once('error', () => res(false));
+        cmd.once('exit', (code) => res(code === 0));
+      }));
+    }
+
+    if (process.platform === 'win32') {
+      const esc = (s) => String(s).replace(/'/g, "''");
+      const matchers = [];
+      // 第 2 层：按 kernel firefox 可执行文件路径精确匹配（主进程重 fork 后 CommandLine 可能无参数）
+      if (firefoxExe) {
+        matchers.push(`($_.ExecutablePath -eq '${esc(firefoxExe.replace(/\//g, '\\'))}')`);
+      }
+      // 第 3 层：按 profile 路径匹配 CommandLine（旧版结构）
+      if (profileDir) {
+        const back = esc(profileDir.replace(/\//g, '\\'));
+        const fwd = esc(profileDir.replace(/\\/g, '/'));
+        matchers.push(`($_.CommandLine -like '*${back}*')`);
+        matchers.push(`($_.CommandLine -like '*${fwd}*')`);
+      }
+      if (matchers.length) {
+        attempts.push(new Promise((res) => {
+          const ps = spawn('powershell', [
+            '-NoProfile', '-NonInteractive', '-Command',
+            `Get-CimInstance Win32_Process -Filter "Name='firefox.exe'" | Where-Object { ${matchers.join(' -or ')} } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
+          ], { windowsHide: true });
+          ps.once('error', () => res(false));
+          ps.once('exit', (code) => res(code === 0));
+        }));
+      }
+    }
+
+    if (!attempts.length) { finish(false); return; }
+    Promise.all(attempts).then((results) => finish(results.some(Boolean)));
   });
 }
 
@@ -217,26 +333,25 @@ async function capture(args, plan) {
   try {
     await wait(args.duration * 1000);
   } finally {
-    // 采集结束（成功或异常）一律主动关闭浏览器进程树，避免残留进程锁住 profile
+    // 采集结束（成功或异常）一律主动关闭浏览器进程树，避免残留进程锁住 profile。
+    // 注意：spawn 的 launcher PID 可能在采集期间自己退出（Firefox 155 重 fork 主进程），
+    // 不能因 child 已退出就跳过 kill —— 真实浏览器主进程/子进程可能仍存活。
     if (!result.launchError) {
-      const exitBeforeKill = await waitForExit(child, 200);
-      if (!exitBeforeKill.exited) {
-        result.killAttempted = true;
-        result.killMethod = process.platform === 'win32' ? 'taskkill-tree' : 'kill-group';
-        try {
-          result.killOk = await killProcessTree(child.pid);
-          if (!result.killOk) {
-            result.killError = 'taskkill 进程树结束失败，回退 child.kill()';
-            try {
-              child.kill();
-              result.killOk = await waitForExit(child, 3000).then((e) => e.exited);
-            } catch (err) {
-              result.killError = err.message || String(err);
-            }
+      result.killAttempted = true;
+      result.killMethod = process.platform === 'win32' ? 'taskkill-tree+exe/profile-match' : 'kill-group';
+      try {
+        result.killOk = await killProcessTree(child.pid, plan.profileDir, plan.firefoxExe);
+        if (!result.killOk) {
+          result.killError = '进程树/按 exe·profile 匹配结束失败，回退 child.kill()';
+          try {
+            child.kill();
+            result.killOk = await waitForExit(child, 3000).then((e) => e.exited);
+          } catch (err) {
+            result.killError = err.message || String(err);
           }
-        } catch (err) {
-          result.killError = err.message || String(err);
         }
+      } catch (err) {
+        result.killError = err.message || String(err);
       }
       result.exit = await waitForExit(child, 3000);
     }

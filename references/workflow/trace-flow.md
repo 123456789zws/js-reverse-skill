@@ -76,7 +76,7 @@ python scripts/forensic_ruyipage.py --url <目标页> --targets "pc_home_feed" -
 
 ### 方式一：自动 trace
 
-检测到 `RuyiTrace.exe`、`firefox/` 子目录、`firefox/firefox.exe` 和 `firefox/RUYI_DOMTRACE.txt` 完整后，可使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
+检测到 `RuyiTrace.exe`、定制内核 `firefox(.exe)` 和 `RUYI_DOMTRACE.txt` 完整后（新版 2.5+ 位于 `resources/kernel/`，旧版 1.x 位于 `firefox/`），可使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
 
 ```bash
 node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown

@@ -129,9 +129,18 @@ function detectState(python) {
 
   const exeName = process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace';
   const ruyitraceExe = path.join(RUYITRACE_DIR, exeName);
-  const ruyitraceFirefox = path.join(RUYITRACE_DIR, 'firefox', process.platform === 'win32' ? 'firefox.exe' : 'firefox');
-  const ruyitraceMarker = path.join(RUYITRACE_DIR, 'firefox', 'RUYI_DOMTRACE.txt');
-  result.ruyitraceKernel = exists(ruyitraceFirefox) && exists(ruyitraceMarker);
+  const firefoxName = process.platform === 'win32' ? 'firefox.exe' : 'firefox';
+  // 兼容两代 RuyiTrace 内核路径：新版 2.5+ 在 resources/kernel/，旧版 1.x 在 firefox/
+  const ruyitraceKernelCandidates = [
+    path.join(RUYITRACE_DIR, 'resources', 'kernel', firefoxName),
+    path.join(RUYITRACE_DIR, 'firefox', firefoxName),
+  ];
+  const ruyitraceMarkerCandidates = [
+    path.join(RUYITRACE_DIR, 'resources', 'kernel', 'RUYI_DOMTRACE.txt'),
+    path.join(RUYITRACE_DIR, 'firefox', 'RUYI_DOMTRACE.txt'),
+  ];
+  const kernelIdx = ruyitraceKernelCandidates.findIndex((p, i) => exists(p) && exists(ruyitraceMarkerCandidates[i]));
+  result.ruyitraceKernel = kernelIdx >= 0;
   result.ruyitrace = exists(ruyitraceExe) && result.ruyitraceKernel;
 
   return result;
@@ -172,13 +181,14 @@ function downloadAndExtractRuyiTrace(mirror) {
   try { parsed = JSON.parse(ret.stdout.replace(/^\uFEFF/, '')); } catch { /* ignore */ }
   const ok = ret.ok && parsed && parsed.downloaded && parsed.extracted;
   // 解压目录归一：新版资产名带版本号（如 RuyiTrace-2.5.5-win64），统一重命名为 tools/RuyiTrace
-  // 以匹配 check_external_tools.js / 文档约定的默认检测路径
+  // 以匹配 check_external_tools.js / 文档约定的默认检测路径；tools/RuyiTrace 已存在时不覆盖
   if (ok && parsed.extractDir && path.resolve(parsed.extractDir) !== path.resolve(RUYITRACE_DIR) && !exists(RUYITRACE_DIR)) {
     try {
       fs.renameSync(parsed.extractDir, RUYITRACE_DIR);
       parsed.extractDir = RUYITRACE_DIR;
     } catch { /* 重命名失败时保留原目录，由用户手动指定 --ruyitrace-home */ }
   }
+  // 新版 2.5+ 内核在 resources/kernel/，旧版在 firefox/：归一后检测脚本可自动识别任一结构
   return {
     ok,
     output: (ret.stdout || ret.stderr || ret.error || '').slice(0, 2000),

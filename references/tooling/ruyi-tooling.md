@@ -90,7 +90,7 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <fi
 
 - ruyiPage：Python 解释器路径，或确认当前 `python` 可以 `import ruyipage`。
 - ruyiPage runtime：`python -m ruyipage path` 输出的 Firefox 路径、`--ruyipage-install-dir` 指向的 managed runtime 根目录，或 `--ruyipage-browser-path` 指向的定制 Firefox 可执行文件路径。
-- RuyiTrace：`RuyiTrace.exe` 所在目录，或 `RuyiTrace.exe` 路径；该目录中应保留 `firefox/` 子目录和 `firefox/RUYI_DOMTRACE.txt`。
+- RuyiTrace：`RuyiTrace.exe` 所在目录，或 `RuyiTrace.exe` 路径；该目录中应保留定制内核和 `RUYI_DOMTRACE.txt`。兼容两代目录结构：新版 2.5+（Electron 壳）为 `resources/kernel/firefox(.exe)` + `resources/kernel/RUYI_DOMTRACE.txt`；旧版 1.x 为 `firefox/` 子目录 + `firefox/RUYI_DOMTRACE.txt`。检测脚本自动识别任一结构。
 - 日志目录：RuyiTrace 生成 NDJSON 的目录。
 
 示例：
@@ -102,7 +102,7 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <ve
 
 ## ruyiPage + RuyiTrace 但 RuyiTrace 未安装
 
-当本 case 的取证模式已经确认为 **ruyiPage + RuyiTrace**，检测脚本返回 RuyiTrace 未安装、`RuyiTrace.exe` 不存在、`firefox/` 子目录缺失，或 `firefox/RUYI_DOMTRACE.txt` 缺失时，按以下强制流程处理：
+当本 case 的取证模式已经确认为 **ruyiPage + RuyiTrace**，检测脚本返回 RuyiTrace 未安装、`RuyiTrace.exe` 不存在、定制内核目录缺失（新版 `resources/kernel/` 或旧版 `firefox/`），或 `RUYI_DOMTRACE.txt` 缺失时，按以下强制流程处理：
 
 1. **不要自动降级**：不得把取证模式静默切换为“仅 ruyiPage”，也不得继续进入需要 RuyiTrace NDJSON 的补环境分析。
 2. **暂停并提示用户选择**：必须让用户在“安装 / 提供 RuyiTrace 路径”和“明确降级为仅 ruyiPage”之间选择。
@@ -111,7 +111,7 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <ve
    - 若未安装，要求用户提供下载 / 安装目录。
    - 先用 `download_ruyi_tool.js --tool ruyitrace --dest <download-dir> --dry-run --markdown` 输出下载计划。
    - 用户确认后才下载；下载后提示用户解压 / 安装。
-   - 等用户确认 `RuyiTrace.exe` 可打开、`firefox/` 定制内核目录存在、日志目录可选择后，再重新运行检测。
+   - 等用户确认 `RuyiTrace.exe` 可打开、定制内核目录（`resources/kernel/` 或 `firefox/`）存在、日志目录可选择后，再重新运行检测。
 4. **用户选择降级时**：
    - 记录“取证模式已由 ruyiPage + RuyiTrace 经用户确认降级为仅 ruyiPage”。
    - 后续不得再假设存在 NDJSON。
@@ -318,7 +318,7 @@ RuyiTrace 日志采集方式请选择：
 
 ### 方式一：自动 trace
 
-检测到 `RuyiTrace.exe`、`firefox/` 子目录、`firefox/firefox.exe` 和 `firefox/RUYI_DOMTRACE.txt` 完整后，不要默认让用户手动打开 GUI。优先使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
+检测到 `RuyiTrace.exe`、定制内核 `firefox(.exe)` 和 `RUYI_DOMTRACE.txt` 完整后（新版 2.5+ 位于 `resources/kernel/`，旧版 1.x 位于 `firefox/`），不要默认让用户手动打开 GUI。优先使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
 
 ```bash
 node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
