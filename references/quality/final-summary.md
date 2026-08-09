@@ -38,7 +38,10 @@
 - 响应样本：
 - 已知 JS 文件：
 - HAR / cURL：
+- RuyiTrace NDJSON：
+- 证据门禁结果（`check_evidence.js` 输出：Step 1 / Step 2 是否跳过）：
 - 其他说明：
+> 注：URL 不是材料。仅提供 URL 时本 case 必须走完整两步取证，本栏应注明"仅 URL，无手动材料"。
 
 ## 3. 取证流程与证据来源
 

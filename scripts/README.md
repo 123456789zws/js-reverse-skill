@@ -1,6 +1,6 @@
 # 脚本索引
 
-本目录包含 37 个脚本，按功能分为 8 类。SKILL.md 和 references/ 通过文件名引用，无需记忆路径。
+本目录包含 38 个脚本，按功能分为 8 类。SKILL.md 和 references/ 通过文件名引用，无需记忆路径。
 
 ## 环境检测（5 个）
 
@@ -12,10 +12,11 @@
 | `check_web_verify_patcher.js` | 检测可选参考资源 web-verify-patcher 是否可用（非必需，验证码答案层已内化） | `node check_web_verify_patcher.js --markdown` |
 | `precheck_runtime.js` | 六项纯计算预检（Node.js 侧） | `node precheck_runtime.js --markdown` |
 
-## 质量检查 / 交付门禁（9 个）
+## 质量检查 / 交付门禁（10 个）
 
 | 脚本 | 功能 | 触发阶段 | 典型用法 |
 |------|------|---------|---------|
+| `check_evidence.js` | 取证证据门禁：判定 Step 1（ruyipage 网络取证）与 Step 2（RuyiTrace 日志采集）证据是否真实存在，URL 不算证据；声称"用户提供证据"前必跑 | CHECK-3 / Phase 0.1 | `node check_evidence.js --case-dir case --url <目标URL> --inputs <材料路径> --markdown` |
 | `check_intake.js` | 校验 task.md 目标字段完整性（URL / API / 参数名 / 样本等） | Phase 0 | `node check_intake.js --input task.md --markdown` |
 | `check_code_quality.js` | 检查代码简洁性 / 模块化 / 中文注释 UTF-8 编码 | Phase 5 | |
 | `check_final_artifact.js` | 检查交付目录规范 / 单一入口 / 无浏览器自动化 / Session 客户端 | Phase 5 | |

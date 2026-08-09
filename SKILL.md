@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.0.0
+version: 2.0.1
 description: >
   网页端 JS 逆向工程技能：逆向还原浏览器请求中的加密参数、签名、token、cookie 与设备指纹。
   适用于 sign/a_bogus/X-Bogus/acw_sc__v2/hexin-v/FSSBBIl1UgzbN7N/_token 等各类动态参数的生成逻辑分析，
@@ -210,6 +210,8 @@ js-reverse-skill/
   本次目标: ______ (一句话)
   用户输入: URL = ______, 目标参数 = ______ (可为空，自动识别)
   取证模式: ruyipage + RuyiTrace（统一模式，不再分级）
+  证据门禁: 运行 node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <用户材料> --markdown
+            → 输出"可跳过 Step 1 / Step 2"判定；仅 URL 无材料 → 两步全做（禁止跳过 trace）
   合规: 最终方案必须为纯协议脚本（见红线 4-5）
   参数范围: 初始=用户指定; Phase 1.2 识别完整加密参数清单后，若发现额外参数需再次向用户确认拟解决范围（默认=用户指定，额外参数逐项勾选），确认后才继续
 
@@ -226,7 +228,7 @@ js-reverse-skill/
 
 1. **未做 CHECK-1 到 CHECK-3 完整复述**，直接调用工具
 2. **跳过 cases/ 经验库速查**，对已有案例重新分析（注意：命中案例≠直接复用，必须过 CHECK-2 的版本时效性校验）
-3. **取证环节使用禁用工具**——取证只允许三个来源：① ruyipage 定制 Firefox（经 `scripts/forensic_ruyipage.py` 通用脚本）② RuyiTrace 定制 trace Firefox（经 `scripts/capture_ruyitrace_log.js`）③ 用户手动提供材料。严禁：chrome-devtools 类 MCP、agent-browser / browser 类 skill、Playwright/Puppeteer/Selenium 及其 MCP、系统 Chrome/Firefox/Edge 打开目标站、requests/urllib/curl 直接下载目标 JS、向任何非 ruyi 系浏览器注入 hook
+3. **取证环节使用禁用工具**——取证只允许三个来源：① ruyipage 定制 Firefox（经 `scripts/forensic_ruyipage.py` 通用脚本）② RuyiTrace 定制 trace Firefox（经 `scripts/capture_ruyitrace_log.js`）③ 用户手动提供材料。严禁：chrome-devtools 类 MCP、agent-browser / browser 类 skill、Playwright/Puppeteer/Selenium 及其 MCP、系统 Chrome/Firefox/Edge 打开目标站、requests/urllib/curl 直接下载目标 JS、向任何非 ruyi 系浏览器注入 hook。**且"用户提供证据"必须真实存在并经 `scripts/check_evidence.js` 门禁验证（URL 不是证据，见红线 3 附加条款）；禁止仅凭用户给了 URL 就宣称已具备证据跳过取证**
 4. **最终方案使用浏览器自动化方式完成**（禁止用自动化过反爬挑战、禁止用浏览器拿 cookie 硬编码、禁止交付物含 Playwright/Puppeteer/Selenium/ruyipage 等任何浏览器自动化代码）
 5. **关键业务 cookie 从浏览器抓包硬编码到最终代码**
 
@@ -275,7 +277,20 @@ js-reverse-skill/
 **取证来源白名单（仅这三个，无例外）**：
 1. ruyipage 定制 Firefox —— 一律经通用脚本 `scripts/forensic_ruyipage.py`，JS 由脚本落盘 `case/js/original/`
 2. RuyiTrace 定制 trace Firefox —— 经 `scripts/capture_ruyitrace_log.js` 采集 NDJSON
-3. 用户手动提供材料 —— cURL / HAR / JS 文件 / 调用栈截图 / NDJSON
+3. 用户手动提供材料 —— **真实存在的取证文件**：cURL 文本 / HAR 文件 / JS 文件 / 调用栈截图 / NDJSON
+
+> ⚠️ **URL ≠ 证据（硬约束）**：目标网站 URL、接口 URL、JS 文件 URL 都只是"目标地址"，不是取证材料。用户只给 URL 时，**必须**走完整两步取证（Step 1 ruyipage 网络取证 + Step 2 RuyiTrace 日志采集），禁止以"用户提供了证据"为由跳过 trace。
+>
+> **证据真实性门禁（声称"用户提供证据"前必跑）**：
+> 运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <用户材料路径,逗号分隔> --markdown`，
+> 脚本会实际扫描 case 目录取证产物 + 校验用户材料文件是否存在，判定 Step 1 / Step 2 各自证据是否真实具备、能否跳过对应步骤。
+> 判定规则：
+> - 仅提供 URL（无任何文件）→ 两步全做，**禁止跳过 trace**
+> - 提供 cURL/HAR/JS 文件 → 只能跳过 Step 1 网络取证；**Step 2 RuyiTrace 日志采集仍不可跳过**（RuyiTrace NDJSON 是补环境证据的唯一来源）
+> - 提供 RuyiTrace NDJSON（`*.ndjson`）→ 可跳过 Step 2 日志采集，但 Step 1 网络取证（或用户 HAR/JS/cURL 材料）仍需具备
+> - 声称提供但文件不存在的材料 → 不算证据，且会在门禁输出中警告
+>
+> **红线 3 附加条款**：任何"跳过取证 / 已具备证据"的判定都必须以 `check_evidence.js` 输出为准。未运行门禁就宣称"用户提供了证据"并跳过 trace = 违规。
 
 **取证禁用清单（任一使用即违反红线 3）**：
 - ❌ chrome-devtools 类 MCP（Chrome/Edge DevTools 抓包、截图、evaluate、hook）
@@ -286,8 +301,8 @@ js-reverse-skill/
 
 **Hook 的定位（默认不走）**：主流程 = ruyipage + RuyiTrace 两步取证 → NDJSON 日志分析，**全程不需要 hook**。仅当 NDJSON 证据缺失 / 未覆盖 / 疑似截断时，才按 Phase 3.4 的 hook 模板补充观察，且 hook 只能注入 ruyipage 定制 Firefox（白名单 ①），禁止注入其他任何浏览器。
 
-**用户提供完整 cURL/HAR + JS 文件时**，可跳过 Step 1，直接进入 Step 2 + 参数识别。
-**用户未选择前不启动任何浏览器工具**。默认走两步取证；用户明确要求手动取证时，按用户提供材料分析。
+**用户提供真实取证文件（cURL/HAR/JS）时**，经 `check_evidence.js` 门禁确认后可跳过 Step 1，直接进入 Step 2（RuyiTrace 日志采集）+ 参数识别；**仅提供 URL 或证据门禁不通过时，一律走完整两步取证**。
+**用户未选择前不启动任何浏览器工具**。默认走两步取证；用户明确要求手动取证时，按用户提供材料分析（同样必须先过证据门禁）。
 
 ---
 
@@ -331,12 +346,13 @@ js-reverse-skill/
 ### Phase 0：任务确认 + 环境搭建
 
 **0.1 任务理解**：
-- 用户提供 cURL/HAR/JS 文件 → 从包中提取信息，跳过 Phase 1 ruyipage 抓包，直接进入参数识别
-- 用户只提供 URL + 参数名 → 走完整 Phase 1 ruyipage 抓包
+- 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实性，门禁通过后从包中提取信息，跳过 Phase 1 ruyipage 抓包，直接进入参数识别（**仍必须完成 Phase 2 RuyiTrace 日志采集，除非用户提供了 NDJSON**）
+- 用户只提供 URL + 参数名（无任何取证文件）→ 走完整 Phase 1 ruyipage 抓包 + Phase 2 RuyiTrace 日志采集；**URL 不是证据，禁止以"用户提供了证据"跳过 trace**
 - 两种情况下都需下载目标 JS 文件用于识别反爬类型
 
 **0.2 信息完整性门禁**：
 - **必填**：目标 URL、目标参数名（可为空，自动识别）
+- **必填**：取证证据门禁结果（`check_evidence.js` 输出：Step 1 / Step 2 证据是否具备、可跳过哪些步骤）
 - **用户提供时**：目标 API、请求方法、参数位置、成功请求样本、响应特征
 - **自动获取时**（Phase 1 ruyipage 抓包填充）：上述字段
 - **可选确认**：TLS 客户端、登录态
@@ -376,7 +392,7 @@ case 根目录只允许两个子目录：
 
 ### Phase 1：ruyipage 网络取证（Step 1）
 
-> 用户提供 cURL/HAR + JS 文件时，跳过 1.1 抓包，从 1.2 开始。
+> 用户提供 cURL/HAR/JS 文件（经 `check_evidence.js` 门禁确认）时，跳过 1.1 抓包，从 1.2 开始。仅提供 URL → 必须从 1.1 开始完整抓包。
 
 **1.1 ruyipage 抓包**（一次抓完，不复抓；必须用通用脚本，禁止手写）：
 
@@ -724,5 +740,6 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 
 | 版本 | 摘要 |
 |------|------|
+| 2.0.1 | 取证证据门禁：新增 `scripts/check_evidence.js`，明确 **URL ≠ 证据**（红线 3 附加条款）——用户只给 URL 必须走完整两步取证；cURL/HAR/JS 文件仅能跳过 Step 1，Step 2 RuyiTrace 日志采集不可跳过（除非提供 NDJSON）；"用户提供证据"判定一律以门禁脚本输出为准 |
 | 2.0.0 | 验证码能力成为核心：新增易盾无感(type=5)+滑块(type=2) 成功案例、click_gap.py 人工点击工具、经验法则第 20 条（成功样本先全字段解密）；ddddocr 用法对齐官方 README；答案层/人工接管/打码三级降级路径 |
 | 1.x | 会话续接机制（CHECK-0 环境快照）、iframe 补环境专项、xbs 内容吸纳（addon-api/xhr-fetch 语义/trace 一致性等） |

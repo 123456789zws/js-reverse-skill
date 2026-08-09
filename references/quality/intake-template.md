@@ -1,8 +1,8 @@
 # 信息收集模板
 
 > **输入方式**：
-> - 用户提供 cURL/HAR/JS 文件 → 直接从包中提取信息，跳过 Phase 1 ruyipage 抓包
-> - 用户只提供 URL + 参数名 → Phase 1 ruyipage 自动抓包获取其余信息
+> - 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实存在，门禁通过后从包中提取信息，跳过 Phase 1 ruyipage 抓包
+> - 用户只提供 URL + 参数名 → Phase 1 ruyipage 自动抓包获取其余信息；**URL 不是取证材料，不能作为跳过 trace 的证据**
 >
 > 本模板用于用户主动补充信息或 skill 抓包后确认信息时使用。
 
@@ -11,15 +11,21 @@
 - **目标 URL**（必填）：页面 URL 或 API URL
 - **目标加密参数名**（可选）：如 sign / a_bogus / token；为空时 skill 自动识别可疑参数
 
-> 用户只提供 URL 时，skill 通过 Phase 1 ruyipage 抓包获取：目标 API、请求方法、参数位置、成功请求样本、响应特征、反爬类型。
+> 用户只提供 URL 时，skill 通过 Phase 1 ruyipage 抓包 + Phase 2 RuyiTrace 日志采集获取：目标 API、请求方法、参数位置、成功请求样本、响应特征、反爬类型、补环境证据。
 > 抓包遇到登录/交互/验证码时暂停，要求用户补充请求包。
 
 ## 用户提供 cURL/HAR/JS 文件时
 
-用户提供以下任一形式即可：
-- cURL（Copy as cURL）
+用户提供以下任一**真实存在的文件**即可：
+- cURL（Copy as cURL 文本，需先落盘为文件如 `case/notes/user-curl.txt`）
 - HAR 文件
-- 原始请求/响应报文
+- JS 文件
+- RuyiTrace NDJSON 日志（提供后可直接跳过 Step 2 日志采集）
+- 调用栈截图
+
+> ⚠️ **URL ≠ 证据**：目标页 URL、接口 URL、JS 文件 URL 都只是"目标地址"，不是取证材料。仅提供 URL 时必须走完整两步取证（ruyipage 网络取证 + RuyiTrace 日志采集），禁止以"用户提供了证据"为由跳过 trace。
+>
+> 所有"用户已提供材料"的判定，必须先用 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径,逗号分隔> --markdown` 验证文件真实存在，并以脚本输出的可跳过步骤为准。
 
 从包中直接提取：目标 API、请求方法、参数位置、成功请求样本、响应特征、JS 文件 URL。跳过 Phase 1 抓包，但仍需下载 JS 文件识别反爬类型。
 

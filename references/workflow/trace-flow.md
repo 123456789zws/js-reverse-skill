@@ -208,6 +208,8 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --tr
 ## RuyiTrace 优先诊断原则
 
 > RuyiTrace NDJSON 不是可选参考，而是逆向分析的优先证据源。必须先完成 Step 1（ruyipage 网络取证）拿到 JS 文件和网络包，再进行 Step 2（RuyiTrace 日志采集）。
+>
+> **Step 2 不可跳过的硬约束**：本 skill 以 RuyiTrace NDJSON 为主要证据进行分析。用户提供 cURL/HAR/JS 文件只能跳过 Step 1 网络取证，**Step 2 RuyiTrace 日志采集仍必须完成**（唯一例外：用户提供真实存在的 RuyiTrace NDJSON 日志）。仅提供 URL 时两步全做，禁止以"用户提供了证据"为由跳过 trace。任何"跳过取证 / 已具备证据"判定必须先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <用户材料> --markdown`，以脚本输出为准。
 
 1. 进入 Node.js 补环境前，必须先确认是否已经采集并导入 RuyiTrace NDJSON。
 2. 如果已有 NDJSON，先运行 `import_ruyitrace_log.js` 生成 `notes/ruyitrace-summary.md`，再阅读摘要和必要的原始日志片段。

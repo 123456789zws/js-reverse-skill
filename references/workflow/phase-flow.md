@@ -7,12 +7,13 @@
 ## Phase 0：任务确认 + 环境搭建
 
 ### 0.1 任务理解
-- 用户提供 cURL/HAR/JS 文件 → 从包中提取信息，跳过 Phase 1 ruyipage 抓包，直接进入参数识别
-- 用户只提供 URL + 参数名 → 走完整 Phase 1 ruyipage 抓包
+- 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实性，门禁通过后从包中提取信息，跳过 Phase 1 ruyipage 抓包，直接进入参数识别（**仍必须完成 Phase 2 RuyiTrace 日志采集，除非用户提供了 NDJSON**）
+- 用户只提供 URL + 参数名（无任何取证文件）→ 走完整 Phase 1 ruyipage 抓包 + Phase 2 RuyiTrace 日志采集；**URL 不是证据，禁止以"用户提供了证据"跳过 trace**
 - 两种情况下都需下载目标 JS 文件用于识别反爬类型
 
 ### 0.2 信息完整性门禁
 - **必填**：目标 URL、目标参数名（可为空，自动识别）
+- **必填**：取证证据门禁结果（`check_evidence.js` 输出：Step 1 / Step 2 证据是否具备、可跳过哪些步骤）
 - **用户提供时**：目标 API、请求方法、参数位置、成功请求样本、响应特征
 - **自动获取时**（Phase 1 ruyipage 抓包填充）：上述字段
 - **可选确认**：TLS 客户端、登录态
@@ -21,6 +22,7 @@
 - 未确认授权 / 登录状态：不得尝试绕过登录、验证码、MFA
 - 未确认目标参数：skill 列出可疑参数后用户未确认，不得只盯单一参数进入补环境
 - 抓包遇到登录/交互/验证码：暂停要求用户补充请求包
+- **证据门禁不通过**（仅 URL / 声称材料不存在）：不得跳过取证，必须走完整两步取证
 
 ### 0.3 环境检测（自动安装模式）
 ```
@@ -48,7 +50,7 @@ case 根目录只允许两个子目录：
 
 ## Phase 1：ruyipage 网络取证（Step 1）
 
-> 用户提供 cURL/HAR + JS 文件时，跳过 1.1 抓包，从 1.2 开始。
+> 用户提供 cURL/HAR/JS 文件（经 `check_evidence.js` 门禁确认）时，跳过 1.1 抓包，从 1.2 开始。仅提供 URL → 必须从 1.1 开始完整抓包。
 
 ### 1.1 ruyipage 抓包（一次抓完，不复抓）
 1. 运行通用脚本 `python scripts/forensic_ruyipage.py --url <目标页> --targets "<接口关键词>" --browser-path <定制Firefox>`（内部已用 `targets=True` 抓全部包并落盘 JS 到 `case/js/original/`，不必手写 `page.capture.start`）

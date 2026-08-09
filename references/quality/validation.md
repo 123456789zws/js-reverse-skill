@@ -19,7 +19,26 @@
 
 输入：`目标网站：https://example.com` + `加密参数：sign`
 
-期望：不进入正式流程，要求补充 API URL、请求方法、参数位置、成功请求样本、取证模式和 TLS 客户端。
+期望：
+- 不进入正式流程，要求补充 API URL、请求方法、参数位置、成功请求样本、取证模式和 TLS 客户端。
+- 运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --markdown`，判定为"仅提供 URL，URL 不是证据"，必须走完整两步取证（ruyipage 网络取证 + RuyiTrace 日志采集），禁止以"用户提供了证据"为由跳过 trace。
+
+### 测试 2.1：用户声称提供证据但只有 URL
+
+输入：`我有证据：https://example.com/sign.js`（或任何纯 URL）
+
+期望：
+- 不认为 URL 是取证材料，不跳过任何取证步骤。
+- 证据门禁输出"仅 URL 无材料"，要求走完整两步取证或提供真实存在的取证文件（NDJSON / HAR / cURL / JS / 截图）。
+- 不写"根据用户提供的证据直接开始分析"之类的结论。
+
+### 测试 2.2：用户提供 NDJSON 证据
+
+输入：用户提供 `trace_xxx.ndjson` 文件路径。
+
+期望：
+- `check_evidence.js` 判定 Step 2（RuyiTrace 日志）证据具备、可跳过日志采集。
+- 若 case 目录尚无 Step 1 证据（capture.json / JS 落盘 / 用户 HAR·JS·cURL 材料），Step 1 网络取证仍须完成。
 
 ### 测试 3：提供完整必填信息
 
