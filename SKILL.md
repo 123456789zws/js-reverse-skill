@@ -1,5 +1,6 @@
 ---
 name: js-reverse-skill
+version: 2.0.0
 description: >
   网页端 JS 逆向工程技能：逆向还原浏览器请求中的加密参数、签名、token、cookie 与设备指纹。
   适用于 sign/a_bogus/X-Bogus/acw_sc__v2/hexin-v/FSSBBIl1UgzbN7N/_token 等各类动态参数的生成逻辑分析，
@@ -719,4 +720,9 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 
 ## 更新记录
 
-> 版本演进历史通过 git log 查阅。
+> 语义版本号见 front-matter `version`。完整演进历史通过 git log 查阅；以下为最近变更摘要。
+
+| 版本 | 摘要 |
+|------|------|
+| 2.0.0 | 验证码能力成为核心：新增易盾无感(type=5)+滑块(type=2) 成功案例、click_gap.py 人工点击工具、经验法则第 20 条（成功样本先全字段解密）；ddddocr 用法对齐官方 README；答案层/人工接管/打码三级降级路径 |
+| 1.x | 会话续接机制（CHECK-0 环境快照）、iframe 补环境专项、xbs 内容吸纳（addon-api/xhr-fetch 语义/trace 一致性等） |

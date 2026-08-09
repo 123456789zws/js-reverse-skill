@@ -43,7 +43,7 @@
 
 ```
 js-reverse-skill/
-├── SKILL.md              流程骨架 + 规则 + 索引（AI 加载的主文档）
+├── SKILL.md              流程骨架 + 规则 + 索引（AI 加载的主文档；版本号见 front-matter `version`）
 ├── README.md             本文件
 ├── assets/               可复用资产（AST 反混淆 + 补环境片段 + fixture 模板）
 ├── templates/            交付入口模板（6 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM / 验证码）
