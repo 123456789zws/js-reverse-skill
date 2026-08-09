@@ -18,8 +18,9 @@
 
 ```text
 ① 本地开源（默认）：ddddocr / OpenCV / 自训模型 —— 零按次成本、离线、可规模化
-② 打码平台（兜底）：云码 / 超级鹰 / 2Captcha / CapSolver —— 按次付费，低通过率或语义类题型时启用
-③ 人工接管（最后）：取证基线或上述全失败时
+② 人工点击（降级）：click_gap.py —— ddddocr/OpenCV 自动识别失效时（如易盾拼图块重着色），弹窗人工点击缺口
+③ 打码平台（兜底）：云码 / 超级鹰 / 2Captcha / CapSolver —— 按次付费，低通过率或语义类题型时启用
+④ 人工接管（最后）：取证基线或上述全失败时
 ```
 
 **交付语言选择**：ddddocr / OpenCV / Whisper 均为 Python 生态，答案层用这些工具时**优先选 `templates/captcha-verify-py/`（Python 版）**——solver 直接 `import ddddocr`，无需跨语言桥接。仅当封装层加密逻辑只在 Node 侧还原（vm 沙箱/JS 执行）时才用 `templates/captcha-verify/`（Node 版），此时 solver 需通过 `child_process` 或 HTTP 微服务调 Python ddddocr。
@@ -45,6 +46,21 @@ boxes = det2.detection(img_bytes)   # [[x1,y1,x2,y2], ...]
 ```
 
 注意：detection 只出候选框**不含语义**——"点所有公交车"这类需要再叠分类/CLIP 或走打码平台。
+
+## 人工点击降级（click_gap.py）
+
+当 ddddocr / OpenCV 自动识别不稳定时（典型：易盾拼图块重着色导致 Canny/Sobel/模板匹配失效），降级为人工点击：
+
+```bash
+python scripts/click_gap.py bg.jpg front.png --scale 2
+# → 弹窗显示背景图放大 2 倍 + 右上角拼图块参考叠加
+# → 鼠标左键点击缺口左边缘 → 输出 CSS x 坐标（整数）
+# → ESC 取消输出 NO_CLICK
+```
+
+输出 x 坐标直接喂给 final.js / final.py 的 `buildCheckData(token, x, width, trust)`。
+
+适用场景：开发调试期、低频调用、自动识别失效时的即时降级。不适合需要自动化/规模化的场景——此时走打码平台。
 
 ## 素材获取（封装层职责）
 

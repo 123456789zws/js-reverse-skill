@@ -114,7 +114,7 @@ ddddocr 不准 → **不要先换识别算法，先回头判 A/B/C**。复核：
 | --- | --- | --- | --- |
 | A 参数解密 | 逆向解密 load 响应字段 | — | — |
 | B 像素提取 | B-1 内存 Hook 坐标变量 | B-2 提取像素解码纯函数 | B-3 vm 沙箱执行 SDK 片段 |
-| C 图像识别 | ddddocr slide_match | OpenCV 模板/边缘/差分 | 打码平台 |
+| C 图像识别 | ddddocr slide_match | OpenCV 模板/边缘/差分 | 人工点击（`click_gap.py`）→ 打码平台 |
 
 ### 各厂商重点（坐标获取视角）
 
@@ -155,8 +155,9 @@ ddddocr 不准 → **不要先换识别算法，先回头判 A/B/C**。复核：
 1. ddddocr `slide_match` 不准 → 试 `slide_comparison`（单图模式）
 2. OpenCV 模板匹配（`cv2.matchTemplate` + `TM_CCOEFF_NORMED`）/ 边缘匹配（Canny + `findContours`）
 3. 有 fullbg（完整背景）时：`cv2.absdiff(bg, fullbg)` 差分定位缺口（精度最高）
-4. 以上都不稳 → 打码平台（`solver_request_template.py` + `solver-platform-recipes.md`）
-5. 打码也不稳 → 检查图片是否被缩放/裁剪/DPR 不一致（`map_coordinates.py` 换算验证）
+4. 以上都不稳 → **人工点击**（`scripts/click_gap.py`）：显示背景图放大 2 倍 + 拼图块参考叠加，用户点击缺口左边缘，输出 CSS x 坐标。适用于易盾等拼图块重着色导致自动识别失效的场景
+5. 人工点击也不适用（需自动化/规模化）→ 打码平台（`solver_request_template.py` + `solver-platform-recipes.md`）
+6. 打码也不稳 → 检查图片是否被缩放/裁剪/DPR 不一致（`map_coordinates.py` 换算验证）
 
 ### 极验 v4 专项注意（B 路线厂商实例）
 

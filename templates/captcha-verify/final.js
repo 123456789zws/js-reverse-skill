@@ -86,8 +86,14 @@ async function loadChallenge(session, config) {
 }
 
 /**
- * ② solve 阶段：下载素材 → 本地求解/打码 → answer JSON
+ * ② solve 阶段：下载素材 → 本地求解/人工点击/打码 → answer JSON
  * 返回：{ captcha_type, provider, offset/points, source_image_size, ... }（见 answer JSON 契约）
+ *
+ * solver 求解路径（按优先级）：
+ *   1. 本地开源：ddddocr slide_match / OpenCV 模板匹配（solver.mode='ddddocr'）
+ *   2. 人工点击：ddddocr/OpenCV 失效时（如易盾拼图块重着色），用 scripts/click_gap.py 人工点击
+ *      → Node 侧通过 child_process 调 Python click_gap.py，或预存坐标后命令行传入
+ *   3. 打码平台：solver.mode='platform'，走 solver_request_template.py 生成请求
  */
 async function solveCaptcha(session, config, loadResult) {
   // 下载素材（用与业务请求一致的 TLS 指纹客户端 + Session cookie）

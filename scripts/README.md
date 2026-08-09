@@ -1,6 +1,6 @@
 # 脚本索引
 
-本目录包含 36 个脚本，按功能分为 8 类。SKILL.md 和 references/ 通过文件名引用，无需记忆路径。
+本目录包含 37 个脚本，按功能分为 8 类。SKILL.md 和 references/ 通过文件名引用，无需记忆路径。
 
 ## 环境检测（5 个）
 
@@ -65,7 +65,7 @@
 | `write_markdown_utf8.js` | UTF-8 写入 Markdown（避免 Windows 编码问题） | `node write_markdown_utf8.js --input 草稿.md --out 最终项目总结.md --markdown` |
 | `write_stage_report.js` | UTF-8 写入中文命名阶段报告 | `node write_stage_report.js --case-dir case --stage <阶段名> --markdown` |
 
-## 验证码工具（8 个）
+## 验证码工具（9 个）
 
 | 脚本 | 功能 | 典型用法 |
 |------|------|---------|
@@ -74,6 +74,7 @@
 | `generate_motion_track.py` | 生成滑块/拖放/刮刮卡/连线轨迹 JSON；移植自 web-verify-patcher | `python generate_motion_track.py --mode slider --distance 128 --duration-ms 1100 --pretty` |
 | `analyze_tile_restore.py` | 切片乱序图片还原分析（tile-scramble）；移植自 web-verify-patcher | `python analyze_tile_restore.py --image scrambled.png --rows 3 --cols 3 --pretty` |
 | `solver_request_template.py` | 打码平台请求模板（通用占位骨架，平台字段按各平台 API 文档填；选型见 references/captcha/solver-platform-recipes.md）；移植自 web-verify-patcher | `python solver_request_template.py --platform yundama --captcha-type slide --pretty` |
+| `click_gap.py` | 人工点击缺口工具（OpenCV）：ddddocr 等自动识别失效时降级为人工点击，显示背景图放大 + 拼图块参考叠加，点击缺口左边缘输出 CSS x 坐标 | `python click_gap.py bg.jpg front.png --scale 2` |
 | `check_captcha_answer.js` | 校验答案层 answer JSON 是否符合 references/captcha/captcha-overview.md 接口契约 | `node check_captcha_answer.js --file answer.json --markdown` |
 | `check_success_baseline.js` | 验证码成功样本基线评估（Phase 5，≥5 次成功 + 新类型≥2 次） | `node check_success_baseline.js --file success_samples.json --markdown` |
 | `check_verification_attempts.js` | 验证码验证失败复盘（Phase 5，连续 5 次失败+诊断全 ok → 建议切打码平台） | `node check_verification_attempts.js --file attempts.json --markdown` |

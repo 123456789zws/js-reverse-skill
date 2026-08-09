@@ -48,6 +48,7 @@
 - 题型：滑块 / 点选 / 无感（type=5 INTELLISENSE 智能无感，`data.d` 恒空串、`m` 非空；滑块 type=2 `data.d` 非空、**`data.m` 恒空串**——d 与 m 的空串陷阱正好相反，易盾滑块案例实证）
 - 实测要点（见 `cases/yidun-intellisense-vm-env.md`）：SDK `core-optimi.*.min.js` obfuscator.io 混淆，vm 沙箱补环境直跑；自定义 AES（`__SEED_KEY__` 共享）+ 带 token 的 XOR 编码双层加密 `aes(xorEncode(token, 明文))`；行为采集 SDK neguardian 与 core-optimi **共用同一套 AES key**，`/v4/j/up` 的 `d` 服务端只校验可解密性，`p` 为页面固定 appId（错 → 5509）
 - 滑块实证（type=2，2026-08-09，纯协议 3/3 result:true，见 `cases/yidun-jigsaw.md`）：check 的 `data.m` 必须为空串 `""`（写数字 0 全量失败，真实 SDK 6 份样本一致）；`p` 明文=parseInt(slider.left)/320*100，slider.left=jigsaw.left-10.5，d 轨迹末点=jigsaw.left；坐标误差 6-13px 需 ±扫描；irToken 一次性
+- 缺口坐标获取：**ddddocr / OpenCV 自动识别不可用**（拼图块被重着色，偏差 12-145px），走 `scripts/click_gap.py` 人工点击或打码平台（`solver_request_template.py`）
 
 ### 阿里云 NoCaptcha / AWSC（标签：`aliyun-captcha`）
 
