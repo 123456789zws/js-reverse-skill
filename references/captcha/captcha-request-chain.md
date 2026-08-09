@@ -19,9 +19,10 @@
 
 ```text
 register?t=<gt>            → { challenge, gt, success }
+ajax.php?gt&challenge&lang&pt=0&w=&callback=  → 初始化会话（必经，跳过则后续 get/ajax 全 error_31）
 gettype.php?gt&callback    → 题型声明
 get.php?gt&challenge&...   → { fullbg, bg, slice, challenge, xpos, ypos, ... }
-ajax.php?gt&challenge&lang → 提交 w（加密答案+轨迹）→ { validate } 或失败
+ajax.php?gt&challenge&lang → 提交 w（加密答案+轨迹，必须 GET + JSONP callback；POST 返回 error_31）→ { validate } 或失败
 业务接口                    → 携带 seccode = validate + "|jordan" 消费
 ```
 
@@ -34,7 +35,7 @@ w 参数明文结构示意（AES 加密明文，AES key 再 RSA 加密；**字�
   "imgload": "<图片加载耗时>",
   "ep": "<环境/版本相关字段>",
   "lang": "zh-cn",
-  "rp": "<md5(gt + challenge + passtime) 形态的校验值>",
+  "rp": "<md5(gt + challenge[:32] + h9s9) 形态的校验值；v3 实测为 h9s9（10 位数字串）非 passtime，以 case trace 为准>",
   "aa": "<轨迹数组：相对位移 x,y,t 序列，字段名以 trace 为准>"
 }
 ```
