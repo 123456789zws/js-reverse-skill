@@ -178,7 +178,7 @@ js-reverse-skill/
 
   验证码封装层（verify 接口加密参数 + 轨迹加密；题型识别/图像求解见 references/captcha/ 子域）:
     geetest / gt / challenge / captcha_id / lot_number / w 参数 / api.geetest.com / gcaptcha4.geetest.com
-      → 策略: trace 成功链路（用户手动过一次）+ verify 四层链路定位 + 答案层契约接入（坐标来源先判定 A/B/C，极验 v4 注意 bg 隐写）| 参考: references/captcha/captcha-overview.md + captcha-request-chain.md + captcha-solving-handoff.md（硬约束） + gap-coordinate-source.md | case: cases/geetest-slide-popup.md
+      → 策略: trace 成功链路（用户手动过一次）+ verify 四层链路定位 + 答案层契约接入（坐标来源先判定 A/B/C，极验 v4 注意 bg 隐写）| 参考: references/captcha/captcha-overview.md + captcha-request-chain.md + captcha-solving-handoff.md（硬约束） + gap-coordinate-source.md
     数美 shumei-captcha / smcp.min.js / initSMCaptcha / organization / rid
       → 策略: 同上（注意 conf 动态加密配置）| 参考: references/captcha/captcha-providers.md
     顶象 dingxiang-captcha / constId / dx-captcha；腾讯 tencent-tcaptcha / aid / ticket；阿里云 aliyun-captcha / nc_ / AWSC / afs

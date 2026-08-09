@@ -363,5 +363,4 @@ iframeCtx.navigator = mainCtx.navigator;
 
 | 案例文件 | 关联点 |
 |---------|--------|
-| `cases/geetest-slide-popup.md` | 极验 v3 滑块 iframe 弹窗 |
 | `cases/jsvmp-xhr-interceptor-env-emulation.md` | XHR 拦截器与 iframe 的环境差异 |
