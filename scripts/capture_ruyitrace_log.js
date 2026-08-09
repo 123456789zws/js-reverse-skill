@@ -167,6 +167,25 @@ function waitForExit(child, timeoutMs) {
   });
 }
 
+// 结束整个浏览器进程树（Firefox 多进程）：Windows 用 taskkill /T /F，其他平台杀进程组。
+// 仅 child.kill() 只杀直接 spawn 的主进程，content/GPU 子进程会残留并锁住 profile。
+function killProcessTree(pid) {
+  return new Promise((resolve) => {
+    if (!pid) { resolve(false); return; }
+    const cmd = process.platform === 'win32'
+      ? spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true })
+      : spawn('kill', ['-TERM', `-${pid}`], { windowsHide: true });
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      resolve(ok);
+    };
+    cmd.once('error', () => finish(false));
+    cmd.once('exit', (code) => finish(code === 0));
+  });
+}
+
 function importLog(caseDir, file, markdown) {
   const script = path.join(__dirname, 'import_ruyitrace_log.js');
   const args = [script, '--input', file, '--case-dir', caseDir, '--truncation-threshold', '3900', markdown ? '--markdown' : '--json'];
@@ -188,24 +207,39 @@ async function capture(args, plan) {
     pid: child.pid,
     waitedSeconds: args.duration,
     killAttempted: false,
+    killMethod: '',
+    killOk: false,
     exit: null,
     logs: [],
     importResult: null,
   };
   child.on('error', (err) => { result.launchError = err.message || String(err); });
-  await wait(args.duration * 1000);
-  if (result.launchError) {
-    result.exit = { exited: false, code: null, signal: null };
-    result.logs = [];
-    return result;
-  }
-  const exitBeforeKill = await waitForExit(child, 200);
-  if (!exitBeforeKill.exited) {
-    result.killAttempted = true;
-    try { child.kill(); } catch (err) { result.killError = err.message || String(err); }
-    result.exit = await waitForExit(child, 3000);
-  } else {
-    result.exit = exitBeforeKill;
+  try {
+    await wait(args.duration * 1000);
+  } finally {
+    // 采集结束（成功或异常）一律主动关闭浏览器进程树，避免残留进程锁住 profile
+    if (!result.launchError) {
+      const exitBeforeKill = await waitForExit(child, 200);
+      if (!exitBeforeKill.exited) {
+        result.killAttempted = true;
+        result.killMethod = process.platform === 'win32' ? 'taskkill-tree' : 'kill-group';
+        try {
+          result.killOk = await killProcessTree(child.pid);
+          if (!result.killOk) {
+            result.killError = 'taskkill 进程树结束失败，回退 child.kill()';
+            try {
+              child.kill();
+              result.killOk = await waitForExit(child, 3000).then((e) => e.exited);
+            } catch (err) {
+              result.killError = err.message || String(err);
+            }
+          }
+        } catch (err) {
+          result.killError = err.message || String(err);
+        }
+      }
+      result.exit = await waitForExit(child, 3000);
+    }
   }
   result.logs = listNdjsonFiles(plan.outDir, startedAt);
   if (args.importAfter && result.logs.length) {
@@ -247,6 +281,7 @@ function renderMarkdown(obj) {
   lines.push(`- 是否已启动：${result.launched ? '是' : '否'}`);
   if (result.pid) lines.push(`- 进程 PID：${result.pid}`);
   lines.push(`- 是否尝试结束进程：${result.killAttempted ? '是' : '否'}`);
+  if (result.killAttempted) lines.push(`- 结束方式：${result.killMethod}，是否成功：${result.killOk ? '是' : '否'}${result.killError ? `（${result.killError}）` : ''}`);
   lines.push(`- 发现 NDJSON 数量：${result.logs.length}`);
   for (const file of result.logs) lines.push(`  - ${file}`);
   if (!result.logs.length) {

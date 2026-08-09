@@ -31,6 +31,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
@@ -400,90 +401,154 @@ def _write_outputs(args, browser_path, records_meta, target_hits, fingerprint, b
     }
 
 
-def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
-    """ruyiPage 取证主流程：启动浏览器 → 抓全部包 → 分类（元数据/JS/目标）→ JS 落盘 → 报告。"""
-    from ruyipage import FirefoxPage
+def _resolve_browser_pid(page) -> Optional[int]:
+    """尽力从 ruyipage 页面对象解析浏览器主进程 PID；解析不到返回 None。"""
+    if page is None:
+        return None
+    for holder in (page, getattr(page, "browser", None), getattr(page, "driver", None)):
+        if holder is None:
+            continue
+        for attr in ("pid", "process_id", "browser_pid"):
+            v = getattr(holder, attr, None)
+            if isinstance(v, int) and v > 0:
+                return v
+            if isinstance(v, str) and v.isdigit():
+                return int(v)
+    return None
 
-    opts = build_options(args, browser_path)
-    ctx = apply_smart_fingerprint(opts, args)
 
-    logger.info("启动有头 ruyiPage 定制 Firefox 取证：%s", browser_path)
-    page = FirefoxPage(opts)
-    if ctx is not None:
-        applied = ctx.apply_emulation(page)
-        logger.info("智能指纹仿真已注入：%s", applied)
-
-    regexes = []
-    if args.targets_regex:
-        for r in args.targets_regex.split(","):
-            r = r.strip()
-            if r:
-                regexes.append(re.compile(r))
-    substrings = [s.strip() for s in (args.targets or "").split(",") if s.strip()]
-
-    # 硬约束：capture.start 必须在 get 之前
-    page.capture.start(targets=True, collect_bodies=True)
-    logger.info("capture 已启动（targets=True 抓全部包）")
-
-    page.get(args.url, timeout=args.wait + 20)
-
-    if args.manual_pause:
-        input("在浏览器中完成登录 / 业务操作后按回车继续取证...")
-
-    _trigger_actions(page, args, args.human_algorithm)
-
-    first = page.capture.wait(timeout=args.wait, count=1)
-    if first is None:
-        logger.warning("等待 %ss 未捕获到任何包", args.wait)
-    else:
-        logger.info("已捕获首个包：%s", first.url)
-
-    if args.settle > 0:
-        import time
-        logger.info("静置 %ss 等待剩余流量...", args.settle)
-        time.sleep(args.settle)
-
-    page.capture.stop()
-    steps = page.capture.steps
-
-    records_meta, js_records, target_hits, js_dir = _classify_packets(
-        steps, args, substrings, regexes
-    )
-
-    webdriver_flag, wd_err = _eval_js(page, "return navigator.webdriver === true")
-    cookies = []
+def _kill_process_tree(pid: int) -> bool:
+    """强制结束进程树：Windows 用 taskkill /T /F，其他平台 kill 进程组。"""
+    if not pid or pid <= 0:
+        return False
     try:
-        cookies = page.get_cookies(all_info=True)
+        if os.name == "nt":
+            cmd = ["taskkill", "/PID", str(pid), "/T", "/F"]
+        else:
+            cmd = ["kill", "-TERM", "-%d" % pid]
+        ret = subprocess.run(cmd, capture_output=True, timeout=15)
+        return ret.returncode == 0
     except Exception as e:
-        logger.warning("读取 Cookie 失败：%s", e)
+        logger.warning("进程树兜底结束异常：%s", e)
+        return False
 
-    accepted, only_options = _split_acceptance(target_hits)
 
-    baseline_id = args.baseline_id or uuid.uuid5(
-        uuid.NAMESPACE_URL, os.path.abspath(args.case_dir)
-    ).hex
+def _close_browser(page) -> str:
+    """主动关闭取证浏览器。
 
-    fingerprint = None
-    if ctx is not None:
-        try:
-            fingerprint = ctx.to_dict()
-        except Exception as e:
-            logger.warning("指纹 to_dict 失败：%s", e)
-
-    has_filter = bool(substrings) or bool(regexes)
-    result = _build_result(
-        args, browser_path, baseline_id, fingerprint, cookies,
-        records_meta, js_records, target_hits, accepted, only_options,
-        webdriver_flag, wd_err, has_filter,
-    )
-    result["outputs"] = _write_outputs(
-        args, browser_path, records_meta, target_hits, fingerprint, baseline_id, js_dir
-    )
+    返回状态：none（未启动）/ closed（优雅关闭）/ force-killed（优雅失败后进程树兜底）/
+    failed（优雅与兜底均失败，可能残留进程）。
+    """
+    if page is None:
+        return "none"
     try:
         page.close()
-    except Exception:
-        pass
-    return result
+        return "closed"
+    except Exception as e:
+        logger.warning("page.close() 失败（%s），尝试进程树兜底结束", e)
+        pid = _resolve_browser_pid(page)
+        if pid is None:
+            logger.warning("无法解析浏览器进程 PID，无法兜底结束，浏览器可能残留")
+            return "failed"
+        if _kill_process_tree(pid):
+            logger.info("已强制结束浏览器进程树（PID %s）", pid)
+            return "force-killed"
+        logger.warning("进程树兜底结束失败（PID %s）", pid)
+        return "failed"
+
+
+def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
+    """ruyiPage 取证主流程：启动浏览器 → 抓全部包 → 分类（元数据/JS/目标）→ JS 落盘 → 报告。
+
+    浏览器生命周期：取证结束（成功或异常）一律在 finally 中主动关闭，
+    优雅 close 失败时做进程树兜底强制结束，避免残留进程锁住 profile。
+    """
+    from ruyipage import FirefoxPage
+
+    page = None
+    result = None
+    try:
+        opts = build_options(args, browser_path)
+        ctx = apply_smart_fingerprint(opts, args)
+
+        logger.info("启动有头 ruyiPage 定制 Firefox 取证：%s", browser_path)
+        page = FirefoxPage(opts)
+        if ctx is not None:
+            applied = ctx.apply_emulation(page)
+            logger.info("智能指纹仿真已注入：%s", applied)
+
+        regexes = []
+        if args.targets_regex:
+            for r in args.targets_regex.split(","):
+                r = r.strip()
+                if r:
+                    regexes.append(re.compile(r))
+        substrings = [s.strip() for s in (args.targets or "").split(",") if s.strip()]
+
+        # 硬约束：capture.start 必须在 get 之前
+        page.capture.start(targets=True, collect_bodies=True)
+        logger.info("capture 已启动（targets=True 抓全部包）")
+
+        page.get(args.url, timeout=args.wait + 20)
+
+        if args.manual_pause:
+            input("在浏览器中完成登录 / 业务操作后按回车继续取证...")
+
+        _trigger_actions(page, args, args.human_algorithm)
+
+        first = page.capture.wait(timeout=args.wait, count=1)
+        if first is None:
+            logger.warning("等待 %ss 未捕获到任何包", args.wait)
+        else:
+            logger.info("已捕获首个包：%s", first.url)
+
+        if args.settle > 0:
+            import time
+            logger.info("静置 %ss 等待剩余流量...", args.settle)
+            time.sleep(args.settle)
+
+        page.capture.stop()
+        steps = page.capture.steps
+
+        records_meta, js_records, target_hits, js_dir = _classify_packets(
+            steps, args, substrings, regexes
+        )
+
+        webdriver_flag, wd_err = _eval_js(page, "return navigator.webdriver === true")
+        cookies = []
+        try:
+            cookies = page.get_cookies(all_info=True)
+        except Exception as e:
+            logger.warning("读取 Cookie 失败：%s", e)
+
+        accepted, only_options = _split_acceptance(target_hits)
+
+        baseline_id = args.baseline_id or uuid.uuid5(
+            uuid.NAMESPACE_URL, os.path.abspath(args.case_dir)
+        ).hex
+
+        fingerprint = None
+        if ctx is not None:
+            try:
+                fingerprint = ctx.to_dict()
+            except Exception as e:
+                logger.warning("指纹 to_dict 失败：%s", e)
+
+        has_filter = bool(substrings) or bool(regexes)
+        result = _build_result(
+            args, browser_path, baseline_id, fingerprint, cookies,
+            records_meta, js_records, target_hits, accepted, only_options,
+            webdriver_flag, wd_err, has_filter,
+        )
+        result["outputs"] = _write_outputs(
+            args, browser_path, records_meta, target_hits, fingerprint, baseline_id, js_dir
+        )
+        return result
+    finally:
+        # 取证结束（成功或异常）一律主动关闭浏览器，避免残留进程 / profile 锁
+        closed = _close_browser(page)
+        if result is not None and isinstance(result, dict):
+            result["browserClosed"] = closed
 
 
 def _now() -> str:
@@ -598,6 +663,7 @@ def render_markdown(r: Dict[str, Any]) -> str:
     L.append(f"- 目标：{r.get('url')}")
     L.append(f"- ruyipage 版本：{r.get('ruyipageVersion')}")
     L.append(f"- 浏览器：{r.get('browserPath')}")
+    L.append(f"- 浏览器关闭状态：{r.get('browserClosed', 'unknown')}")
     L.append(f"- baselineId：{r.get('baselineId')}")
     L.append(f"- 抓包总数：{r.get('packetCount')}")
     L.append(f"- JS 文件数：{r.get('jsFileCount')}")
