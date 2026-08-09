@@ -74,7 +74,10 @@ with open("target.png", "rb") as f:
     target = f.read()
 with open("background.png", "rb") as f:
     background = f.read()
-print(det.slide_match(target, background))
+res = det.slide_match(target, background)
+# 返回 {'target': [x1, y1, x2, y2]}（bbox），缺口左边缘 x = res['target'][0]
+# 滑块无透明背景时加 simple_target=True；有 fullbg 时可用 slide_comparison(bg, fullbg) 双图差分
+print(res["target"][0])
 ```
 
 注意：视觉偏移正确不等于验证一定成功；厂商可能绑定行为采集、challenge id、浏览器状态或加密参数。

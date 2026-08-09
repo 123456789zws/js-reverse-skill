@@ -26,22 +26,26 @@
 
 切换条件（自动判断）：同一 challenge 素材本地求解置信度低，或连续失败复盘确认"视觉答案正确但验证失败"非轨迹/环境问题 → 升级路径。
 
-## ddddocr 三能力速查
+## ddddocr 三能力速查（用法与官方 README 一致）
 
 ```python
 import ddddocr
 
-# 文字类（text/math 题面）
+# 文字类（text/math 题面）：classification(image) → str
 ocr = ddddocr.DdddOcr(show_ad=False)
 text = ocr.classification(img_bytes)
 
-# 滑块类（双图：滑块图 + 背景图 → 缺口 x）
+# 滑块类算法1 边缘匹配（滑块图 target + 背景图 background）
 det = ddddocr.DdddOcr(det=False, ocr=False, show_ad=False)
-res = det.slide_match(target_bytes, background_bytes)   # {'target_x': ..., 'target': [...]}
+res = det.slide_match(target_bytes, background_bytes)   # {'target': [x1,y1,x2,y2]} bbox，取 res['target'][0] 为缺口左边缘 x
+# 滑块无透明背景时加 simple_target=True：det.slide_match(target_bytes, background_bytes, simple_target=True)
 
-# 目标检测（点选/图标类 → 候选框）
-det2 = ddddocr.DdddOcr(det=True, show_ad=False)
-boxes = det2.detection(img_bytes)   # [[x1,y1,x2,y2], ...]
+# 滑块类算法2 图像差异比较（带缺口阴影图 + 完整图，两图差分 → 点坐标）
+res2 = det.slide_comparison(bg_with_shadow_bytes, fullpage_bytes)   # {'target': [x, y]}
+
+# 目标检测（点选/图标类 → 候选框）：detection(image) → [[x1,y1,x2,y2], ...]
+det2 = ddddocr.DdddOcr(det=True, ocr=False, show_ad=False)
+boxes = det2.detection(img_bytes)
 ```
 
 注意：detection 只出候选框**不含语义**——"点所有公交车"这类需要再叠分类/CLIP 或走打码平台。

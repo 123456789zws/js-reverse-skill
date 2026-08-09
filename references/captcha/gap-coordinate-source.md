@@ -152,7 +152,7 @@ ddddocr 不准 → **不要先换识别算法，先回头判 A/B/C**。复核：
 
 ### C 路线升级（确认是纯图像题但 ddddocr 不准）
 
-1. ddddocr `slide_match` 不准 → 试 `slide_comparison`（单图模式）
+1. ddddocr `slide_match` 不准 → 有完整背景图（fullbg）时试 `slide_comparison`（双图差分：带缺口图 + 完整图，返回点坐标）；无 fullbg 时试 OpenCV 单图缺口边缘/对比
 2. OpenCV 模板匹配（`cv2.matchTemplate` + `TM_CCOEFF_NORMED`）/ 边缘匹配（Canny + `findContours`）
 3. 有 fullbg（完整背景）时：`cv2.absdiff(bg, fullbg)` 差分定位缺口（精度最高）
 4. 以上都不稳 → **人工点击**（`scripts/click_gap.py`）：显示背景图放大 2 倍 + 拼图块参考叠加，用户点击缺口左边缘，输出 CSS x 坐标。适用于易盾等拼图块重着色导致自动识别失效的场景

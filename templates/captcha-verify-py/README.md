@@ -56,6 +56,7 @@ def solve(image_bytes, captcha_type, options=None):
     slice_bytes = options.get("slice")
     if captcha_type == "slider" and slice_bytes:
         res = _det.slide_match(slice_bytes, image_bytes)
+        # res['target'] = [x1, y1, x2, y2]（bbox），x1 即缺口左边缘 x（官方 README 返回格式）
         x = res["target"][0]
         return {
             "captcha_type": "slider",
