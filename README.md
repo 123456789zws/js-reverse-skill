@@ -9,7 +9,7 @@
 | 来源 | 贡献 |
 |------|------|
 | [hello_js_reverse_skill](https://github.com/WhiteNightShadow/hello_js_reverse_skill) | 流程骨架 + 案例库 |
-| [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill) | 补环境流程 + 工具链 + web-verify-patcher 验证码识别/求解模块（已内化，见 `references/captcha/` + `scripts/classify_verify.py` 等） |
+| [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill) | 补环境流程 + 工具链 + web-verify-patcher 验证码识别/求解模块（ddddocr/坐标/轨迹脚本 + 题型分类器） |
 | [ruyipage](https://github.com/LoseNine/ruyipage) | Firefox WebDriver BiDi 取证 |
 | [RuyiTrace](https://github.com/LoseNine/Firefox-FingerPrint-Analyzer) | NDJSON trace 内核 |
 
@@ -37,6 +37,7 @@
 | 快手 (kuaishou.com) | `__NS_hxfalcon` / `kww`(Jose + kwpsec JSVMP) | ★★★ |
 | 政府监管类 (nmpa.gov.cn) | `FSSBBIl1UgzbN7N` / `sdenv`(魔改 jsdom + C++ Addon) | ★★★★ |
 | Gitee (gitee.com) | 百度 WAF 三件套 `nox_jst_v1` / `tox_token`(JSVMP + vm 沙箱补环境) | ★★★★ |
+| 网易易盾 (dun.163.com) | 无感(type=5) `data{d,m,p,ext}` + 滑块(type=2) `data{d,m,p,f,ext}`（vm 沙箱跑 core-optimi SDK + 自定义 AES/XOR） | ★★★★ |
 
 ## 目录结构
 

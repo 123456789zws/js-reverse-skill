@@ -6,9 +6,9 @@ description: >
   覆盖标准算法(md5/sha/aes/hmac/SM2/SM4/SM3)、自定义混淆、obfuscator.io、JSVMP 黑盒补环境、WASM 加密、
   TLS 指纹模拟、Session 请求链、反爬风控对抗等场景。
   新增验证码封装层逆向：geetest/数美/顶象/腾讯防水墙/易盾/阿里云等 verify 接口加密参数（w/cb/sig/token）、
-  轨迹加密、challenge 绑定的还原（答案层资产已集成，题型分类见 references/captcha/ 子域 + scripts/classify_verify.py）。
+  轨迹加密、challenge 绑定的还原；答案层资产（ddddocr/坐标/轨迹脚本 + 题型分类器 classify_verify.py）已内化。
   统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向，支持 Node.js / Python 双语言纯协议交付。
-  已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）/ 政府监管类等真实案例场景中得到实践（见 README「真实案例平台与参数」）。
+  已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）/ 政府监管类 / 易盾（无感+滑块验证码）等真实案例场景中得到实践（见 README「真实案例平台与参数」）。
   适用范围：浏览器网页 JS（含移动端 H5、微信/X5/QQB 内置浏览器）。
   不处理：App 内 JS/小程序容器/Windows/Native 逆向；默认不反编译 JSVMP 字节码源码。
 argument-hint: "<目标网站URL> <要还原的参数名> [目标接口URL]"
@@ -713,7 +713,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 脚本功能索引 | `scripts/README.md` | 脚本分类索引 + 典型用法 |
 | 交付模板索引 | `templates/README.md` | 7 类模板用途 + 引用关系 |
 
-> 注：验证码场景分层处理——**封装层逆向**（verify 接口加密参数、轨迹加密、challenge 绑定）走本 skill `references/captcha/` 子域；**题型识别与图像求解**本 skill 已集成常用资产（ddddocr/坐标/轨迹脚本），完整厂商信号表与题型分类器已集成于 references/captcha/ + scripts/classify_verify.py。
+> 注：验证码场景分层处理——**封装层逆向**（verify 接口加密参数、轨迹加密、challenge 绑定）走本 skill `references/captcha/` 子域；**题型识别与图像求解**走内化的答案层资产（ddddocr 识别 / 坐标换算 / 轨迹生成 / 题型分类器）。
 
 ---
 
