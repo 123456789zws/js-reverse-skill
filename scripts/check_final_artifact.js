@@ -49,6 +49,7 @@ function usage() {
 
 说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认可省略用当前目录。
 默认模式（解题必需）：检查 result 目录结构 / 唯一执行入口 / 无浏览器自动化代码 / 无硬编码或复用样本加密参数值 / result/最终项目总结.md 存在且包含默认 8 章 / result/经验沉淀-<站点>.md 存在 / result 无临时产物。
+TLS 客户端门禁豁免：代码内既无 TLS 兼容客户端又无"不发真实请求"标记时，可凭 result/ 或 case/ 下 Markdown 中的声明（"不发真实请求" / "只输出本地参数" / "目标无 TLS 指纹检测"等）豁免。
 --production（生产级交付）：在默认检查基础上，追加校验最终总结的 9 个生产级附加章节（NativeProtect / 指纹基线 / API 调用回放 / 高强度检测矩阵 / Session 请求链 / 加密参数生成与样本复用检查 / 代码质量与中文注释 / 清理结果 / 阶段报告索引）。
 --no-require-final-summary：仅当用户明确要求不生成最终总结时传入，并在阶段输出中记录豁免原因。
 --no-require-experience：仅当用户明确要求不沉淀经验时传入，并在阶段输出中记录豁免原因。`;
@@ -158,6 +159,16 @@ const NO_REAL_REQUEST_PATTERNS = [
   /\bno-real-request\b/i,
   /\bdryRunOnly\b/i,
   /\blocalSignOnly\b/i,
+];
+
+// 文档证据豁免：最终总结 / 经验沉淀 / notes / 阶段报告中出现"不发真实请求"或
+// "目标无 TLS 指纹检测需求"声明时，视为已明确不发真实请求，不再强制要求代码内 TLS 客户端或固定标记。
+const DOC_NO_REAL_REQUEST_PATTERNS = [
+  /不发真实请求|不发送真实请求|未(?:发|执行|进行)真实请求/,
+  /只输出本地\s*(?:sign|参数)|仅输出本地\s*(?:sign|参数)/i,
+  /无\s*TLS\s*指纹(?:检测)?/,
+  /未涉及\s*TLS|不涉及\s*TLS|TLS\s*[：:]\s*未涉及/,
+  /目标(?:网站|站点|接口|服务)?\s*(?:无|无需|不需要|不要求)\s*TLS/,
 ];
 
 const FINGERPRINT_RENDER_PATTERNS = [
@@ -512,6 +523,20 @@ function check(args) {
   const textFiles = resultFiles.filter(isTextLikeFile);
   const codeFiles = resultFiles.filter(isCodeLikeFile);
 
+  // 文档证据豁免：扫描 result/ 与 case/ 下的 Markdown（最终总结 / 经验沉淀 / notes / 阶段报告），
+  // 若声明"不发真实请求"或"目标无 TLS 指纹检测"，则 TLS 客户端 / Session 门禁不再强制。
+  const docNoRealRequestHits = [];
+  const docMdFiles = [];
+  for (const f of [...resultFiles, ...(exists(caseSubdir) ? walk(caseSubdir) : [])]) {
+    const st = stat(f);
+    if (st && st.isFile() && ext(f) === '.md' && !docMdFiles.includes(f)) docMdFiles.push(f);
+  }
+  for (const f of docMdFiles) {
+    const hits = findMatches(readText(f), DOC_NO_REAL_REQUEST_PATTERNS);
+    if (hits.length) docNoRealRequestHits.push({ file: rel(caseDir, f), hits });
+  }
+  const docNoRealRequest = docNoRealRequestHits.length > 0;
+
   if (primary && !exists(primary)) problems.push(`指定执行入口不存在：${primary}`);
   if (primary && exists(primary)) {
     const primaryExt = ext(primary);
@@ -548,10 +573,10 @@ function check(args) {
       const hits = findMatches(text, REQUEST_SESSION_PATTERNS);
       if (hits.length) sessionHits.push({ file: rel(caseDir, f), hits });
     }
-    if (!requestHits.length && !noRealRequestHits.length) {
-      problems.push('未检测到已确认的 TLS 指纹兼容请求客户端（Node.js CycleTLS / impers / curl-cffi-node，或 Python curl_cffi / cffi_curl / cyCronet）；最终验证不能依赖普通 fetch/requests 或浏览器自动化。如用户不发真实请求，入口必须明确只输出本地 sign / 参数。');
+    if (!requestHits.length && !noRealRequestHits.length && !docNoRealRequest) {
+      problems.push('未检测到已确认的 TLS 指纹兼容请求客户端（Node.js CycleTLS / impers / curl-cffi-node，或 Python curl_cffi / cffi_curl / cyCronet）；最终验证不能依赖普通 fetch/requests 或浏览器自动化。如用户不发真实请求，入口必须明确只输出本地 sign / 参数，或在最终总结 / 经验沉淀 / notes 中声明"不发真实请求"或"目标无 TLS 指纹检测"。');
     }
-    if (requestHits.length && !noRealRequestHits.length && !sessionHits.length) {
+    if (requestHits.length && !noRealRequestHits.length && !docNoRealRequest && !sessionHits.length) {
       problems.push('最终请求必须使用 Session 模式：即使只有一个请求，也要创建 session client，复用 Cookie jar / Header / UA / Client Hints / TLS 指纹，并在成功或失败后销毁 session。未检测到 createRequestSession / requests.Session / CookieJar / session.close 等证据。');
     }
   }
@@ -619,6 +644,8 @@ function check(args) {
     production: !!args.production,
     problems,
     warnings,
+    docNoRealRequest,
+    docNoRealRequestHits,
     reusedCryptoCheck: reuse,
     finalSummary: finalSummary.result,
     experience: experience.result,
@@ -643,7 +670,8 @@ function renderMarkdown(result) {
     '## 检查项',
     `- 是否只有一个执行入口：${result.problems.some(p => p.includes('执行入口')) ? '否' : '是'}`,
     `- 是否不含浏览器自动化代码：${result.problems.some(p => p.includes('自动化')) ? '否' : '是'}`,
-    `- 是否检测到 TLS 指纹兼容请求客户端或明确不发真实请求：${result.problems.some(p => p.includes('TLS 指纹兼容请求客户端')) ? '否' : '是'}`,
+    `- 是否检测到 TLS 指纹兼容请求客户端或明确不发真实请求（代码标记或文档声明均可豁免）：${result.problems.some(p => p.includes('TLS 指纹兼容请求客户端')) ? '否' : '是'}`,
+    `- 文档声明不发真实请求 / 目标无 TLS（TLS 门禁豁免依据）：${result.docNoRealRequestHits.length ? result.docNoRealRequestHits.map(x => `${x.file}(${x.hits.join('、')})`).join('；') : '无'}`,
     `- 是否使用 Session 模式并具备销毁逻辑：${result.problems.some(p => p.includes('Session 模式')) ? '否' : '是'}`,
     `- 是否不含指纹采样 Hook / Node.js 渲染库：${result.problems.some(p => p.includes('指纹采样 Hook') || p.includes('渲染库')) ? '否' : '是'}`,
     `- 是否未复用 cURL / fixture 中的加密参数样本值：${result.reusedCryptoCheck.reused.length || result.reusedCryptoCheck.hardcoded.length ? '否' : '是'}`,
