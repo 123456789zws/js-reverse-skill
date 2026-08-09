@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const https = require('https');
 const { spawnSync } = require('child_process');
 
 function parseArgs(argv) {
@@ -43,6 +44,7 @@ function usage() {
   node scripts/check_external_tools.js --quick
 
 说明：检测 ruyiPage Python 包、ruyiPage 定制 Firefox runtime、是否误用系统 Firefox fallback、RuyiTrace 目录结构。
+同时顺带对比 GitHub 最新 release：发现新版只提示、不自动更新；网络失败或限流时静默跳过，不影响检测结果。
 注意：选择 ruyiPage 时，只有“ruyiPage 包可用 + 定制 Firefox runtime 验证通过”才视为可用；普通系统 Firefox fallback 不视为通过。
 --quick：快速模式，只检测 Node.js 版本是否满足要求，不执行子命令、不扫描目录、不检测 ruyipage/ruyitrace。`;
 }
@@ -449,6 +451,8 @@ function detectRuyiPage(args) {
     smartFingerprintDependencyMissing: pkg.packageInstalled && !pkg.requestsAvailable,
     requestsAvailable: !!pkg.requestsAvailable,
     requestsError: pkg.requestsError || '',
+    minVersion: RUYIPAGE_MIN_VERSION,
+    packageVersionOk: (() => { const c = versionAtLeast(pkg.version, RUYIPAGE_MIN_VERSION); return c === null ? true : c; })(),
     managedRuntimeInstalled: verified.length > 0,
     managedRuntimeVerified,
     defaultRuntimeVerified: !!defaultCheck && defaultCheck.managedRuntimeVerified,
@@ -513,6 +517,14 @@ function detectRuyiTrace(args) {
   const firefoxExists = exists(firefoxExe);
   const markerExists = exists(marker);
   const kernelVerified = firefoxExists && markerExists;
+  // 尝试从目录名提取版本（如 RuyiTrace-2.5.5-win64 → 2.5.5）；install_all.js 归一为 tools/RuyiTrace 时无版本
+  const dirVersionMatch = /RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(home));
+  let version = dirVersionMatch ? dirVersionMatch[1] : '';
+  // 目录名无版本时，Windows 下从 RuyiTrace.exe 文件版本兜底
+  if (!version && exeExists && process.platform === 'win32') {
+    const ps = run('powershell', ['-NoProfile', '-NonInteractive', '-Command', `(Get-Item -LiteralPath @'\n${exe}\n'@).VersionInfo.ProductVersion`], 8000);
+    if (ps.ok && ps.stdout.trim()) version = ps.stdout.trim();
+  }
   return {
     installed: exeExists && kernelVerified,
     kernelVerified,
@@ -523,6 +535,7 @@ function detectRuyiTrace(args) {
     firefoxExists,
     marker,
     markerExists,
+    version,
     reason: exeExists && kernelVerified ? '' : 'RuyiTrace 目录不完整：需要 RuyiTrace 可执行文件、firefox/firefox(.exe) 以及 firefox/RUYI_DOMTRACE.txt',
   };
 }
@@ -532,6 +545,138 @@ function detectNode() {
   const nodeMajor = parseInt(nodeVersion.replace(/^v/, '').split('.')[0], 10) || 0;
   const nodeOk = nodeMajor >= 18;
   return { version: nodeVersion, ok: nodeOk, major: nodeMajor };
+}
+
+// ----- 版本更新提示（仅提示，不自动更新）-----
+const LATEST_RELEASES = [
+  { tool: 'ruyipage', owner: 'LoseNine', repo: 'ruyipage' },
+  { tool: 'ruyitrace', owner: 'LoseNine', repo: 'Firefox-FingerPrint-Analyzer' },
+];
+const UPDATE_FETCH_TIMEOUT = 8000;
+// 透明代理自签 CA 场景可显式开启（默认关闭，强制 TLS 校验），与 download_ruyi_tool.js 保持一致
+const TLS_OPTS = process.env.RUYI_INSECURE_TLS === '1'
+  ? { rejectUnauthorized: false }
+  : {};
+
+function httpsGetJson(url, timeout) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'js-reverse-skill-check' }, timeout, ...TLS_OPTS }, (res) => {
+      const { statusCode } = res;
+      if (statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`HTTP ${statusCode}`));
+      }
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch (err) { reject(new Error(`JSON 解析失败：${err.message}`)); }
+      });
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('请求超时')));
+    req.on('error', reject);
+  });
+}
+
+async function fetchLatestReleases() {
+  const results = {};
+  await Promise.all(LATEST_RELEASES.map(async ({ tool, owner, repo }) => {
+    try {
+      const json = await httpsGetJson(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, UPDATE_FETCH_TIMEOUT);
+      results[tool] = {
+        ok: true,
+        tag: String(json.tag_name || ''),
+        name: String(json.name || json.tag_name || ''),
+        url: String(json.html_url || ''),
+      };
+    } catch (err) {
+      results[tool] = { ok: false, error: err.message || String(err) };
+    }
+  }));
+  return results;
+}
+
+function parseVersion(v) {
+  const m = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(String(v || '').trim());
+  if (!m) return null;
+  return [parseInt(m[1], 10) || 0, parseInt(m[2], 10) || 0, parseInt(m[3], 10) || 0];
+}
+
+// 返回 1/0/-1（a>b / a==b / a<b），无法比较返回 null
+function compareVersion(a, b) {
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
+  if (!pa || !pb) return null;
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] > pb[i]) return 1;
+    if (pa[i] < pb[i]) return -1;
+  }
+  return 0;
+}
+
+// 返回 true=最新版更新，false=不更新或相同，null=无法比较
+function isNewer(latest, current) {
+  return compareVersion(latest, current) === 1;
+}
+
+// 返回 true=current 满足最低版本（>= min），null=无法比较
+function versionAtLeast(current, min) {
+  const c = compareVersion(current, min);
+  return c === null ? null : c >= 0;
+}
+
+// ruyipage 包最低版本：与 skill 内取证脚本 API 依据（>=1.2.45 内省确认）对齐
+const RUYIPAGE_MIN_VERSION = '1.2.45';
+
+function buildUpdates(result, latest) {
+  const updates = [];
+  const rp = result.ruyiPage;
+  const rt = result.ruyiTrace;
+
+  const ruyipageLatest = latest.ruyipage && latest.ruyipage.ok ? latest.ruyipage.tag : '';
+  if (ruyipageLatest) {
+    const pkgNewer = rp.packageInstalled && rp.version ? isNewer(ruyipageLatest, rp.version) : null;
+    if (pkgNewer === true) {
+      updates.push({
+        tool: 'ruyipage',
+        scope: 'ruyiPage Python 包',
+        local: rp.version,
+        latest: ruyipageLatest,
+        hint: 'python -m pip install ruyiPage requests --upgrade',
+        hintNote: '仅在用户确认后执行；升级后建议重跑本检测确认版本一致',
+      });
+    }
+    const runtimeNewer = rp.managedRuntimeVerified && rp.runtimeRelease ? isNewer(ruyipageLatest, rp.runtimeRelease) : null;
+    if (runtimeNewer === true) {
+      updates.push({
+        tool: 'ruyipage-firefox',
+        scope: 'ruyiPage 定制 Firefox runtime',
+        local: rp.runtimeRelease,
+        latest: ruyipageLatest,
+        hint: 'node scripts/download_ruyi_tool.js --tool ruyipage-firefox --dest <下载目录> --dry-run --markdown',
+        hintNote: 'dry-run 确认后再去掉 --dry-run 下载；更新 runtime 会改变指纹基线，当前未完成的 case 建议保持版本不变',
+      });
+    }
+  }
+
+  if (latest.ruyitrace && latest.ruyitrace.ok && rt.installed) {
+    const localRt = rt.version;
+    const newer = localRt ? isNewer(latest.ruyitrace.tag, localRt) : null;
+    // 本机版本无法识别时也提示最新版，便于用户自行核对
+    if (newer === true || newer === null) {
+      updates.push({
+        tool: 'ruyitrace',
+        scope: 'RuyiTrace 桌面工具 + trace 内核',
+        local: localRt || '未知（本机目录名未含版本号）',
+        latest: latest.ruyitrace.tag,
+        hint: 'node scripts/download_ruyi_tool.js --tool ruyitrace --dest <下载目录> --dry-run --markdown',
+        hintNote: 'dry-run 确认后再去掉 --dry-run 下载；更新 trace 内核可能改变 NDJSON 日志格式，当前 case 的日志采集完成后建议保持版本不变',
+      });
+    }
+  }
+
+  return updates;
 }
 
 function detect(args) {
@@ -554,6 +699,9 @@ function withNextSteps(result) {
   }
   if (rp.smartFingerprintDependencyMissing) {
     next.push('如果选择 ruyiPage 做高保真取证，请安装 Python requests 依赖，或在 smart_fingerprint 中显式提供 manual_geo；否则默认地理位置 / 时区 / 指纹一致性初始化可能失败。');
+  }
+  if (rp.packageInstalled && rp.packageVersionOk === false) {
+    next.push(`当前 ruyiPage 包版本 ${rp.version || '未知'} 低于 skill 取证脚本 API 依据的最低版本 ${rp.minVersion}；建议用户确认后执行 python -m pip install "ruyiPage>=${rp.minVersion}" requests --upgrade 升级后再取证。`);
   }
   if (!rp.managedRuntimeVerified) {
     next.push('未检测到 ruyiPage 定制 Firefox runtime。请先询问用户是否已经提前安装：已安装则提供 install-dir 或 firefox 可执行文件路径；未安装则提供安装目录，并在用户确认后安装。');
@@ -591,6 +739,8 @@ function renderMarkdown(result) {
   if (rp.packageInstalled) {
     lines.push(`- Python：${[rp.python].concat(rp.pythonArgsPrefix || []).join(' ')}`.trim());
     lines.push(`- ruyiPage 版本：${rp.version || '未知'}`);
+    lines.push(`- 最低版本要求（skill 脚本 API 依据）：>= ${rp.minVersion || '1.2.45'}`);
+    lines.push(`- 是否满足最低版本：${rp.packageVersionOk ? '是' : '否'}`);
     lines.push(`- smart_fingerprint 依赖 requests 是否可用：${rp.requestsAvailable ? '是' : '否'}`);
     if (rp.requestsError) lines.push(`- requests 检测错误：${rp.requestsError}`);
     lines.push(`- 默认解析路径：${rp.defaultRuntimePath || '未检测到'}`);
@@ -626,6 +776,18 @@ function renderMarkdown(result) {
     lines.push('- 自动 trace 示例：`node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown`');
   }
 
+  if (result.ruyiTrace.version) lines.push(`- 本机版本（目录名识别）：${result.ruyiTrace.version}`);
+
+  if (result.updates && result.updates.length) {
+    lines.push('', '## 版本更新提示（仅提示，不自动更新）');
+    for (const u of result.updates) {
+      lines.push(`- ${u.scope}：当前 ${u.local} → 最新 ${u.latest}`);
+      lines.push(`  - 更新命令（需用户确认后执行）：\`${u.hint}\``);
+      if (u.hintNote) lines.push(`  - 注意：${u.hintNote}`);
+    }
+    lines.push('', '> 检测到新版只做提示，不会自动下载或更新；确认更新前请先完成当前 case 或固定版本基线。更新工具版本可能改变指纹 / 日志格式，旧取证样本与新工具样本不能混用。');
+  }
+
   if (result.nextRequiredInput.length) {
     lines.push('', '## 下一步需要用户确认');
     for (const item of result.nextRequiredInput) lines.push(`- ${item}`);
@@ -651,20 +813,28 @@ function renderQuickMarkdown(result) {
   return lines.join('\n') + '\n';
 }
 
-try {
+async function main() {
   const args = parseArgs(process.argv);
   if (args.help) { console.log(usage()); process.exit(0); }
+  if (process.env.RUYI_INSECURE_TLS === '1') {
+    console.error('[警告] RUYI_INSECURE_TLS=1：已关闭 TLS 证书校验，仅限可信内网透明代理场景。');
+  }
   if (args.quick) {
     const result = detectQuick(args);
     if (args.json) console.log(JSON.stringify(result, null, 2));
     if (args.markdown) process.stdout.write(renderQuickMarkdown(result));
-  } else {
-    const result = withNextSteps(detect(args));
-    if (args.json) console.log(JSON.stringify(result, null, 2));
-    if (args.markdown) process.stdout.write(renderMarkdown(result));
+    return;
   }
-} catch (err) {
+  const result = withNextSteps(detect(args));
+  const latest = await fetchLatestReleases();
+  result.latest = latest;
+  result.updates = buildUpdates(result, latest);
+  if (args.json) console.log(JSON.stringify(result, null, 2));
+  if (args.markdown) process.stdout.write(renderMarkdown(result));
+}
+
+main().catch((err) => {
   console.error(err.message || String(err));
   console.error(usage());
   process.exit(1);
-}
+});

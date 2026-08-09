@@ -71,6 +71,10 @@ node scripts/check_external_tools.js --python python --ruyipage-install-dir <ruy
 node scripts/check_external_tools.js --python python --ruyipage-browser-path <firefox.exe> --markdown
 ```
 
+检测脚本会顺带对比 GitHub 最新 release：**发现新版只提示、不自动更新**，输出位于 `## 版本更新提示（仅提示，不自动更新）`。出现提示时由用户确认后再走 `download_ruyi_tool.js --dry-run` / `pip install --upgrade` 更新；更新工具版本会改变指纹基线与 NDJSON 日志格式，当前未完成的 case 建议保持版本不变，旧取证样本与新工具样本不能混用。网络失败或限流时该节静默跳过，不影响检测结果；透明代理自签 CA 环境下需设置 `RUYI_INSECURE_TLS=1` 才能完成版本查询（与 download_ruyi_tool.js 同开关）。
+
+检测结果同时包含 ruyiPage 包**最低版本检查（>= 1.2.45，对应本 skill 取证脚本 API 依据）**：低于该版本时仅在"下一步"提示升级，不硬性阻断检测。本 skill 脚本 API 依据 ruyipage >=1.2.45 内省确认，151/155 runtime 均适用（含 v1.2.57 / v1.2.58）。
+
 **强制要求**：选择 ruyiPage 时，不能只检测 `import ruyipage` 是否成功，也不能把系统 Firefox fallback 当作可用。必须确认：
 
 - ruyiPage Python 包可导入。
