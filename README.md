@@ -35,6 +35,7 @@
 | 抖音 (douyin.com) | `a_bogus`(bundle + bdms) | ★★★ |
 | 小红书 (xiaohongshu.com) | `X-s` / `X-s-common`(JSVMP) | ★★★ |
 | 快手 (kuaishou.com) | `__NS_hxfalcon` / `kww`(Jose + kwpsec JSVMP) | ★★★ |
+| QQ 音乐 (y.qq.com / u6.y.qq.com) | `sign`(zzc 前缀, 双 JSVMP) / `encoding=ag-1`(musics.fcg 加解密) + location.host 白名单静默降级 | ★★★ |
 | 政府监管类 (nmpa.gov.cn) | `FSSBBIl1UgzbN7N` / `sdenv`(魔改 jsdom + C++ Addon) | ★★★★ |
 | Gitee (gitee.com) | 百度 WAF 三件套 `nox_jst_v1` / `tox_token`(JSVMP + vm 沙箱补环境) | ★★★★ |
 | 网易易盾 (dun.163.com) | 无感(type=5) `data{d,m,p,ext}` + 滑块(type=2) `data{d,m,p,f,ext}`（vm 沙箱跑 core-optimi SDK + 自定义 AES/XOR） | ★★★★ |

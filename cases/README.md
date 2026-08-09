@@ -20,6 +20,7 @@
 | [browser-extract-modified-md5-yuanrenxue.md](browser-extract-modified-md5-yuanrenxue.md) | obfuscator.io + 修改版 MD5(T常量含动态时间戳) + WAF cookie + charCode反hook | ★★★ | puppeteer 提取 m/f/完整cookie + Node.js https 请求 | 签名型 |
 | [kuaishou-hxfalcon-kww-reverse.md](kuaishou-hxfalcon-kww-reverse.md) | __NS_hxfalcon + kww + Jose 模块 + kwpsec JSVMP | ★★★★ | A 纯算（__NS_hxfalcon/kww SSR fallback）+ D 黑盒（kww 浏览器端） | 签名型 |
 | [jsvmp-baidu-waf-nox-tox-gitee.md](jsvmp-baidu-waf-nox-tox-gitee.md) | 百度 WAF 三件套（Banti+nox+tox）JSVMP + nox_jst_v1 cookie + tox_token query | ★★★★ | D 环境伪装（vm 沙箱补环境，构造函数+Object.create） | 签名型 |
+| [jsvmp-dual-vm-location-whitelist-qqmusic.md](jsvmp-dual-vm-location-whitelist-qqmusic.md) | JSVMP 双 VM + location.host 白名单静默降级 + musics.fcg 加解密（zzc 签名 + ag-1 加密） | ★★★ | B vm 沙箱执行 + D 环境伪装（Node vm + `window===self` 自引用 + 域名守卫） | 签名型 |
 | [yidun-intellisense-vm-env.md](yidun-intellisense-vm-env.md) | 易盾智能无感验证码（type=5）：core-optimi SDK obfuscator 混淆 + 自定义 AES/XOR + vm 沙箱补环境 | ★★★★ | D 环境伪装（vm 沙箱运行 SDK，模块访问器直调）+ neguardian 共用 AES | 验证码型 |
 | [yidun-jigsaw.md](yidun-jigsaw.md) | 易盾滑块(type=2) check 参数 d/m/p/f/ext：core-optimi 模块提取 + SDK 阶梯轨迹 + m 空串陷阱 + SCAN_PX 坐标扫描 | ★★★★ | A 纯算还原（d/p/f/ext 加密链）+ 打码坐标 + SCAN_PX 扫描 | 验证码型 |
 
@@ -50,6 +51,7 @@ CHECK-2 速查:
 | `X-s` / `X-s-common` / `XYS_` + `as-v2-ds.js` + 修改版 CRC32 + 自定义 Base64 | jsvmp-dual-sign-purealgo-vm-xiaohongshu | 高(小红书双轨) |
 | `RM4hZBv0dDon443M` / 修改版 MD5(T常量含动态时间戳) + `$_zw` 指纹数组 + charCode 反hook | browser-extract-modified-md5-yuanrenxue | 高(猿人学浏览器提取) |
 | `nox_jst_v1` cookie / `tox_token` query / `gangplank`+`nox`+`tox` 三件套 / `wafbotsr.baidu.com` / `mejd42mp` 标识 / `window.Tox.getToken` | jsvmp-baidu-waf-nox-tox-gitee | 高(百度 WAF 三件套) |
+| `_getSecuritySign` / `__cgiEncrypt` / `__cgiDecrypt` + `musics.fcg` + `sign=zzc...`(44位) + `encoding=ag-1` + 两段 JSVMP IIFE | jsvmp-dual-vm-location-whitelist-qqmusic | 高(QQ音乐) |
 | `__NS_hxfalcon` / `kww` / `Jose` 模块 + `kwpsec` JSVMP | kuaishou-hxfalcon-kww-reverse | 高(快手双轨) |
 | `dun.163.com` / `c.dun.163.com` / `NECaptcha` / `core-optimi.*.min.js` / `neguardian` / `gdxidpyhxde` / `vfnv46` / type=5 无感 | yidun-intellisense-vm-env | 高(易盾智能无感) |
 | `dun.163.com` / `NECaptcha` / check data `m` 空串 / `__JSONP_` callback / slider type=2 / 阶梯轨迹 | yidun-jigsaw | 高(易盾滑块 check) |

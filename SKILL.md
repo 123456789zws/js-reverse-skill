@@ -9,7 +9,7 @@ description: >
   新增验证码封装层逆向：geetest/数美/顶象/腾讯防水墙/易盾/阿里云等 verify 接口加密参数（w/cb/sig/token）、
   轨迹加密、challenge 绑定的还原；答案层资产（ddddocr/坐标/轨迹脚本 + 题型分类器 classify_verify.py）已内化。
   统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向，支持 Node.js / Python 双语言纯协议交付。
-  已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）/ 政府监管类 / 易盾（无感+滑块验证码）等真实案例场景中得到实践（见 README「真实案例平台与参数」）。
+  已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）/ 政府监管类 / 易盾（无感+滑块验证码）/ QQ音乐（musics.fcg 双VM+域名白名单静默降级）等真实案例场景中得到实践（见 README「真实案例平台与参数」）。
   适用范围：浏览器网页 JS（含移动端 H5、微信/X5/QQB 内置浏览器）。
   不处理：App 内 JS/小程序容器/Windows/Native 逆向；默认不反编译 JSVMP 字节码源码。
 argument-hint: "<目标网站URL> <要还原的参数名> [目标接口URL]"
