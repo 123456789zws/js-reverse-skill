@@ -184,7 +184,8 @@ js-reverse-skill/
     顶象 dingxiang-captcha / constId / dx-captcha；腾讯 tencent-tcaptcha / aid / ticket；阿里云 aliyun-captcha / nc_ / AWSC / afs
       → 策略: 同上（先按题型定解法；轨迹加密见 references/captcha/captcha-motion-encryption.md）
     易盾 netease-yidun / dun.163.com / c.dun.163.com / NECaptcha / core-optimi.*.min.js / gdxidpyhxde / fp+validate+data{d,m,p,ext}
-      → 策略: trace 成功链路（智能无感 type=5 无感直过）+ vm 沙箱补环境直跑 core-optimi（不反编译）+ 自定义 AES/XOR 双层还原 + neguardian 共用 AES | 参考: references/captcha/captcha-providers.md | case: cases/yidun-intellisense-vm-env.md
+      → 策略: 无感(type=5)与滑块(type=2)是独立 case 分开沉淀；无感: trace 成功链路（无感直过）+ vm 沙箱补环境直跑 core-optimi（不反编译）+ 自定义 AES/XOR 双层还原 + neguardian 共用 AES | case: cases/yidun-intellisense-vm-env.md
+      → 滑块: A 纯算还原（core-optimi 模块提取 xorEncode/aes/sample/mod38）+ 打码坐标 + SCAN_PX 扫描兜底 + m 空串陷阱 | case: cases/yidun-jigsaw.md | 参考: references/captcha/captcha-providers.md
 
   命中结果:
     - 命中案例 = ______ (case 文件名 or "未命中")
@@ -569,15 +570,16 @@ result/
 
 ---
 
-## 经验法则（19 条）
+## 经验法则（20 条）
 
-> 详解见 `references/workflow/experience-rules.md`，以下为 top 5 速查（最易踩坑）：
+> 详解见 `references/workflow/experience-rules.md`，以下为 top 6 速查（最易踩坑）：
 
 1. **Hook 必须在 SDK 加载前安装**——否则签名函数已执行，Hook 失效
 2. **`Function.prototype.toString` 是第一杀手**——所有 native 伪装必须通过 toString 检测
 3. **JSVMP 环境伪装优先于算法追踪**——路径 D 比 A 成功率高，不反编译字节码
 4. **环境补丁必须在 JSVMP 脚本加载前完成**——补丁晚于脚本等于没补
 5. **命中案例后先做时效性校验再复用**——case 是经验资产不是事实源；版本不一致时只借方法论，算法细节以本次 trace 为准（CHECK-2）
+6. **成功样本是"答案"，第一步全字段解密 + 逐点统计**——拿到验证码成功样本 URL 先逐个解密密文字段核对明文类型，再写代码；轨迹写生成器前先统计真实样本（步长/间隔/点数-距离）。m 空串等字段陷阱不逐字段解密会被掩盖（易盾 jigsaw 教训）
 
 其余 14 条（JSVMP 寄存器/签名入口/中间值对比/execjs 复用/evaluate_js IIFE 等）详见详解文档。
 
@@ -692,7 +694,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 | 调试方法论 | `references/debug/debug-playbook.md` | P0-P2 调试 |
 | 取证工具获取 | `references/tooling/ruyi-tooling.md` | ruyipage/RuyiTrace 工具获取与运行 |
 | 浏览器取证模式 | `references/tooling/browser-acquisition.md` | ruyipage 取证模式 |
-| 经验法则详解 | `references/workflow/experience-rules.md` | 19 条扩展说明 |
+| 经验法则详解 | `references/workflow/experience-rules.md` | 20 条扩展说明 |
 | Worker / Service Worker 签名 | `references/workflow/worker-signing.md` | Worker/SW 环境补全特殊性 + 分析路径 |
 | 反爬版本追踪与快速适配 | `references/workflow/version-adaptation.md` | SDK 更新后的 diff/复用方法论 |
 | 验证码边界/分工/接口契约 | `references/captcha/captcha-overview.md` | 四层分工 + answer JSON schema + 红线适配 |

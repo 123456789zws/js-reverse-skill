@@ -22,6 +22,7 @@
 | [jsvmp-baidu-waf-nox-tox-gitee.md](jsvmp-baidu-waf-nox-tox-gitee.md) | 百度 WAF 三件套（Banti+nox+tox）JSVMP + nox_jst_v1 cookie + tox_token query | ★★★★ | D 环境伪装（vm 沙箱补环境，构造函数+Object.create） | 签名型 |
 | [geetest-slide-popup.md](geetest-slide-popup.md) | 极验 slide-popup 验证码：AES-CBC + RSA-PKCS#1 + 自定义 base64（比特位置换）+ 轨迹编码 | ★★★ | A 纯算还原（w 加密链）+ ddddocr slide_match（滑块距离） | 验证码型 |
 | [yidun-intellisense-vm-env.md](yidun-intellisense-vm-env.md) | 易盾智能无感验证码（type=5）：core-optimi SDK obfuscator 混淆 + 自定义 AES/XOR + vm 沙箱补环境 | ★★★★ | D 环境伪装（vm 沙箱运行 SDK，模块访问器直调）+ neguardian 共用 AES | 验证码型 |
+| [yidun-jigsaw.md](yidun-jigsaw.md) | 易盾滑块(type=2) check 参数 d/m/p/f/ext：core-optimi 模块提取 + SDK 阶梯轨迹 + m 空串陷阱 + SCAN_PX 坐标扫描 | ★★★★ | A 纯算还原（d/p/f/ext 加密链）+ 打码坐标 + SCAN_PX 扫描 | 验证码型 |
 
 > 同质化案例（不进速查表，按需读取）：[sha1-sort-params-zhitongcaijing.md](sha1-sort-params-zhitongcaijing.md) — 标准 SHA1 签名，供同站升级参考
 
@@ -53,6 +54,7 @@ CHECK-2 速查:
 | `__NS_hxfalcon` / `kww` / `Jose` 模块 + `kwpsec` JSVMP | kuaishou-hxfalcon-kww-reverse | 高(快手双轨) |
 | `geetest` / `gt` / `challenge` / `w` 参数（尾部全 hex）/ `$_BCm` / `fullpage.0.0.0.js` + `slide.*.js` 双 SDK / 自定义 base64 含 `()` | geetest-slide-popup | 高(极验 v3 滑块) |
 | `dun.163.com` / `c.dun.163.com` / `NECaptcha` / `core-optimi.*.min.js` / `neguardian` / `gdxidpyhxde` / `vfnv46` / type=5 无感 | yidun-intellisense-vm-env | 高(易盾智能无感) |
+| `dun.163.com` / `NECaptcha` / check data `m` 空串 / `__JSONP_` callback / slider type=2 / 阶梯轨迹 | yidun-jigsaw | 高(易盾滑块 check) |
 
 ## 新增案例
 
