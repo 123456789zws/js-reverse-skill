@@ -470,7 +470,7 @@ function check(args) {
     ? path.resolve(path.dirname(args.file))
     : args.dir
       ? path.resolve(args.dir)
-      : path.join(path.resolve(args.caseDir || 'case'), 'result');
+      : path.join(path.resolve(args.caseDir || '.'), 'result');
   const files = args.file ? [path.resolve(args.file)] : walk(root).filter(p => isCodeFile(p) && !shouldSkipFile(root, p));
   const problems = [];
   const warnings = [];
