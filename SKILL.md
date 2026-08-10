@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.1.5
+version: 2.1.6
 description: >
   网页端 JS 逆向工程技能：逆向还原浏览器请求中的加密参数、签名、token、cookie 与设备指纹。
   适用于 sign/a_bogus/X-Bogus/acw_sc__v2/hexin-v/FSSBBIl1UgzbN7N/_token 等各类动态参数的生成逻辑分析，
@@ -9,7 +9,7 @@ description: >
   新增验证码封装层逆向：geetest/数美/顶象/腾讯防水墙/易盾/阿里云等 verify 接口加密参数（w/cb/sig/token）、
   轨迹加密、challenge 绑定的还原；答案层资产（ddddocr/坐标/轨迹脚本 + 题型分类器 classify_verify.py）已内化。
   统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向，支持 Node.js / Python 双语言纯协议交付。
-  已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）/ 政府监管类 / 易盾（无感+滑块验证码）/ QQ音乐（musics.fcg 双VM+域名白名单静默降级）等真实案例场景中得到实践（见 README「真实案例平台与参数」）。
+  已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）/ 政府监管类 / 易盾（无感+滑块验证码）/ QQ音乐（musics.fcg 双VM+域名白名单静默降级）/ 京东（h5st js_security_v3 JSVMP + TLS 指纹 Firefox 系）等真实案例场景中得到实践（见 README「真实案例平台与参数」）。
   适用范围：浏览器网页 JS（含移动端 H5、微信/X5/QQB 内置浏览器）。
   不处理：App 内 JS/小程序容器/Windows/Native 逆向；默认不反编译 JSVMP 字节码源码。
 argument-hint: "<目标网站URL> <要还原的参数名> [目标接口URL]"
@@ -174,6 +174,8 @@ js-reverse-skill/
       → 策略: trace 双轨（A 纯算 X-S-Common + B vm 沙箱 X-s）| case: cases/jsvmp-dual-sign-purealgo-vm-xiaohongshu.md
     kuaishou.com / __NS_hxfalcon / kww / Jose 模块 / kwpsec JSVMP
       → 策略: trace 双轨（A 纯算 __NS_hxfalcon/kww SSR fallback + D 黑盒 kww 浏览器端）| case: cases/kuaishou-hxfalcon-kww-reverse.md
+    jd.com / api.m.jd.com / h5st（10 字段分号分隔 v5.3）/ js_security_v3 / ParamsSign / request_algo / cactus.jd.com / x-api-eid-token / jdd03
+      → 策略: trace 补环境（vm 沙箱执行原版 js_security_v3 + XHR mock 转发 request_algo 预热 + 第8字段 pp 插件填充）+ TLS 指纹仅 Firefox 系（curl-cffi-node firefox133）+ fp/eid 会话级绑定 | case: cases/jsvmp-h5st-js-security-v3-jd.md | 参考: references/network/tls-validation.md + session-chain.md
     通用 JSVMP 源码插桩
       → 策略: trace + 源码级插桩 | case: cases/universal-vmp-source-instrumentation.md
 
@@ -744,6 +746,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 
 | 版本 | 摘要 |
 |------|------|
+| 2.1.6 | 新增京东 h5st 案例（`cases/jsvmp-h5st-js-security-v3-jd.md`）：js_security_v3 while-switch JSVMP → vm 沙箱执行原版 + XHR mock 转发 request_algo 预热；TLS 指纹校验（JA3/JA4 仅 Firefox 系，curl-cffi-node firefox133）；fp/eid 会话级绑定、第 8 字段 pp 插件填充、纯协议自动获取 eid（pc-tk.js + jsTk.do）；CHECK-2 速查表新增 jd.com 条目 |
 | 2.1.5 | 自动 trace 支持"关闭浏览器即提前结束"：`capture_ruyitrace_log.js` 等待阶段不再纯 sleep duration——每 1.5s 检测一次 kernel firefox 进程数（ExecutablePath 精确匹配），检测到"曾经存在、现在归零"（用户手动关闭浏览器或浏览器崩溃）立即结束采集，NDJSON 日志保留可正常导入；启动慢/从未出现进程时仍按 duration 兜底，非 Windows 不检测 |
 | 2.1.4 | 环境检测修复：`check_external_tools.js` 的 ruyipage path/doctor 命令原本不传 `--install-dir`，只查 ruyipage 默认路径（AppData），项目 `tools/ruyipage-browsers/` 内已装好的 runtime 被误报"尚未安装"；现自动把已验证 managed runtime 目录回传给 `--install-dir`，path/doctor 检查真实在用的 runtime，不再误报，结论由"可使用但需显式指定"变为"可使用" |
 | 2.1.3 | 修正 2.1.2 卡死修复方案（实测确认）：根因是 `capture.stop()` 对每个包做 2 次 BiDi get_data RPC（共 2N 次），京东 234 包即数百次 RPC、浏览器繁忙时拖到数百秒；改为**不调 stop()**——metadata 用 `steps` 快照零 RPC 读取，body 仅对 JS 文件 / 目标命中包按需拉取；`page.get` 传 `wait="eager"` 是无效 BiDi 值（导航失败、抓 0 包），改为 `wait="interactive"`；已实测京东：234 包、pc_home_feed 命中、35 个 JS 落盘，数十秒完成不卡死 |

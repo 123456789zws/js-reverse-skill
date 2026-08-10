@@ -23,6 +23,7 @@
 | [jsvmp-dual-vm-location-whitelist-qqmusic.md](jsvmp-dual-vm-location-whitelist-qqmusic.md) | JSVMP 双 VM + location.host 白名单静默降级 + musics.fcg 加解密（zzc 签名 + ag-1 加密） | ★★★ | B vm 沙箱执行 + D 环境伪装（Node vm + `window===self` 自引用 + 域名守卫） | 签名型 |
 | [yidun-intellisense-vm-env.md](yidun-intellisense-vm-env.md) | 易盾智能无感验证码（type=5）：core-optimi SDK obfuscator 混淆 + 自定义 AES/XOR + vm 沙箱补环境 | ★★★★ | D 环境伪装（vm 沙箱运行 SDK，模块访问器直调）+ neguardian 共用 AES | 验证码型 |
 | [yidun-jigsaw.md](yidun-jigsaw.md) | 易盾滑块(type=2) check 参数 d/m/p/f/ext：core-optimi 模块提取 + SDK 阶梯轨迹 + m 空串陷阱 + SCAN_PX 坐标扫描 | ★★★★ | A 纯算还原（d/p/f/ext 加密链）+ 打码坐标 + SCAN_PX 扫描 | 验证码型 |
+| [jsvmp-h5st-js-security-v3-jd.md](jsvmp-h5st-js-security-v3-jd.md) | 京东 h5st（js_security_v3 JSVMP）+ TLS 指纹校验（JA3/JA4 仅 Firefox 系）+ 会话级 fp/eid 绑定 + 动态密钥预热 | ★★★★★ | B vm 沙箱执行原版 + D 环境伪装（curl-cffi-node firefox133） | 签名型+行为型 |
 
 > 同质化案例（不进速查表，按需读取）：[sha1-sort-params-zhitongcaijing.md](sha1-sort-params-zhitongcaijing.md) — 标准 SHA1 签名，供同站升级参考
 
@@ -55,6 +56,7 @@ CHECK-2 速查:
 | `__NS_hxfalcon` / `kww` / `Jose` 模块 + `kwpsec` JSVMP | kuaishou-hxfalcon-kww-reverse | 高(快手双轨) |
 | `dun.163.com` / `c.dun.163.com` / `NECaptcha` / `core-optimi.*.min.js` / `neguardian` / `gdxidpyhxde` / `vfnv46` / type=5 无感 | yidun-intellisense-vm-env | 高(易盾智能无感) |
 | `dun.163.com` / `NECaptcha` / check data `m` 空串 / `__JSONP_` callback / slider type=2 / 阶梯轨迹 | yidun-jigsaw | 高(易盾滑块 check) |
+| `js_security_v3` / `ParamsSign` / `h5st` 10 字段分号分隔 / `request_algo` / `cactus.jd.com` / `x-api-eid-token` / `jdd03` / `api.m.jd.com` + 403 空 body | jsvmp-h5st-js-security-v3-jd | 高(京东 h5st) |
 
 ## 新增案例
 
