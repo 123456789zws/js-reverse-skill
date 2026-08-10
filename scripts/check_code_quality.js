@@ -35,11 +35,11 @@ function parseArgs(argv) {
 
 function usage() {
   return `用法：
-  node scripts/check_code_quality.js --case-dir case --markdown
-  node scripts/check_code_quality.js --dir case/result --json
-  node scripts/check_code_quality.js --file case/result/src/env/install-env.js --markdown
+  node scripts/check_code_quality.js --case-dir <project-root> --markdown
+  node scripts/check_code_quality.js --dir result --json
+  node scripts/check_code_quality.js --file result/src/env/install-env.js --markdown
 
-说明：检查最终补环境代码是否简洁、可读、模块化，并验证中文注释为 UTF-8、无乱码、无连续问号、中文注释不含问号。`;
+说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），检查 result/ 下最终补环境代码是否简洁、可读、模块化，并验证中文注释为 UTF-8、无乱码、无连续问号、中文注释不含问号。`;
 }
 
 function exists(p) { try { fs.accessSync(p); return true; } catch { return false; } }

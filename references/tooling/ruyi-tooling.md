@@ -214,9 +214,9 @@ node scripts/download_ruyi_tool.js --tool ruyipage-firefox --dest <download-dir>
 >
 > 典型用法：
 > ```bash
-> python scripts/forensic_ruyipage.py --url <目标页> --targets "feed/hot" --browser-path <定制Firefox> --markdown
+> python scripts/forensic_ruyipage.py --url <目标页> --case-dir <project-root> --targets "feed/hot" --browser-path <定制Firefox> --markdown
 > # 仅检测环境并打印计划（不启动浏览器）：
-> python scripts/forensic_ruyipage.py --url <目标页> --dry-run --markdown
+> python scripts/forensic_ruyipage.py --url <目标页> --case-dir <project-root> --dry-run --markdown
 > ```
 > 输出：`<case-dir>/forensic/capture.json`（全部包元数据）、`target-hits.json`（目标命中，含响应体截断）、`js/original/`（JS 文件）、`notes/fingerprint-baseline.json`。
 
@@ -321,8 +321,8 @@ RuyiTrace 日志采集方式请选择：
 检测到 `RuyiTrace.exe`、定制内核 `firefox(.exe)` 和 `RUYI_DOMTRACE.txt` 完整后（新版 2.5+ 位于 `resources/kernel/`，旧版 1.x 位于 `firefox/`），不要默认让用户手动打开 GUI。优先使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
 
 ```bash
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
+node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
+node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
 ```
 
 执行要求：
@@ -339,7 +339,7 @@ node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --
 自动 trace 成功后继续：
 
 ```bash
-node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
+node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --truncation-threshold 3900 --markdown
 ```
 
 ### 方式二：手动 trace（用户指定日志）
@@ -357,7 +357,7 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --tr
 7. 找到 `trace_<时间戳>_<PID>.ndjson`，将路径提供给 AI / 直接用脚本导入：
 
 ```bash
-node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown
+node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown
 ```
 
 该命令内部调用 `import_ruyitrace_log.js`：把日志复制到 `case/ruyi-trace/logs/`、生成 `notes/ruyitrace-summary.md`、检查长字段截断风险。如需调整截断阈值，直接使用导入脚本：

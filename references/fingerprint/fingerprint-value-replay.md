@@ -241,7 +241,7 @@ Node.js 交付环境中匹配指纹样本时，按以下顺序：
 
    ```bash
    node scripts/check_fingerprint_fixture.js --case-dir case --require canvas,webgl,audio,dom --markdown
-   node scripts/check_final_artifact.js --case-dir case --markdown
+   node scripts/check_final_artifact.js --case-dir <project-root> --markdown
    ```
 
 ## 输出记录要求

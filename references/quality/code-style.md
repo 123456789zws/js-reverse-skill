@@ -134,9 +134,9 @@ function installEnv(runtime, config) {
 交付前必须运行：
 
 ```bash
-node scripts/check_code_quality.js --case-dir case --markdown
+node scripts/check_code_quality.js --case-dir <project-root> --markdown
 node scripts/check_fingerprint_fixture.js --case-dir case --markdown
-node scripts/check_final_artifact.js --case-dir case --markdown
+node scripts/check_final_artifact.js --case-dir <project-root> --markdown
 ```
 
 如果 `check_code_quality.js` 失败，必须立即停止后续补环境验证、真实请求验证和交付；先重构代码、拆分 signer/probe 中的 WebAPI 主体、修复中文注释、编码问题、普通 WebAPI 函数、普通对象和宿主透传，再重新运行检查。不得以"当前请求能跑通""只是诊断脚本""只是 probe"为理由跳过失败项。

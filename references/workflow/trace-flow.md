@@ -58,7 +58,7 @@ Step 2: RuyiTrace 日志采集（TRACE_CAPTURE）
 直接运行 skill 通用脚本 `scripts/forensic_ruyipage.py`，它会自动满足下方所有硬约束，并用 `targets=True` 抓全部包（事后从 `steps` 过滤，避免漏掉 JS 文件）：
 
 ```bash
-python scripts/forensic_ruyipage.py --url <目标页> --targets "pc_home_feed" --browser-path <定制Firefox> --markdown
+python scripts/forensic_ruyipage.py --url <目标页> --case-dir <project-root> --targets "pc_home_feed" --browser-path <定制Firefox> --markdown
 ```
 
 仅在复杂多步交互超出脚本参数（`--click` / `--scroll` / `--manual-pause`）能力时才手写，且必须：用 `targets=True` 抓全部包、`page.capture.wait(count=1)` 取单包、`page.capture.steps` 读全部包、`CapturePacket.to_dict()` 取响应体。详见 `references/tooling/ruyi-tooling.md` 的“逃生舱”小节。
@@ -72,15 +72,15 @@ python scripts/forensic_ruyipage.py --url <目标页> --targets "pc_home_feed" -
 
 ## RuyiTrace 日志采集流程
 
-用户选择 RuyiTrace 后，采集方式由用户选择（二选一，已选择后沿用；切换需再次确认）：手动 trace（用户用 RuyiTrace 采集后指定日志）或自动 trace（脚本自动启动 trace Firefox 捕获）。
+用户选择 RuyiTrace 后，默认自动 trace（脚本自动启动 trace Firefox 捕获）；用户已提供 NDJSON 时直接导入，不重复采集。自动 trace 失败、需要登录/验证/权限交互时转手动 trace。
 
 ### 方式一：自动 trace
 
 检测到 `RuyiTrace.exe`、定制内核 `firefox(.exe)` 和 `RUYI_DOMTRACE.txt` 完整后（新版 2.5+ 位于 `resources/kernel/`，旧版 1.x 位于 `firefox/`），可使用随包脚本自动启动 RuyiTrace 的 trace Firefox，并通过 `MOZ_DOM_TRACE` 环境变量写出 NDJSON：
 
 ```bash
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
+node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
+node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
 ```
 
 执行要求：
@@ -95,7 +95,7 @@ node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --
 自动 trace 成功后继续：
 
 ```bash
-node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
+node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --truncation-threshold 3900 --markdown
 ```
 
 ### 方式二：手动 trace（用户指定日志）
@@ -113,7 +113,7 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --tr
 7. 找到 `trace_<时间戳>_<PID>.ndjson`，将路径提供给 AI / 直接用脚本导入：
 
 ```bash
-node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown
+node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown
 ```
 
 该命令内部调用 `import_ruyitrace_log.js`：把日志复制到 `case/ruyi-trace/logs/`、生成 `notes/ruyitrace-summary.md`、检查长字段截断风险。如需调整截断阈值，直接使用导入脚本：

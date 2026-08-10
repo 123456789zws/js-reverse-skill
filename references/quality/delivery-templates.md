@@ -49,7 +49,7 @@
 
     ```bash
     node scripts/write_markdown_utf8.js --input case/tmp/最终项目总结草稿.md --out result/最终项目总结.md --require-chinese-name --markdown
-    node scripts/check_final_artifact.js --case-dir case --markdown
+    node scripts/check_final_artifact.js --case-dir <project-root> --markdown
     node scripts/clean_case.js --case-dir case --dry-run --json
     ```
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
 
 ```bash
 node scripts/check_fingerprint_fixture.js --case-dir case --require canvas,webgl,audio,dom --markdown
-node scripts/check_final_artifact.js --case-dir case --markdown
+node scripts/check_final_artifact.js --case-dir <project-root> --markdown
 ```
 
 要求最终环境代码体现：属性描述符、访问器、原型链、构造函数、函数 toString 保护、访问器 toString 保护、实例对象 toString 保护；创建函数、构造函数、getter、setter、`document.all`、原型链时从补环境初始化阶段就必须启用 `NativeProtect` 保护，用户明确豁免才允许降级并记录原因；涉及浏览器指纹时必须保留真实采样 fixture 并做终端 API 值回放；使用 Trace 时必须保留 `notes/trace-summary.md` 与 `notes/missing-env-priority.md` 证据摘要。

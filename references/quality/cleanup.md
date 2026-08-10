@@ -126,5 +126,5 @@ node scripts/check_fingerprint_fixture.js --case-dir case --markdown
 最终产物复查：
 
 ```bash
-node scripts/check_final_artifact.js --case-dir case --markdown
+node scripts/check_final_artifact.js --case-dir <project-root> --markdown
 ```
