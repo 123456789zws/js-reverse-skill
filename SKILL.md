@@ -244,7 +244,7 @@ result/
 ├── config.json、package.json 或 requirements.txt
 ├── 最终项目总结.md
 ├── 经验沉淀-<站点>.md
-├── 验证记录.md
+├── 验证记录.json
 └── src/
 ```
 
