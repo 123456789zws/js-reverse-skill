@@ -119,7 +119,7 @@ node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir <project
 该命令内部调用 `import_ruyitrace_log.js`：把日志复制到 `case/ruyi-trace/logs/`、生成 `notes/ruyitrace-summary.md`、检查长字段截断风险。如需调整截断阈值，直接使用导入脚本：
 
 ```bash
-node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
+node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --truncation-threshold 3900 --markdown
 ```
 
 高级手动启动方式仅在用户理解环境变量时使用：
@@ -151,7 +151,7 @@ RuyiTrace NDJSON 适合作为高保真环境访问日志，但长字符串字段
 - 导入 NDJSON 时必须运行带截断检测的脚本，默认阈值为 3900：
 
 ```bash
-node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
+node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --truncation-threshold 3900 --markdown
 ```
 
 - 任何字符串字段长度达到或接近阈值时，统一标记：
@@ -209,7 +209,7 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --tr
 
 > RuyiTrace NDJSON 不是可选参考，而是逆向分析的优先证据源。必须先完成 Step 1（ruyipage 网络取证）拿到 JS 文件和网络包，再进行 Step 2（RuyiTrace 日志采集）。
 >
-> **Step 2 不可跳过的硬约束**：本 skill 以 RuyiTrace NDJSON 为主要证据进行分析。用户提供 cURL/HAR/JS 文件只能跳过 Step 1 网络取证，**Step 2 RuyiTrace 日志采集仍必须完成**（唯一例外：用户提供真实存在的 RuyiTrace NDJSON 日志）。仅提供 URL 时两步全做，禁止以"用户提供了证据"为由跳过 trace。任何"跳过取证 / 已具备证据"判定必须先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <用户材料> --markdown`，以脚本输出为准。
+> **Step 2 不可跳过的硬约束**：本 skill 以 RuyiTrace NDJSON 为主要证据进行分析。用户提供 cURL/HAR/JS 文件只能跳过 Step 1 网络取证，**Step 2 RuyiTrace 日志采集仍必须完成**（唯一例外：用户提供真实存在的 RuyiTrace NDJSON 日志）。仅提供 URL 时两步全做，禁止以"用户提供了证据"为由跳过 trace。任何"跳过取证 / 已具备证据"判定必须先运行 `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <用户材料> --markdown`，以脚本输出为准。
 
 1. 进入 Node.js 补环境前，必须先确认是否已经采集并导入 RuyiTrace NDJSON。
 2. 如果已有 NDJSON，先运行 `import_ruyitrace_log.js` 生成 `notes/ruyitrace-summary.md`，再阅读摘要和必要的原始日志片段。
