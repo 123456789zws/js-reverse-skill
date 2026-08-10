@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.2.1
+version: 2.2.2
 description: >
   网页端 JavaScript 请求参数逆向与纯协议还原。分析网页签名、Cookie/Token、设备指纹、混淆、WASM、JSVMP、验证码 verify 或 Session/TLS 请求链时触发，覆盖桌面网页、移动 H5 与内置浏览器，交付 Node.js/Python 实现。不用于 App、小程序、桌面程序及 Native 逆向；JSVMP 默认黑盒执行或最小环境复现。
 argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
