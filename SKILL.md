@@ -397,6 +397,8 @@ case 根目录只允许两个子目录：
 **1.1 ruyipage 抓包**（一次抓完，不复抓；必须用通用脚本，禁止手写）：
 
 > 直接运行通用脚本 `scripts/forensic_ruyipage.py`，它会自动满足所有启动硬约束、用 `targets=True` 抓全部包（事后从 `steps` 过滤，避免漏抓 JS 文件）、把 JS 落盘到 `case/js/original/`、并写出 `case/notes/fingerprint-baseline.json`。**不要为每个 case 手写取证脚本**——历史已证明会踩 `get_all` / `wait(count=1)` 返回单对象 / `targets="<接口关键词>"` 子串过滤等 API 坑，且会漏抓 JS 文件。
+>
+> ⚠️ 本脚本**同步阻塞**：运行结束即向 stdout 输出 Markdown 报告并写入 `case/forensic/capture.json` / `target-hits.json`。调用方必须**等待脚本返回后读取结果**，不得在其运行期间轮询输出"仍在运行 / 等待"等占位提示。抓包完成的判据是"目标接口命中（`--targets` 指定时命中即停）或 `--wait` 超时"，与页面 `load` 事件是否触发无关；即便 `page.get` 因长轮询超时，已捕获的包也会照常落盘，不是取证失败。
 > ```bash
 > python scripts/forensic_ruyipage.py --url <目标页> --targets "feed/hot" --browser-path <定制Firefox> --markdown
 > # 仅检测环境并打印计划（不启动浏览器）：

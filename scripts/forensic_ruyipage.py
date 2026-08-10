@@ -349,6 +349,20 @@ def _split_acceptance(target_hits):
     return accepted, only_options
 
 
+def _target_reached(steps, substrings, regexes) -> bool:
+    """轮询判定：steps 中是否已出现命中 --targets/--targets-regex 的非失败 2xx 响应。"""
+    hits = []
+    for p in steps:
+        try:
+            d = p.to_dict(include_bodies=False)
+        except Exception:
+            continue
+        if match_targets(d, substrings, regexes):
+            hits.append(d)
+    accepted, _ = _split_acceptance(hits)
+    return bool(accepted)
+
+
 def _build_result(args, browser_path, baseline_id, fingerprint, cookies,
                   records_meta, js_records, target_hits, accepted, only_options,
                   webdriver_flag, wd_err, has_filter):
@@ -521,26 +535,64 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
         page.capture.start(targets=True, collect_bodies=True)
         logger.info("capture 已启动（targets=True 抓全部包）")
 
-        page.get(args.url, timeout=args.wait + 20)
+        get_timed_out = False
+        try:
+            page.get(args.url, timeout=args.wait + 20)
+        except Exception as e:
+            # 京东等首页常有长轮询/持续请求，load 事件迟迟不触发；
+            # get 超时不能中断取证——已捕获的包必须照样 stop + 落盘。
+            get_timed_out = True
+            logger.warning("page.get 超时/异常（页面 load 未完成不影响已捕获流量），继续收尾：%s", e)
 
         if args.manual_pause:
             input("在浏览器中完成登录 / 业务操作后按回车继续取证...")
 
         _trigger_actions(page, args, args.human_algorithm)
 
-        first = page.capture.wait(timeout=args.wait, count=1)
-        if first is None:
-            logger.warning("等待 %ss 未捕获到任何包", args.wait)
-        else:
-            logger.info("已捕获首个包：%s", first.url)
-
-        if args.settle > 0:
+        if substrings or regexes:
+            # 目标命中即停：轮询等待目标接口非失败 2xx 响应出现，命中立即结束抓包
             import time
-            logger.info("静置 %ss 等待剩余流量...", args.settle)
-            time.sleep(args.settle)
+            deadline = time.time() + args.wait
+            target_done = False
+            while time.time() < deadline:
+                try:
+                    pkt = page.capture.wait(timeout=2, count=1)
+                except Exception as e:
+                    logger.warning("capture.wait 异常：%s", e)
+                    break
+                if pkt is None:
+                    continue
+                try:
+                    steps_now = page.capture.steps
+                except Exception:
+                    steps_now = []
+                if _target_reached(steps_now, substrings, regexes):
+                    target_done = True
+                    logger.info("目标接口已命中，提前结束抓包")
+                    break
+            if not target_done:
+                logger.info("未在 %ss 内命中目标接口，按 --wait 超时收尾", args.wait)
+        else:
+            first = page.capture.wait(timeout=args.wait, count=1)
+            if first is None:
+                logger.warning("等待 %ss 未捕获到任何包", args.wait)
+            else:
+                logger.info("已捕获首个包：%s", first.url)
+            if args.settle > 0:
+                import time
+                logger.info("静置 %ss 等待剩余流量...", args.settle)
+                time.sleep(args.settle)
 
-        page.capture.stop()
-        steps = page.capture.steps
+        # 收尾：stop + 读取 steps + 分类 + 落盘。stop 可能等待响应体加载，包一层兜底。
+        try:
+            page.capture.stop()
+        except Exception as e:
+            logger.warning("capture.stop 异常，直接读取已捕获 steps：%s", e)
+        try:
+            steps = page.capture.steps
+        except Exception as e:
+            logger.warning("读取 steps 失败：%s", e)
+            steps = []
 
         records_meta, js_records, target_hits, js_dir = _classify_packets(
             steps, args, substrings, regexes
@@ -572,9 +624,12 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             records_meta, js_records, target_hits, accepted, only_options,
             webdriver_flag, wd_err, has_filter,
         )
+        result["getTimedOut"] = get_timed_out
         result["outputs"] = _write_outputs(
             args, browser_path, records_meta, target_hits, fingerprint, baseline_id, js_dir
         )
+        logger.info("=== FORENSIC DONE === 抓包 %s 个，目标命中 %s，已写入 capture.json",
+                    len(records_meta), len(target_hits))
         return result
     finally:
         # 取证结束（成功或异常）一律主动关闭浏览器，避免残留进程 / profile 锁
@@ -701,6 +756,8 @@ def render_markdown(r: Dict[str, Any]) -> str:
     L.append(f"- JS 文件数：{r.get('jsFileCount')}")
     L.append(f"- 目标命中数：{r.get('targetHitCount')}（验收通过 {r.get('acceptedTargetCount')}）")
     L.append(f"- navigator.webdriver 自检：{r.get('navigatorWebdriverSelfCheck')}")
+    if r.get("getTimedOut"):
+        L.append("- ⚠️ page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
     L.append(f"- 取证验收：{r.get('acceptance')}")
     if r.get("onlyOptionsWarning"):
         L.append(f"- ⚠️ 仅捕获到 OPTIONS 预检，未捕获真实业务响应：{r['onlyOptionsWarning']}")
