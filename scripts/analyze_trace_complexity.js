@@ -137,18 +137,16 @@ function discoverTraceFiles(args) {
     const resolved = path.resolve(item);
     if (exists(resolved)) files.push(resolved);
   }
-  if (args.caseDir) {
-    const caseDir = path.resolve(args.caseDir);
-    const candidates = [
-      path.join(caseDir, 'ruyi-trace', 'logs'),
-      path.join(caseDir, 'tmp'),
-      path.join(caseDir, 'notes'),
-    ];
-    for (const candidate of candidates) {
-      for (const file of walk(candidate)) {
-        if (/\.(ndjson|jsonl|json)$/i.test(file) && /trace|missing-env|ruyi|env/i.test(path.basename(file))) {
-          files.push(file);
-        }
+  const caseDir = path.resolve(args.caseDir || 'case');
+  const candidates = [
+    path.join(caseDir, 'ruyi-trace', 'logs'),
+    path.join(caseDir, 'tmp'),
+    path.join(caseDir, 'notes'),
+  ];
+  for (const candidate of candidates) {
+    for (const file of walk(candidate)) {
+      if (/\.(ndjson|jsonl|json)$/i.test(file) && /trace|missing-env|ruyi|env/i.test(path.basename(file))) {
+        files.push(file);
       }
     }
   }
@@ -230,7 +228,7 @@ function scoreSummary(summary) {
 
 function analyze(args) {
   const files = discoverTraceFiles(args);
-  const root = args.caseDir ? path.resolve(args.caseDir) : process.cwd();
+  const root = path.resolve(args.caseDir || 'case');
   const summary = {
     files: files.map(file => rel(root, file)),
     totalLines: 0,

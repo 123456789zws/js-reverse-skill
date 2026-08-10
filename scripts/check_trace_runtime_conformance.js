@@ -195,7 +195,7 @@ function compareTimeline(contract, audit, problems) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || '.');
+  const caseDir = path.resolve(args.caseDir || 'case');
   const contractPath = path.resolve(args.contract || path.join(caseDir, 'notes', 'trace-runtime-contract.json'));
   const auditPath = path.resolve(args.nodeAudit || path.join(caseDir, 'tmp', 'node-trace-runtime-audit.json'));
   const problems = [];

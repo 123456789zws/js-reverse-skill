@@ -543,7 +543,7 @@ function extraEventsByKey(expectedEvents, observedEvents) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || '.');
+  const caseDir = path.resolve(args.caseDir || 'case');
   const browserPath = path.resolve(args.browser || path.join(caseDir, 'fixtures', 'browser-network-transcript.ndjson'));
   const nodePath = path.resolve(args.node || path.join(caseDir, 'tmp', 'node-network-transcript.ndjson'));
   const problems = [];

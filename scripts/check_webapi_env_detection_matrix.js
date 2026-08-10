@@ -498,7 +498,7 @@ function compareCategoryRecords(browser, nodeAudit, expectedCategories, problems
 }
 
 function check(args) {
-  const caseDir = args.caseDir ? path.resolve(args.caseDir) : process.cwd();
+  const caseDir = path.resolve(args.caseDir || 'case');
   const matrixPath = path.resolve(args.matrix || path.join(caseDir, 'notes', 'webapi-env-detection-matrix.md'));
   const browserPath = path.resolve(args.browserBaseline || path.join(caseDir, 'fixtures', 'browser-env-detection-baseline.json'));
   const nodeAuditPath = path.resolve(args.nodeAudit || path.join(caseDir, 'tmp', 'node-env-detection-audit.json'));

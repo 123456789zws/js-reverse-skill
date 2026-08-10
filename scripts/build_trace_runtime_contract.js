@@ -262,7 +262,7 @@ function buildStatefulTimeline(events) {
 }
 
 function buildContract(args) {
-  const caseDir = path.resolve(args.caseDir || '.');
+  const caseDir = path.resolve(args.caseDir || 'case');
   const files = discoverTraceFiles(args, caseDir);
   if (!files.length) throw new Error('未找到原始 Trace 文件；请使用 --trace 指定，或把日志放入 case/ruyi-trace/logs/。');
   if (!args.traces.length && files.length > 1) {
