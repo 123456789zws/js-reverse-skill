@@ -6,6 +6,9 @@
  * 用途：L3 补环境基础设施，在目标 JS 加载前于目标运行上下文内执行。
  * 详见 references/env/env-native-protection.md。
  *
+ * 双副本同步：本文件在 assets/env-patch-snippets/ 与 templates/vm-sandbox/ 各存一份，
+ * 修改任一处必须同步另一处（两份内容应始终保持一致）。
+ *
  * 覆盖通道：
  *   - fn.toString() / Function.prototype.toString.call(fn) / String(fn) / fn + ""
  *   - fn.toString.toString()

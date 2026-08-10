@@ -14,6 +14,7 @@ function parseArgs(argv) {
     signals: [],
     strategies: [],
     json: false,
+    includeTemplates: false,
   };
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
@@ -25,6 +26,7 @@ function parseArgs(argv) {
     else if (arg === '--signal' || arg === '-s') args.signals.push(nextVal());
     else if (arg === '--strategy') args.strategies.push(nextVal());
     else if (arg === '--json') args.json = true;
+    else if (arg === '--include-templates') args.includeTemplates = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else if (arg.startsWith('-')) throw new Error(`未知参数：${arg}`);
     else args.queries.push(arg);
@@ -44,9 +46,10 @@ function usage() {
   -s, --signal <信号>    按技术信号筛选，可重复
       --strategy <策略>  按策略文本筛选，可重复
       --json             输出 JSON
+      --include-templates 包含方法论骨架模板（kind:template，默认排除）
   -h, --help             显示帮助
 
-说明：匹配不区分大小写，使用子串匹配；多个条件必须同时命中。无条件时列出全部案例。`;
+说明：匹配不区分大小写，使用子串匹配；多个条件必须同时命中。无条件时列出全部案例。方法论骨架模板（kind:template）默认从结果排除，需用 --include-templates 显式包含。`;
 }
 
 function normalize(value) {
@@ -99,6 +102,7 @@ function matchAll(values, queries) {
 
 function search(cases, args) {
   return cases.filter((item) => {
+    if (!args.includeTemplates && item.kind === 'template') return false;
     const searchable = [item.title, ...item.domains, ...item.signals, item.strategy, item.file];
     return matchAll(searchable, args.queries)
       && matchAll(item.domains, args.domains)

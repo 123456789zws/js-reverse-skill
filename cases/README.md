@@ -21,6 +21,7 @@ node scripts/search_cases.js a_bogus --json
 - `--domain`、`--signal`、`--strategy` 可重复传入；多个条件必须同时命中。
 - 匹配不区分大小写，采用子串匹配。
 - `--json` 用于需要结构化结果的脚本或 agent；无条件时列出全部索引记录。
+- 方法论骨架模板（`kind:template`）默认从结果排除，需用 `--include-templates` 显式包含。
 - 参数和输出格式以 `node scripts/search_cases.js --help` 为准。
 
 ## CASE_LOOKUP 使用方式
