@@ -33,6 +33,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -368,14 +369,16 @@ def _classify_packets(steps, args, substrings, regexes):
             body = _safe_body(d.get("response_body"))
             fname = sanitize_filename(d.get("url", ""))
             fpath = os.path.join(js_dir, fname)
-            with open(fpath, "wb") as f:
-                f.write(body)
+            if body:
+                with open(fpath, "wb") as f:
+                    f.write(body)
             js_records.append({
                 "url": d.get("url"),
                 "status": d.get("response_status"),
                 "saved_to": os.path.relpath(fpath, args.out_dir),
                 "size": len(body),
-                "source_mapping_url": extract_sourcemap(body),
+                "body_missing": not body,
+                "source_mapping_url": extract_sourcemap(body) if body else None,
             })
         if match_targets(d, substrings, regexes):
             body = _safe_body(d.get("response_body"))
@@ -559,6 +562,49 @@ def _close_browser(page) -> str:
     return "failed"
 
 
+def _apply_ruyipage_anti_hang_patch():
+    """防挂补丁（依赖 ruyipage 内部实现，失败仅告警不阻断）：
+    - 禁用 CapturePacket._fallback_fetch_body：capture.stop() 逐包拉 body 时，
+      拿不到 body 的 GET 请求会逐个在页面内 replay fetch（15s 超时），
+      京东等大页面 GET 请求多，会拖到数百秒，表现为"抓完还卡死"；
+    - Settings.response_body_timeout 默认 10s，调小到 1s，限制逐包等待。
+    """
+    try:
+        from ruyipage._units import capture as _cap
+        _cap.CapturePacket._fallback_fetch_body = lambda self: None
+    except Exception as e:
+        logger.warning("防挂补丁 fallback 禁用失败：%s", e)
+    try:
+        from ruyipage._functions import settings as _settings
+        _settings.Settings.response_body_timeout = 1
+    except Exception as e:
+        logger.warning("防挂补丁 response_body_timeout 调整失败：%s", e)
+
+
+def _stop_capture_with_timeout(page, seconds: int) -> bool:
+    """capture.stop() 逐包拉 body，极端情况下仍可能长时间阻塞；
+    用守护线程加硬超时兜底，超时放弃等待（metadata 仍可落盘）。"""
+    if seconds <= 0:
+        seconds = 15
+    done = threading.Event()
+
+    def worker():
+        try:
+            page.capture.stop()
+        except Exception:
+            pass
+        finally:
+            done.set()
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+    done.wait(seconds)
+    if done.is_set():
+        return True
+    logger.warning("capture.stop 超过 %ss 未返回，放弃等待（部分响应体可能缺失）", seconds)
+    return False
+
+
 def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
     """ruyiPage 取证主流程：启动浏览器 → 抓全部包 → 分类（元数据/JS/目标）→ JS 落盘 → 报告。
 
@@ -566,6 +612,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
     优雅 close 失败时做进程树兜底强制结束，避免残留进程锁住 profile。
     """
     from ruyipage import FirefoxPage
+    _apply_ruyipage_anti_hang_patch()
 
     page = None
     result = None
@@ -593,7 +640,9 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
 
         get_timed_out = False
         try:
-            page.get(args.url, timeout=args.wait + 20)
+            # wait="eager"（DOM interactive 即返回）：京东等首页 load 事件因长轮询
+            # 迟迟不触发，等 complete 无意义；eager 让抓包更早开始，缩短 get 阻塞。
+            page.get(args.url, timeout=args.wait + 20, wait="eager")
         except Exception as e:
             # 京东等首页常有长轮询/持续请求，load 事件迟迟不触发；
             # get 超时不能中断取证——已捕获的包必须照样 stop + 落盘。
@@ -656,11 +705,8 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             if not done:
                 logger.info("未在 %ss 内达到静默，按 --wait 超时收尾（已捕获 %s 个包）", args.wait, prev_count)
 
-        # 收尾：stop + 读取 steps + 分类 + 落盘。stop 可能等待响应体加载，包一层兜底。
-        try:
-            page.capture.stop()
-        except Exception as e:
-            logger.warning("capture.stop 异常，直接读取已捕获 steps：%s", e)
+        # 收尾：stop 可能逐包等待响应体（极端情况较久），用守护线程硬超时兜底
+        stop_ok = _stop_capture_with_timeout(page, args.stop_timeout)
         try:
             steps = page.capture.steps
         except Exception as e:
@@ -698,6 +744,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             webdriver_flag, wd_err, has_filter,
         )
         result["getTimedOut"] = get_timed_out
+        result["stopTimedOut"] = not stop_ok
         result["outputs"] = _write_outputs(
             args, browser_path, records_meta, target_hits, fingerprint, baseline_id, js_dir
         )
@@ -739,6 +786,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--no-fp", action="store_true", help="跳过 smart_fingerprint（禁用智能指纹）")
     p.add_argument("--wait", type=int, default=30, help="完成判定的总超时秒：目标命中 / 网络静默共用，默认 30")
     p.add_argument("--settle", type=int, default=5, help="未指定 --targets 时的静默窗口：包数不再增长且连续 N 秒无新包视为抓包完成，默认 5")
+    p.add_argument("--stop-timeout", type=int, default=15, help="capture.stop 硬超时秒数（防逐包等响应体卡死），默认 15")
     p.add_argument("--max-body-bytes", type=int, default=1048576, help="target-hits 响应体截断阈值，默认 1MB")
     p.add_argument("--click", default="", help="导航后拟人点击的 CSS 选择器")
     p.add_argument("--scroll", type=int, default=0, help="导航后滚动像素数")
@@ -831,6 +879,8 @@ def render_markdown(r: Dict[str, Any]) -> str:
     L.append(f"- navigator.webdriver 自检：{r.get('navigatorWebdriverSelfCheck')}")
     if r.get("getTimedOut"):
         L.append("- ⚠️ page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
+    if r.get("stopTimedOut"):
+        L.append("- ⚠️ capture.stop 超过超时未返回，已放弃等待（部分响应体可能缺失）；metadata 已落盘，缺失的 JS body 需补采")
     L.append(f"- 取证验收：{r.get('acceptance')}")
     if r.get("onlyOptionsWarning"):
         L.append(f"- ⚠️ 仅捕获到 OPTIONS 预检，未捕获真实业务响应：{r['onlyOptionsWarning']}")
