@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.1.0
+version: 2.1.1
 description: >
   网页端 JS 逆向工程技能：逆向还原浏览器请求中的加密参数、签名、token、cookie 与设备指纹。
   适用于 sign/a_bogus/X-Bogus/acw_sc__v2/hexin-v/FSSBBIl1UgzbN7N/_token 等各类动态参数的生成逻辑分析，
@@ -742,6 +742,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 
 | 版本 | 摘要 |
 |------|------|
+| 2.1.1 | ruyiPage 取证完成判定优化：指定 `--targets` 时目标接口命中即停，未指定时网络静默即停（包数不再增长且连续 `--settle` 秒无新包）；`page.get` 因长轮询超时不再中断取证（已捕获包照常落盘），报告新增 `getTimedOut` 标记与 `=== FORENSIC DONE ===` 完成信号；明确脚本同步阻塞——调用方须等返回后读 `case/forensic/capture.json`，不得运行期间轮询"仍在运行"占位提示；`resolve_browser` 兜底扫描 `tools/ruyipage-browsers/` managed runtime |
 | 2.1.0 | 工具链升级到最新：ruyipage 1.2.61 + Firefox 155 定制 runtime（v1.2.58）、RuyiTrace 2.5.5（新版内核移至 resources/kernel/，检测/采集脚本兼容新旧两代目录结构，多版本 runtime 自动选最新）；适配 1.2.6x API 变化（`page.close()` 只关标签页→改用 `page.quit()` 关整浏览器、smart_fingerprint 默认 require_country="US"→缺省不校验出口国家）；取证脚本显式 `close_on_exit(True)` 进程级兜底 + quit 优先 + 进程树兜底三级关闭 |
 | 2.0.1 | 取证证据门禁：新增 `scripts/check_evidence.js`，明确 **URL ≠ 证据**（红线 3 附加条款）——用户只给 URL 必须走完整两步取证；cURL/HAR/JS 文件仅能跳过 Step 1，Step 2 RuyiTrace 日志采集不可跳过（除非提供 NDJSON）；"用户提供证据"判定一律以门禁脚本输出为准 |
 | 2.0.0 | 验证码能力成为核心：新增易盾无感(type=5)+滑块(type=2) 成功案例、click_gap.py 人工点击工具、经验法则第 20 条（成功样本先全字段解密）；ddddocr 用法对齐官方 README；答案层/人工接管/打码三级降级路径 |
