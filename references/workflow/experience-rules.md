@@ -1,6 +1,6 @@
-# 经验法则详解（20 条扩展版，与 SKILL.md 1:1 对应）
+# 经验法则详解（高级手动取证参考）
 
-> 本文件是 SKILL.md 经验法则（20 条）的扩展说明，编号与 SKILL.md 完全一致。每条给出背景、示例、反例与注意事项，便于在 FORENSIC_CAPTURE → TRACE_CAPTURE → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY 中查阅。
+> 本文件收集手动取证和高级调试场景下的经验法则，作为 RuyiTrace NDJSON 自动采集的补充。默认流程以 SKILL.md 2.2.0 状态机为准，使用统一脚本取证（`forensic_ruyipage.py` + `capture_ruyitrace_log.js`）；以下内容仅在自动采集不足、需要手动介入时参考。文中涉及的 ruyipage 交互式 API（`instrumentation`、`search_code`、`evaluate_js` 等）属于高级手动取证手段，不是默认路线。
 
 ## 一、Hook 安装与入口确认
 
@@ -16,7 +16,7 @@ JSVMP 字节码 dispatch 形如 `u[xxx]: x(offset, t, this, arguments, 0, N)`，
 ## 二、经验资产与离线验证
 
 ### 4. case 中的"可验证事实清单"是经验资产
-case 文件的价值随实战次数指数级增长：第一次分析某站点写的 case 可能粗糙；第二次分析（升级或变体）时用 case 发现 80% 还成立、20% 变了，就把变化追加到"变体章节"。"可验证事实清单"是核心资产，同站升级时逐条核对找出"哪些变了"。**示例**：case 记录"签名函数位于 acw_sc.2.js 第 12 万行附近的 dispatch"，升级后核对发现位移到第 15 万行但函数特征不变。INIT 指纹匹配时优先检测 `cacheOpts` 和 `X-Gnarly` 区分 SDK 变体（单签名 vs 双签名、bdms.paths vs cacheOpts）。
+case 文件的价值随实战次数指数级增长：第一次分析某站点写的 case 可能粗糙；第二次分析（升级或变体）时用 case 发现 80% 还成立、20% 变了，就把变化追加到"变体章节"。"可验证事实清单"是核心资产，同站升级时逐条核对找出"哪些变了"。**示例**：case 记录"签名函数位于 acw_sc.2.js 第 12 万行附近的 dispatch"，升级后核对发现位移到第 15 万行但函数特征不变。EVIDENCE_GATE 指纹匹配时优先检测 `cacheOpts` 和 `X-Gnarly` 区分 SDK 变体（单签名 vs 双签名、bdms.paths vs cacheOpts）。
 
 ### 5. `verify_signer_offline` 是协议代码的 unit test
 把签名算法移植成 Python/Node 协议代码后，用 N 个真实样本（含原始输入 + 浏览器产出的签名）离线验证，字符级定位首个偏差点。这是协议代码的 unit test——只要有一个样本不过，就说明算法有 bug。**反例**：只拿一个样本跑通就交付，结果线上偶发失败（时间戳精度、随机串字符集差异）。注意事项：样本要覆盖不同时间窗、不同参数长度、不同用户态，才能逼出边界 bug。把它当作 CI 门禁，协议代码每次改动都跑全量样本。
@@ -25,7 +25,7 @@ case 文件的价值随实战次数指数级增长：第一次分析某站点写
 绝大多数"想放弃"是踩了已知反模式。降级梯度必须逐级走：`instrumentation(mode="ast")` → 失败 → `mode="regex"` 覆盖率不足 → `hook_jsvmp_interpreter(mode="transparent")` 日志太少 → `mode="proxy"` 破坏签名 → 路径 D（jsdom 环境伪装）→ 也失败 → 向用户说明。每级至少尝试一次并记录失败原因。**示例**：AST 插桩失败常因严格 CSP，v0.6.0 的 `csp_bypass=True` 可自动绕过。回查 common-pitfalls.md 往往 10 分钟解决卡了 2 小时的问题，不要跳过这一步。
 
 ### 7. 命中案例后必须精读踩坑记录并转成检查项
-命中经验库后不能直接套用，必须 FORENSIC_CAPTURE → TRACE_CAPTURE → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY 正常走。IMPLEMENT 编码前逐条回查踩坑记录，将每条记录写成可核对的实现约束和验证项。**示例**：case 记录"该站点 cacheOpts 是新版 SDK 必传项，缺少会导致业务路径未注册、拦截器不触发"，则初始化代码必须传入 cacheOpts，并在验证清单中检查业务路径已注册（旧版只需 `bdms.paths`）。**反例**：只看 case 的算法部分就动手，漏了踩坑记录里的"预热请求注入动态密钥"，跳过 `/api2` 预热导致签名缺密钥。命中后第一步是通读 case 全文，把每条 pitfall 转成 checklist。
+命中经验库后不能直接套用，必须按 SKILL.md 2.2.0 状态机正常走完整流程。IMPLEMENT 编码前逐条回查踩坑记录，将每条记录写成可核对的实现约束和验证项。**示例**：case 记录"该站点 cacheOpts 是新版 SDK 必传项，缺少会导致业务路径未注册、拦截器不触发"，则初始化代码必须传入 cacheOpts，并在验证清单中检查业务路径已注册（旧版只需 `bdms.paths`）。**反例**：只看 case 的算法部分就动手，漏了踩坑记录里的"预热请求注入动态密钥"，跳过 `/api2` 预热导致签名缺密钥。命中后第一步是通读 case 全文，把每条 pitfall 转成 checklist。
 
 ## 三、JSVMP 路径选择
 
