@@ -20,6 +20,7 @@ function parseArgs(argv) {
     importAfter: false,
     json: false,
     markdown: false,
+    help: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
@@ -280,15 +281,25 @@ function killProcessTree(pid, profileDir, firefoxExe) {
       resolve(ok);
     };
 
+    // 带超时包装的 spawn 调用，防止 taskkill/PowerShell 卡死导致进程清理 hang 住
+    function spawnWithTimeout(cmd, args, timeoutMs = 15000) {
+      return new Promise((res) => {
+        const child = spawn(cmd, args, { windowsHide: true });
+        const timer = setTimeout(() => {
+          try { child.kill(); } catch { /* ignore */ }
+          res(false);
+        }, timeoutMs);
+        child.once('error', () => { clearTimeout(timer); res(false); });
+        child.once('exit', (code) => { clearTimeout(timer); res(code === 0); });
+      });
+    }
+
     const attempts = [];
     if (pid) {
-      attempts.push(new Promise((res) => {
-        const cmd = process.platform === 'win32'
-          ? spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true })
-          : spawn('kill', ['-TERM', `-${pid}`], { windowsHide: true });
-        cmd.once('error', () => res(false));
-        cmd.once('exit', (code) => res(code === 0));
-      }));
+      attempts.push(spawnWithTimeout(
+        process.platform === 'win32' ? 'taskkill' : 'kill',
+        process.platform === 'win32' ? ['/PID', String(pid), '/T', '/F'] : ['-TERM', `-${pid}`]
+      ));
     }
 
     if (process.platform === 'win32') {
@@ -306,14 +317,10 @@ function killProcessTree(pid, profileDir, firefoxExe) {
         matchers.push(`($_.CommandLine -like '*${fwd}*')`);
       }
       if (matchers.length) {
-        attempts.push(new Promise((res) => {
-          const ps = spawn('powershell', [
-            '-NoProfile', '-NonInteractive', '-Command',
-            `Get-CimInstance Win32_Process -Filter "Name='firefox.exe'" | Where-Object { ${matchers.join(' -or ')} } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
-          ], { windowsHide: true });
-          ps.once('error', () => res(false));
-          ps.once('exit', (code) => res(code === 0));
-        }));
+        attempts.push(spawnWithTimeout('powershell', [
+          '-NoProfile', '-NonInteractive', '-Command',
+          `Get-CimInstance Win32_Process -Filter "Name='firefox.exe'" | Where-Object { ${matchers.join(' -or ')} } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
+        ], 15000));
       }
     }
 
