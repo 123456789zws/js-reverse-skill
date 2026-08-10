@@ -44,15 +44,23 @@ function parseArgs(argv) {
 
 function usage() {
   return `用法：
-  node scripts/check_trace_api_coverage.js --case-dir case --markdown
-  node scripts/check_trace_api_coverage.js --case-dir case --require-stage-audit --json
+  node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown
+  node scripts/check_trace_api_coverage.js --case-dir <project-root> --require-stage-audit --json
   node scripts/check_trace_api_coverage.js --inventory case/notes/trace-api-inventory.json --matrix case/notes/env-coverage-matrix.md --markdown
 
-说明：检查 Trace API inventory、env coverage matrix，以及后续阶段报告中计划外新增 WebAPI 是否说明原因。`;
+说明：检查 Trace API inventory、env coverage matrix，以及后续阶段报告中计划外新增 WebAPI 是否说明原因。--case-dir 指项目根（其下应有 case/）；兼容直接传 case 目录。`;
 }
 
 function exists(p) {
   try { return fs.existsSync(p); } catch { return false; }
+}
+
+// 归一化 --case-dir：兼容"项目根"与"case 目录"，统一返回 case 目录。
+function resolveCaseDir(input) {
+  const p = path.resolve(input || '.');
+  const caseSub = path.join(p, 'case');
+  try { if (fs.statSync(caseSub).isDirectory()) return caseSub; } catch {}
+  return p;
 }
 
 function readText(p) {
@@ -142,7 +150,7 @@ function auditStageReports(caseDir) {
 }
 
 function check(args) {
-  const caseDir = args.caseDir ? path.resolve(args.caseDir) : process.cwd();
+  const caseDir = resolveCaseDir(args.caseDir || '.');
   const notesDir = path.join(caseDir, 'notes');
   const inventoryPath = path.resolve(args.inventory || path.join(notesDir, 'trace-api-inventory.json'));
   const matrixPath = path.resolve(args.matrix || path.join(notesDir, 'env-coverage-matrix.md'));

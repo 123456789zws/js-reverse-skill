@@ -29,9 +29,9 @@
  *   }
  *
  * 用法：
- *   node scripts/check_session_resume.js --case-dir <case> --markdown
- *   node scripts/check_session_resume.js --case-dir <case> --write-snapshot  # ENV_READY 检测通过后写快照
- *   node scripts/check_session_resume.js --case-dir <case> --json
+ *   node scripts/check_session_resume.js --case-dir <project-root> --markdown
+ *   node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot  # ENV_READY 检测通过后写快照
+ *   node scripts/check_session_resume.js --case-dir <project-root> --json
  */
 
 const fs = require('fs');
@@ -56,17 +56,26 @@ function parseArgs(argv) {
 
 function usage() {
   return `用法：
-  node scripts/check_session_resume.js --case-dir <case> --markdown
-  node scripts/check_session_resume.js --case-dir <case> --write-snapshot --markdown
-  node scripts/check_session_resume.js --case-dir <case> --json
+  node scripts/check_session_resume.js --case-dir <project-root> --markdown
+  node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
+  node scripts/check_session_resume.js --case-dir <project-root> --json
 
 说明：判定新会话是否可跳过 ENV_READY 五项环境检测。
+--case-dir 指项目根（其下应有 case/ 和 result/ 两个平级子目录）；兼容直接传 case 目录。
 --write-snapshot：仅在五项环境检测全部通过时写入/更新 case/notes/env-snapshot.json；失败退出非零且不写文件。
-result/ 进度从 case 目录父级的 result/ 读取。
 不带 --write-snapshot 时只做判定，不写文件。`;
 }
 
 function exists(p) { try { return !!p && fs.existsSync(p); } catch { return false; } }
+
+// 归一化 --case-dir：兼容"项目根"与"case 目录"两种输入，统一返回 case 目录。
+// 项目根（其下含 case/）→ 返回 <root>/case；否则视为 case 目录原样返回。
+function resolveCaseDir(input) {
+  const p = path.resolve(input || '.');
+  const caseSub = path.join(p, 'case');
+  try { if (fs.statSync(caseSub).isDirectory()) return caseSub; } catch {}
+  return p;
+}
 
 function findProjectRoot() {
   let cur = path.dirname(__dirname);
@@ -229,7 +238,7 @@ function renderMarkdown(result) {
       }
     }
     lines.push('', '## ENV_READY 检测通过后');
-    lines.push('运行 `node scripts/check_session_resume.js --case-dir <case> --write-snapshot` 写入/更新环境快照，供下次会话续接');
+    lines.push('运行 `node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot` 写入/更新环境快照，供下次会话续接');
   }
   return lines.join('\n') + '\n';
 }
@@ -243,7 +252,7 @@ function main() {
     process.exit(1);
   }
   const projectRoot = findProjectRoot();
-  const caseDir = path.resolve(args.caseDir);
+  const caseDir = resolveCaseDir(args.caseDir);
   const notesDir = path.join(caseDir, 'notes');
   const snapshotPath = path.join(notesDir, 'env-snapshot.json');
   const snapshotExists = exists(snapshotPath);

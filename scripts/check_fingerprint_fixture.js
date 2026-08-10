@@ -24,14 +24,22 @@ function parseArgs(argv) {
 
 function usage() {
   return `用法：
-  node scripts/check_fingerprint_fixture.js --case-dir case --require canvas,webgl --markdown
+  node scripts/check_fingerprint_fixture.js --case-dir <project-root> --require canvas,webgl --markdown
   node scripts/check_fingerprint_fixture.js --fixture case/fixtures/fingerprint.fixture.json --env-file case/result/src/env/fingerprint-env.js --json
 
-说明：检查浏览器指纹 fixture 是否覆盖 Canvas / WebGL / WebGPU / Audio / DOM 几何等终端 API，是否绑定同一 fingerprint baseline，并检查最终 env 是否避免 node-canvas / headless-gl / 自动化浏览器等错误方向。`;
+说明：检查浏览器指纹 fixture 是否覆盖 Canvas / WebGL / WebGPU / Audio / DOM 几何等终端 API，是否绑定同一 fingerprint baseline，并检查最终 env 是否避免 node-canvas / headless-gl / 自动化浏览器等错误方向。--case-dir 指项目根（其下应有 case/ 和 result/）；兼容直接传 case 目录。`;
 }
 
 function exists(p) { try { fs.accessSync(p); return true; } catch { return false; } }
 function stat(p) { try { return fs.statSync(p); } catch { return null; } }
+
+// 归一化 --case-dir：兼容"项目根"与"case 目录"，统一返回 case 目录。
+function resolveCaseDir(input) {
+  const p = path.resolve(input || '.');
+  const caseSub = path.join(p, 'case');
+  const st = stat(caseSub);
+  return st && st.isDirectory() ? caseSub : p;
+}
 function readText(p) { return fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, ''); }
 function readJson(p) { return JSON.parse(readText(p)); }
 function rel(root, p) { return (path.relative(root, p) || '.').replace(/\\/g, '/'); }
@@ -406,12 +414,12 @@ function defaultFixture(caseDir) {
 }
 
 function defaultEnvFiles(caseDir) {
-  const result = path.join(caseDir, 'result');
+  const result = path.join(caseDir, '..', 'result');
   return walk(result).filter(p => ['.js', '.mjs', '.cjs'].includes(ext(p)));
 }
 
 function check(args) {
-  const caseDir = args.caseDir ? path.resolve(args.caseDir) : (args.fixture ? path.resolve(path.dirname(args.fixture), '..') : process.cwd());
+  const caseDir = resolveCaseDir(args.caseDir || (args.fixture ? path.resolve(path.dirname(args.fixture), '..') : '.'));
   const fixtureFile = args.fixture ? path.resolve(args.fixture) : defaultFixture(caseDir);
   const envFiles = args.envFile ? [path.resolve(args.envFile)] : defaultEnvFiles(caseDir);
   const required = String(args.require || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
