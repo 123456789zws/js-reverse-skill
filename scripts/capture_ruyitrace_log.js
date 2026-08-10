@@ -225,6 +225,26 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// 检测 kernel firefox 进程是否存活（Windows）。返回进程数；非 Windows 或查询失败返回 null（表示不检测）。
+// 用户手动关闭浏览器（或浏览器崩溃）后，ExecutablePath 匹配内核 firefox 的进程数归零。
+function kernelFirefoxAlive(firefoxExe) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32' || !firefoxExe) { resolve(null); return; }
+    const esc = (s) => String(s).replace(/'/g, "''");
+    const ps = spawn('powershell', [
+      '-NoProfile', '-NonInteractive', '-Command',
+      `@(Get-CimInstance Win32_Process -Filter "Name='firefox.exe'" | Where-Object { $_.ExecutablePath -eq '${esc(firefoxExe.replace(/\//g, '\\'))}' }).Count`,
+    ], { windowsHide: true });
+    let out = '';
+    ps.stdout.on('data', (d) => { out += d; });
+    ps.once('error', () => resolve(null));
+    ps.once('exit', () => {
+      const n = parseInt(out.trim(), 10);
+      resolve(Number.isFinite(n) ? n : null);
+    });
+  });
+}
+
 function waitForExit(child, timeoutMs) {
   return new Promise((resolve) => {
     let done = false;
@@ -325,13 +345,32 @@ async function capture(args, plan) {
     killAttempted: false,
     killMethod: '',
     killOk: false,
+    exitedEarly: false,
     exit: null,
     logs: [],
     importResult: null,
   };
   child.on('error', (err) => { result.launchError = err.message || String(err); });
   try {
-    await wait(args.duration * 1000);
+    // 等待采集：duration 为总兜底；用户手动关闭浏览器（或浏览器崩溃）→
+    // kernel firefox 进程归零 → 立即提前结束，不必等满 duration。
+    // 进程检测只在 Windows 且"曾经见过内核进程"后生效（启动慢/从未出现进程时按 duration 兜底）。
+    const pollMs = 1500;
+    const deadline = Date.now() + args.duration * 1000;
+    let everSeen = false;
+    while (Date.now() < deadline) {
+      const alive = await kernelFirefoxAlive(plan.firefoxExe);
+      if (alive !== null) {
+        if (alive > 0) {
+          everSeen = true;
+        } else if (everSeen) {
+          result.exitedEarly = true;
+          logger.info('检测到浏览器已关闭，提前结束采集（已用时 %ss）', Math.round((Date.now() - startedAt) / 1000));
+          break;
+        }
+      }
+      await wait(pollMs);
+    }
   } finally {
     // 采集结束（成功或异常）一律主动关闭浏览器进程树，避免残留进程锁住 profile。
     // 注意：spawn 的 launcher PID 可能在采集期间自己退出（Firefox 155 重 fork 主进程），
@@ -394,6 +433,7 @@ function renderMarkdown(obj) {
   lines.push('', '## 捕获结果');
   if (result.launchError) lines.push(`- 启动错误：${result.launchError}`);
   lines.push(`- 是否已启动：${result.launched ? '是' : '否'}`);
+  if (result.exitedEarly) lines.push('- 浏览器在 duration 前已被关闭/退出，采集提前结束（NDJSON 日志保留，正常导入）');
   if (result.pid) lines.push(`- 进程 PID：${result.pid}`);
   lines.push(`- 是否尝试结束进程：${result.killAttempted ? '是' : '否'}`);
   if (result.killAttempted) lines.push(`- 结束方式：${result.killMethod}，是否成功：${result.killOk ? '是' : '否'}${result.killError ? `（${result.killError}）` : ''}`);

@@ -332,7 +332,9 @@ node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --
 3. 设置 `MOZ_DOM_TRACE=1`、`MOZ_DOM_TRACE_FILE=<case trace file>`、`MOZ_DOM_TRACE_LIMIT=<limit>` 和 `MOZ_DISABLE_LAUNCHER_PROCESS=1`。
 4. 打开目标页面后触发最少量必要业务动作；如果需要登录、验证码、MFA、设备验证或权限确认，暂停让用户在该 trace Firefox 中手动完成，再继续采集。
 5. 自动 trace 结束后，立即运行 `import_ruyitrace_log.js` 导入日志、生成 `notes/ruyitrace-summary.md`，并检查长字段截断风险。
-6. 如果自动 trace 没有生成 NDJSON，先记录失败原因和已执行命令，再转手动 trace（方式二）；不要把“没有日志”误写成目标没有环境访问。
+6. 如果自动 trace 没有生成 NDJSON，先记录失败原因和已执行命令，再转手动 trace（方式二）；不要把"没有日志"误写成目标没有环境访问。
+
+> 提前结束：采集期间用户观察访问完成、直接手动关闭 trace Firefox（或浏览器崩溃）时，脚本每 1.5s 检测一次内核进程（ExecutablePath 精确匹配），检测到进程归零即**提前结束采集**（不必等满 `--duration`）；NDJSON 由内核旁路写盘，正常关闭不丢日志，导入照常。仅启动慢/从未出现进程或非 Windows 时按 duration 兜底。
 
 自动 trace 成功后继续：
 
