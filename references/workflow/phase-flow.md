@@ -2,9 +2,9 @@
 
 > **触发条件**：执行某个状态、不确定具体怎么做时读
 >
-> 本文档是 SKILL.md INIT → RESUME_PROBE → EVIDENCE_GATE → CASE_LOOKUP → INTENT_CONFIRM → ENV_READY → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE 顶层骨架的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
+> 本文档是 SKILL.md 4.0 唯一启动状态机 INTENT_CONFIRM → ENV_READY → EVIDENCE_GATE → CASE_LOOKUP → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE 的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
 
-## INIT、EVIDENCE_GATE、INTENT_CONFIRM 与 ENV_READY
+## INTENT_CONFIRM、ENV_READY 与 EVIDENCE_GATE
 
 ### 0.1 任务理解
 - 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实性，门禁通过后从包中提取信息，跳过 FORENSIC_CAPTURE ruyipage 抓包，直接进入参数识别（**仍必须完成 TRACE_CAPTURE RuyiTrace 日志采集，除非用户提供了 NDJSON**）
@@ -24,14 +24,25 @@
 - 抓包遇到登录/交互/验证码：暂停要求用户补充请求包
 - **证据门禁不通过**（仅 URL / 声称材料不存在）：不得跳过取证，必须走完整两步取证
 
-### 0.3 环境检测（自动安装模式）
-```
+### 0.3 环境检测
+
+```powershell
+node scripts/check_session_resume.js --case-dir <project-root>/case --markdown
 node scripts/check_external_tools.js --markdown
- 输出五项检测结果 + nextRequiredInput
- 未通过 → node scripts/install_all.js --markdown（输出安装计划）
- 用户确认 → node scripts/install_all.js --yes --markdown（自动安装到 <项目根>/tools/）
- 安装后重新检测确认五项全部通过
-node scripts/precheck_runtime.js（六项纯计算预检）
+node scripts/precheck_runtime.js
+```
+
+`resume` 表示环境快照可复用；`fresh`、检测失败，或用户说明重装 Node、替换 Firefox、迁移工具目录、升级 ruyipage/RuyiTrace 时，重新完成环境检查。五项环境检测全部通过后，必须运行以下命令写入或更新快照：
+
+```powershell
+node scripts/check_session_resume.js --case-dir <project-root>/case --write-snapshot --markdown
+```
+
+未通过时：
+
+```powershell
+node scripts/install_all.js --markdown       # 输出安装计划
+node scripts/install_all.js --yes --markdown # 用户确认后自动安装到 <项目根>/tools/
 ```
 默认安装目录：
 - ruyiPage 定制 Firefox runtime：`<项目根>/tools/ruyipage-browsers/`
@@ -53,7 +64,7 @@ case 根目录只允许两个子目录：
 > 用户提供 cURL/HAR/JS 文件（经 `check_evidence.js` 门禁确认）时，跳过 1.1 抓包，从 1.2 开始。仅提供 URL → 必须从 1.1 开始完整抓包。
 
 ### 1.1 ruyipage 抓包（一次抓完，不复抓）
-1. 运行通用脚本 `python scripts/forensic_ruyipage.py --url <目标页> --targets "<接口关键词>" --browser-path <定制Firefox>`（内部已用 `targets=True` 抓全部包并落盘 JS 到 `case/js/original/`，不必手写 `page.capture.start`）
+1. 运行通用脚本 `python scripts/forensic_ruyipage.py --url <目标页> --case-dir <project-root> --markdown`（内部已用 `targets=True` 抓全部包并落盘 JS 到 `case/js/original/`，不必手写 `page.capture.start`）
 2. 收集：网络包（HAR）、Cookie、JS 文件 URL、响应状态码
 3. 下载目标 JS 文件到 `case/js/original/`
 4. 写入指纹基线 `case/notes/fingerprint-baseline.json`
@@ -92,9 +103,9 @@ case 根目录只允许两个子目录：
 
 > 基于 FORENSIC_CAPTURE ruyipage 抓包结果（JS 文件 + 网络包），RuyiTrace 采集运行时日志。
 
-### 2.1 RuyiTrace NDJSON 采集（核心证据源，采集方式先让用户选择）
-- 手动 trace：用户用 RuyiTrace 采集后提供 NDJSON → `node scripts/capture_ruyitrace_log.js --input <日志> --case-dir case --markdown` 导入生成摘要（适合需登录/验证码/复杂交互）
-- 自动 trace：`node scripts/capture_ruyitrace_log.js --url <目标页> --case-dir case --ruyitrace-home <RuyiTrace-dir> --import-after --markdown` 自动启动 trace Firefox 采集（需 RuyiTrace 完整安装）
+### 2.1 RuyiTrace NDJSON 采集（核心证据源）
+- 手动 trace：用户用 RuyiTrace 采集后提供 NDJSON → `node scripts/capture_ruyitrace_log.js --input <日志> --case-dir <project-root> --markdown` 导入生成摘要（适合需登录/验证码/复杂交互）
+- 自动 trace：`node scripts/capture_ruyitrace_log.js --url <目标页> --case-dir <project-root> --import-after --markdown` 自动启动 trace Firefox 采集（需 RuyiTrace 完整安装）
 - 导入摘要：`scripts/import_ruyitrace_log.js` 生成 `notes/ruyitrace-summary.md`
 - 详见 `references/workflow/trace-flow.md`
 
