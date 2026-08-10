@@ -73,7 +73,7 @@ json   = JSON.parse(plain)
 7. **坑：`cgiEncrypt` 是 async** —— 忘记 await 会把 `[object Promise]` 当 body 发出去。
    → **正确做法**：`await cgiEncrypt(body)`；注意 `cgiDecrypt` 反而是同步的，两者不对称。
 
-8. **坑：ruyipage 取证脚本 API 不兼容** —— `ruyipage 1.2.20` 的 `FirefoxPage` 已无 `capture` 属性，skill 的 `forensic_ruyipage.py` 仍在调 `page.capture.start(...)`。另有两个环境陷阱：ruyipage 装在系统 `C:\Python313` 而非 WorkBuddy 内置 Python（须用 `py -3`）；智能指纹默认要 US，国内环境须加 `--require-country CN`。
+8. **坑：ruyipage 取证脚本环境不一致** —— 本 case 取证期曾遇到 ruyipage `1.2.20` 与新版 API 不兼容、以及系统 Python 与内置 Python 混用、智能指纹默认校验 US 等环境问题。**已随工具链升级解决**：`70a41b0` 起脚本适配 ruyipage `1.2.61+`（使用 `page.capture.start(targets=True, collect_bodies=True)` 抓全部包），`--require-country` 缺省改为不校验出口国家（适配代理出口 IP），统一由 `check_external_tools.js` 检测工具链并提示补齐。当前不再需要手动传 `--require-country CN` 或用 `py -3` 切换 Python。
    → **正确做法**：取证不通时不要死磕。本 case 目标接口无登录态，直接用 Node 打真实接口、以服务端 `code:0` 反证还原正确性，比抓包比对更硬。
 
 ## 可验证事实清单（经验资产）
