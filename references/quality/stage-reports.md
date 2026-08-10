@@ -26,7 +26,7 @@
 | 补环境前置分析 | `05-补环境前置分析.md` | 进入 Node.js 补环境前，完成日志、trace、依赖和风险优先级整理后 |
 | 补环境实现记录 | `06-补环境实现记录.md` | env / signer / request 模块形成并通过主要 fixture 后 |
 | 验证与清理记录 | `07-验证与清理记录.md` | 最终请求验证、代码质量检查、最终产物检查、清理检查完成后 |
-| 最终项目总结 | `最终项目总结.md` | 项目完成后，写入 `case/result/最终项目总结.md` |
+| 最终项目总结 | `最终项目总结.md` | 项目完成后，写入 `result/最终项目总结.md` |
 
 可以根据实际 case 增加中文命名阶段报告，例如 `08-NativeProtect保护更新阶段报告.md`、`09-通用代码变更记忆机制实现报告.md`、`10-WebAPI补齐阶段报告.md`、`11-指纹回放能力阶段报告.md`、`12-二次补样复盘.md`、`13-线上复测记录.md`，但文件名仍必须包含中文。
 
@@ -68,7 +68,7 @@ node scripts/write_stage_report.js --case-dir case --stage WebAPI补齐阶段报
 写入任意中文命名 Markdown 时使用：
 
 ```bash
-node scripts/write_markdown_utf8.js --input case/tmp/总结草稿.md --out case/result/最终项目总结.md --require-chinese-name --markdown
+node scripts/write_markdown_utf8.js --input case/tmp/总结草稿.md --out result/最终项目总结.md --require-chinese-name --markdown
 ```
 
 检查阶段报告：
@@ -140,9 +140,9 @@ node scripts/check_stage_reports.js --case-dir case --require-stage WebAPI补齐
 
 ## 4. 下一步计划
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 ```
 
 ## 动态阶段报告模板

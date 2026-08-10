@@ -113,7 +113,7 @@ function createMinimalSandbox(options = {}) {
         window: null,
         self: null,
         globalThis: null,
-        
+
         // DOM 最小模拟（探测模式可用；交付模式需按 references/env/env-object-model.md 补齐原型链）
         document: {
             cookie: options.cookie || '',
@@ -138,7 +138,7 @@ function createMinimalSandbox(options = {}) {
             title: '',
             readyState: 'complete',
         },
-        
+
         // Navigator（探测模式可用；交付模式需按 env-object-model.md 补齐原型链）
         navigator: {
             userAgent: options.userAgent || 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -156,7 +156,7 @@ function createMinimalSandbox(options = {}) {
             hardwareConcurrency: 8,
             maxTouchPoints: 0,
         },
-        
+
         // Location
         location: {
             href: options.url || 'https://example.com',
@@ -169,7 +169,7 @@ function createMinimalSandbox(options = {}) {
             hash: '',
             origin: 'https://example.com',
         },
-        
+
         // Screen
         screen: {
             width: 1920,
@@ -179,13 +179,13 @@ function createMinimalSandbox(options = {}) {
             colorDepth: 24,
             pixelDepth: 24,
         },
-        
+
         // 定时器
         setTimeout: setTimeout,
         setInterval: setInterval,
         clearTimeout: clearTimeout,
         clearInterval: clearInterval,
-        
+
         // 内置对象
         String, Array, Object, Math, Date, RegExp, JSON, Map, Set, WeakMap, WeakSet,
         parseInt, parseFloat, isNaN, isFinite, NaN, Infinity, undefined,
@@ -197,15 +197,15 @@ function createMinimalSandbox(options = {}) {
         Promise,
         Proxy, Reflect,
         Symbol,
-        
+
         // Base64
         btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
         atob: (b64) => Buffer.from(b64, 'base64').toString('binary'),
-        
+
         // Console（用于调试）
         console: console,
     };
-    
+
     // 循环引用
     sandbox.window = sandbox;
     sandbox.self = sandbox;
@@ -213,7 +213,7 @@ function createMinimalSandbox(options = {}) {
     sandbox.top = sandbox;
     sandbox.parent = sandbox;
     sandbox.frames = sandbox;
-    
+
     return sandbox;
 }
 
@@ -221,7 +221,7 @@ function createMinimalSandbox(options = {}) {
 function runInSandbox(code, options = {}) {
     const sandbox = createMinimalSandbox(options);
     vm.createContext(sandbox);
-    
+
     try {
         vm.runInContext(code, sandbox, {
             timeout: options.timeout || 5000,
@@ -231,7 +231,7 @@ function runInSandbox(code, options = {}) {
         console.error('沙箱执行错误:', e.message);
         throw e;
     }
-    
+
     return sandbox;
 }
 ```
@@ -242,7 +242,7 @@ function runInSandbox(code, options = {}) {
 function createCookieTrapSandbox(options = {}) {
     const sandbox = createMinimalSandbox(options);
     const cookies = {};
-    
+
     Object.defineProperty(sandbox.document, 'cookie', {
         get() {
             return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ');
@@ -255,7 +255,7 @@ function createCookieTrapSandbox(options = {}) {
             console.log(`[Sandbox] Cookie Set: ${name}=${value}`);
         }
     });
-    
+
     sandbox._cookies = cookies;
     return sandbox;
 }
@@ -272,18 +272,18 @@ function createXHRStub(interceptor) {
             this.responseText = '';
             this.response = '';
         }
-        
+
         open(method, url) {
             this._method = method;
             this._url = url;
             this.readyState = 1;
         }
-        
+
         setRequestHeader(name, value) {
             this._headers = this._headers || {};
             this._headers[name] = value;
         }
-        
+
         send(body) {
             if (interceptor) {
                 interceptor({
@@ -298,7 +298,7 @@ function createXHRStub(interceptor) {
             if (this.onreadystatechange) this.onreadystatechange();
             if (this.onload) this.onload();
         }
-        
+
         addEventListener(event, handler) {
             this['on' + event] = handler;
         }
@@ -325,16 +325,16 @@ function createjQueryStub() {
             ajax: $.ajax,
         };
     };
-    
+
     $.ajax = function(options) {
         console.log('[jQuery] $.ajax:', options.url, options.data);
         return { done: (fn) => ({ fail: () => ({}) }) };
     };
-    
+
     $.get = $.post = $.ajax;
     $.fn = $.prototype = {};
     $.extend = Object.assign;
-    
+
     return $;
 }
 ```
@@ -355,9 +355,9 @@ function createFullBrowserEnv(options = {}) {
         runScripts: 'dangerously',
         resources: 'usable',
     });
-    
+
     const { window } = dom;
-    
+
     // 补充 jsdom 缺少的 API
     if (!window.btoa) {
         window.btoa = (str) => Buffer.from(str, 'binary').toString('base64');
@@ -365,7 +365,7 @@ function createFullBrowserEnv(options = {}) {
     if (!window.atob) {
         window.atob = (b64) => Buffer.from(b64, 'base64').toString('binary');
     }
-    
+
     return { dom, window, document: window.document };
 }
 ```

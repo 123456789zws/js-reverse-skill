@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 function parseArgs(argv) {
@@ -13,6 +14,7 @@ function parseArgs(argv) {
     requireExperience: true,
     experienceOptOut: false,
     production: false,
+    selfTest: false,
     json: false,
     markdown: false,
   };
@@ -30,6 +32,7 @@ function parseArgs(argv) {
       args.experienceOptOut = true;
     }
     else if (a === '--production' || a === '--prod') args.production = true;
+    else if (a === '--self-test') args.selfTest = true;
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--help' || a === '-h') args.help = true;
@@ -46,10 +49,11 @@ function usage() {
   node scripts/check_final_artifact.js --case-dir . --no-require-final-summary --markdown
   node scripts/check_final_artifact.js --case-dir . --no-require-experience --markdown
   node scripts/check_final_artifact.js --case-dir . --file result/final.js --json
+  node scripts/check_final_artifact.js --self-test
 
 说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认可省略用当前目录。
-默认模式（解题必需）：检查 result 目录结构 / 唯一执行入口 / 无浏览器自动化代码 / 无硬编码或复用样本加密参数值 / result/最终项目总结.md 存在且包含默认 8 章 / result/经验沉淀-<站点>.md 存在 / result 无临时产物。
-TLS 客户端门禁豁免：代码内既无 TLS 兼容客户端又无"不发真实请求"标记时，可凭 result/ 或 case/ 下 Markdown 中的声明（"不发真实请求" / "只输出本地参数" / "目标无 TLS 指纹检测"等）豁免。
+默认模式（解题必需）：检查 result 目录结构 / 唯一执行入口 / 联网模式的可复用 Session 与关闭清理 / 按证据声明检查 TLS 指纹兼容客户端 / 无浏览器自动化代码 / 无硬编码或复用样本加密参数值 / 联网模式 result/验证记录.json 至少 5 条全部有效 / sign-only 明确豁免 / result/最终项目总结.md 存在且包含默认 8 章 / result/经验沉淀-<站点>.md 存在 / result 无临时产物。
+机器标记：在 result/ 或 case/ 的 Markdown / JSON / YAML / TXT 中声明 FINAL_ARTIFACT_NETWORK_MODE=online|sign-only 和 FINAL_ARTIFACT_TLS_FINGERPRINT=required|not-required。旧文档自然语言声明仍兼容；“目标无 TLS”只表示不强制 TLS 兼容客户端，不能豁免联网 Session 与清理。
 --production（生产级交付）：在默认检查基础上，追加校验最终总结的 9 个生产级附加章节（NativeProtect / 指纹基线 / API 调用回放 / 高强度检测矩阵 / Session 请求链 / 加密参数生成与样本复用检查 / 代码质量与中文注释 / 清理结果 / 阶段报告索引）。
 --no-require-final-summary：仅当用户明确要求不生成最终总结时传入，并在阶段输出中记录豁免原因。
 --no-require-experience：仅当用户明确要求不沉淀经验时传入，并在阶段输出中记录豁免原因。`;
@@ -126,23 +130,6 @@ const JS_REQUEST_PATTERNS = [
   /\breq\.request\s*\(/,
 ];
 
-const REQUEST_SESSION_PATTERNS = [
-  /\bcreateRequestSession\s*\(/i,
-  /\bcreate_request_session\s*\(/i,
-  /\bSession\s*\(/,
-  /\brequests\.Session\s*\(/,
-  /\bCurlSession\b/,
-  /\bCookieJar\b/i,
-  /\btough-cookie\b/i,
-  /\bcookieJar\b/,
-  /\bsession\.request\s*\(/i,
-  /\bsession\.close\s*\(/i,
-  /\bjar\.setCookie/i,
-  /Set-Cookie/i,
-  /销毁\s*session/i,
-  /清理\s*Cookie\s*jar/i,
-];
-
 const PY_REQUEST_PATTERNS = [
   /\bcurl_cffi\b/,
   /\bcffi_curl\b/,
@@ -150,25 +137,80 @@ const PY_REQUEST_PATTERNS = [
   /\bcycronet\b/i,
 ];
 
+const NETWORK_MODE_MARKER_RE = /FINAL_ARTIFACT_NETWORK_MODE["']?\s*[=:]\s*["']?(online|sign-only)/ig;
+const TLS_FINGERPRINT_MARKER_RE = /FINAL_ARTIFACT_TLS_FINGERPRINT["']?\s*[=:]\s*["']?(required|not-required)/ig;
+
+const REQUEST_PATTERNS = [
+  ...JS_REQUEST_PATTERNS,
+  /\bfetch\s*\(/i,
+  /\bhttps\.request\s*\(/i,
+  /\baxios\.(?:get|post|request)\s*\(/i,
+  /\bsession\.(?:get|post|request)\s*\(/i,
+];
+
+const SESSION_CREATE_PATTERNS = [
+  /\bcreateRequestSession\s*\(/i,
+  /\bcreate_request_session\s*\(/i,
+  /\b(?:requests\.)?Session\s*\(/,
+  /\bnew\s+Session\s*\(/i,
+  /\bnew\s+https?\.Agent\s*\(/i,
+  /\bnew\s+Agent\s*\([^)]*keepAlive/i,
+];
+
+const SESSION_REUSE_PATTERNS = [
+  /\bsession\.(?:get|post|request)\s*\(/i,
+  /\b(?:session|client)\.(?:request|get|post|put|delete)\s*\(/i,
+  /\bwith\s+session\b/i,
+  /\bsession\s*:\s*session\b/i,
+];
+
+const SESSION_CLEANUP_PATTERNS = [
+  /\bsession\.(?:close|dispose|exit)\s*\(/i,
+  /\b(?:client|requestClient)\.(?:close|dispose|exit)\s*\(/i,
+  /\b(?:agent|httpsAgent|httpAgent)\.destroy\s*\(/i,
+  /\b(?:cookieJar|jar)\.(?:clear|deleteAll|removeAll)\s*\(/i,
+  /\b清理\s*(?:Cookie\s*jar|敏感|运行态)/i,
+  /\b销毁\s*session/i,
+];
+
+const DOC_ONLINE_PATTERNS = [
+  /FINAL_ARTIFACT_NETWORK_MODE\s*[=:]\s*online/i,
+  /默认(?:向|发)真实请求|发送真实请求|联网验证|真实 API 请求/i,
+];
+
+const DOC_SIGN_ONLY_PATTERNS = [
+  /FINAL_ARTIFACT_NETWORK_MODE\s*[=:]\s*sign-only/i,
+  /不发真实请求|不发送真实请求|未(?:发|执行|进行)真实请求/,
+  /只输出本地\s*(?:sign|参数)|仅输出本地\s*(?:sign|参数)/i,
+  /\bnoRealRequest\b/i,
+  /\bno-real-request\b/i,
+];
+
+const DOC_TLS_REQUIRED_PATTERNS = [
+  /FINAL_ARTIFACT_TLS_FINGERPRINT\s*[=:]\s*required/i,
+  /(?:需要|要求|强制|依赖)[^\n]{0,20}TLS\s*(?:指纹|兼容客户端)/i,
+  /TLS\s*(?:指纹|兼容客户端)[^\n]{0,20}(?:需要|要求|强制|必需)/i,
+];
+
+const DOC_TLS_NOT_REQUIRED_PATTERNS = [
+  /FINAL_ARTIFACT_TLS_FINGERPRINT\s*[=:]\s*not-required/i,
+  /无\s*TLS\s*指纹(?:检测)?|未涉及\s*TLS|不涉及\s*TLS|TLS\s*[：:]\s*未涉及/,
+  /目标(?:网站|站点|接口|服务)?\s*(?:无|无需|不需要|不要求)\s*TLS/,
+];
+
 const NO_REAL_REQUEST_PATTERNS = [
-  /不发真实请求/,
-  /不发送真实请求/,
-  /只输出本地\s*(sign|参数)/i,
-  /仅输出本地\s*(sign|参数)/i,
+  /不发真实请求|不发送真实请求/,
+  /只输出本地\s*(sign|参数)|仅输出本地\s*(sign|参数)/i,
   /\bnoRealRequest\b/i,
   /\bno-real-request\b/i,
   /\bdryRunOnly\b/i,
   /\blocalSignOnly\b/i,
 ];
 
-// 文档证据豁免：最终总结 / 经验沉淀 / notes / 阶段报告中出现"不发真实请求"或
-// "目标无 TLS 指纹检测需求"声明时，视为已明确不发真实请求，不再强制要求代码内 TLS 客户端或固定标记。
+// 文档中的旧自然语言声明继续作为兼容输入；机器标记用于避免不同文案造成门禁歧义。
 const DOC_NO_REAL_REQUEST_PATTERNS = [
-  /不发真实请求|不发送真实请求|未(?:发|执行|进行)真实请求/,
-  /只输出本地\s*(?:sign|参数)|仅输出本地\s*(?:sign|参数)/i,
-  /无\s*TLS\s*指纹(?:检测)?/,
-  /未涉及\s*TLS|不涉及\s*TLS|TLS\s*[：:]\s*未涉及/,
-  /目标(?:网站|站点|接口|服务)?\s*(?:无|无需|不需要|不要求)\s*TLS/,
+  ...DOC_SIGN_ONLY_PATTERNS,
+  ...DOC_TLS_NOT_REQUIRED_PATTERNS,
 ];
 
 const FINGERPRINT_RENDER_PATTERNS = [
@@ -499,6 +541,56 @@ function inspectExperienceReport(resultDir, requireExperience) {
 }
 
 
+function inspectValidationRecord(resultDir, networkMode) {
+  const file = path.join(resultDir, '验证记录.json');
+  const result = { file, present: exists(file), mode: networkMode, attempts: 0, exempt: false, valid: false };
+  const problems = [];
+  const warnings = [];
+  if (!result.present) {
+    problems.push(`缺少 result/验证记录.json；${networkMode === 'sign-only' ? 'sign-only 也必须在该文件中明确标记豁免及原因' : '联网模式必须提供至少 5 条真实请求验证记录'}。`);
+    return { result, problems, warnings };
+  }
+  let data;
+  try {
+    data = JSON.parse(readText(file));
+  } catch (err) {
+    problems.push(`验证记录.json 解析失败：${err.message}`);
+    return { result, problems, warnings };
+  }
+  if (data.mode !== networkMode) problems.push(`验证记录.json 的 mode 必须为 ${networkMode}，当前为 ${JSON.stringify(data.mode)}。`);
+  if (networkMode === 'sign-only') {
+    result.exempt = data.signOnlyExempt === true;
+    if (!result.exempt || typeof data.exemptionReason !== 'string' || !data.exemptionReason.trim()) {
+      problems.push('sign-only 豁免必须在验证记录.json 中设置 signOnlyExempt=true，并提供非空 exemptionReason。');
+    }
+    result.valid = problems.length === 0;
+    return { result, problems, warnings };
+  }
+  if (!Array.isArray(data.attempts)) {
+    problems.push('联网模式的验证记录.json 必须包含 attempts 数组。');
+    return { result, problems, warnings };
+  }
+  result.attempts = data.attempts.length;
+  if (data.attempts.length < 5) problems.push(`联网模式至少需要 5 条 attempts，当前只有 ${data.attempts.length} 条。`);
+  data.attempts.forEach((attempt, index) => {
+    const prefix = `attempts[${index}]`;
+    if (!attempt || typeof attempt !== 'object' || Array.isArray(attempt)) {
+      problems.push(`${prefix} 必须是对象。`);
+      return;
+    }
+    if (typeof attempt.timestamp !== 'string' || !attempt.timestamp.trim() || Number.isNaN(Date.parse(attempt.timestamp))) problems.push(`${prefix}.timestamp 必须是有效时间字符串。`);
+    if (!Number.isInteger(attempt.httpStatus) || attempt.httpStatus < 200 || attempt.httpStatus >= 300) problems.push(`${prefix}.httpStatus 必须是 2xx 整数。`);
+    const summaryValid = typeof attempt.parameterSummary === 'string'
+      ? attempt.parameterSummary.trim().length > 0
+      : attempt.parameterSummary && typeof attempt.parameterSummary === 'object' && !Array.isArray(attempt.parameterSummary) && Object.keys(attempt.parameterSummary).length > 0;
+    if (!summaryValid) problems.push(`${prefix}.parameterSummary 必须是非空字符串或非空对象。`);
+    if (typeof attempt.sessionStage !== 'string' || !attempt.sessionStage.trim()) problems.push(`${prefix}.sessionStage 必须是非空字符串。`);
+    if (attempt.responseValid !== true) problems.push(`${prefix}.responseValid 必须严格为 true。`);
+  });
+  result.valid = problems.length === 0;
+  return { result, problems, warnings };
+}
+
 function check(args) {
   if (!args.caseDir && !args.file) throw new Error('必须提供 --case-dir 或 --file');
   const caseDir = args.caseDir ? path.resolve(args.caseDir) : path.resolve(path.dirname(args.file), '..');
@@ -522,20 +614,42 @@ function check(args) {
   const resultFiles = exists(resultDir) ? walk(resultDir).filter(p => stat(p) && stat(p).isFile()) : [];
   const textFiles = resultFiles.filter(isTextLikeFile);
   const codeFiles = resultFiles.filter(isCodeLikeFile);
-
-  // 文档证据豁免：扫描 result/ 与 case/ 下的 Markdown（最终总结 / 经验沉淀 / notes / 阶段报告），
-  // 若声明"不发真实请求"或"目标无 TLS 指纹检测"，则 TLS 客户端 / Session 门禁不再强制。
-  const docNoRealRequestHits = [];
   const docMdFiles = [];
   for (const f of [...resultFiles, ...(exists(caseSubdir) ? walk(caseSubdir) : [])]) {
     const st = stat(f);
     if (st && st.isFile() && ext(f) === '.md' && !docMdFiles.includes(f)) docMdFiles.push(f);
   }
+
+  // 机器标记与旧文档声明分开解析：TLS 需求不能改变联网模式，联网也不能反向豁免 Session 生命周期。
+  const declarationText = docMdFiles.map(f => readText(f)).join('\n');
+  const markerValues = (pattern) => [...declarationText.matchAll(pattern)].map(m => m[1].toLowerCase());
+  const networkMarkers = markerValues(NETWORK_MODE_MARKER_RE);
+  const tlsMarkers = markerValues(TLS_FINGERPRINT_MARKER_RE);
+  const docSignOnlyHits = findMatches(declarationText, DOC_SIGN_ONLY_PATTERNS);
+  const docOnlineHits = findMatches(declarationText, DOC_ONLINE_PATTERNS);
+  const docTlsRequiredHits = findMatches(declarationText, DOC_TLS_REQUIRED_PATTERNS);
+  const docTlsNotRequiredHits = findMatches(declarationText, DOC_TLS_NOT_REQUIRED_PATTERNS);
+  const docNoRealRequestHits = [];
   for (const f of docMdFiles) {
     const hits = findMatches(readText(f), DOC_NO_REAL_REQUEST_PATTERNS);
     if (hits.length) docNoRealRequestHits.push({ file: rel(caseDir, f), hits });
   }
-  const docNoRealRequest = docNoRealRequestHits.length > 0;
+  const networkMode = networkMarkers.includes('online') || docOnlineHits.length
+    ? 'online'
+    : networkMarkers.includes('sign-only') || docSignOnlyHits.length
+      ? 'sign-only'
+      : null;
+  const tlsFingerprint = tlsMarkers.includes('required') || docTlsRequiredHits.length
+    ? 'required'
+    : tlsMarkers.includes('not-required') || docTlsNotRequiredHits.length
+      ? 'not-required'
+      : null;
+  const docNoRealRequest = networkMode === 'sign-only';
+  const validationRecord = exists(resultDir) && networkMode
+    ? inspectValidationRecord(resultDir, networkMode)
+    : { result: { file: path.join(resultDir, '验证记录.json'), present: false, mode: networkMode, attempts: 0, exempt: false, valid: false }, problems: [], warnings: [] };
+  problems.push(...validationRecord.problems);
+  warnings.push(...validationRecord.warnings);
 
   if (primary && !exists(primary)) problems.push(`指定执行入口不存在：${primary}`);
   if (primary && exists(primary)) {
@@ -556,29 +670,43 @@ function check(args) {
       problems.push(`结果目录根部存在多个疑似执行入口：${rootSecondEntries.map(p => rel(caseDir, p)).join('、')}`);
     }
 
-    const requestPatterns = primaryExt === '.py' ? PY_REQUEST_PATTERNS : JS_REQUEST_PATTERNS;
+    const requestPatterns = primaryExt === '.py' ? [...PY_REQUEST_PATTERNS, /\brequests\.(?:get|post|request)\s*\(/i] : REQUEST_PATTERNS;
     const requestSearchFiles = codeFiles.filter(p => primaryExt === '.py' ? ext(p) === '.py' : ['.js', '.mjs', '.cjs'].includes(ext(p)));
     const requestHits = [];
     const noRealRequestHits = [];
+    const sessionCreateHits = [];
+    const sessionReuseHits = [];
+    const sessionCleanupHits = [];
     for (const f of requestSearchFiles) {
-      const text = readText(f);
-      const hits = findMatches(text, requestPatterns);
+      const source = readText(f);
+      const hits = findMatches(source, requestPatterns);
       if (hits.length) requestHits.push({ file: rel(caseDir, f), hits });
-      const noRealHits = findMatches(text, NO_REAL_REQUEST_PATTERNS);
+      const noRealHits = findMatches(source, NO_REAL_REQUEST_PATTERNS);
       if (noRealHits.length) noRealRequestHits.push({ file: rel(caseDir, f), hits: noRealHits });
+      const createHits = findMatches(source, SESSION_CREATE_PATTERNS);
+      if (createHits.length) sessionCreateHits.push({ file: rel(caseDir, f), hits: createHits });
+      const reuseHits = findMatches(source, SESSION_REUSE_PATTERNS);
+      if (reuseHits.length) sessionReuseHits.push({ file: rel(caseDir, f), hits: reuseHits });
+      const cleanupHits = findMatches(source, SESSION_CLEANUP_PATTERNS);
+      if (cleanupHits.length) sessionCleanupHits.push({ file: rel(caseDir, f), hits: cleanupHits });
     }
-    const sessionHits = [];
-    for (const f of requestSearchFiles) {
-      const text = readText(f);
-      const hits = findMatches(text, REQUEST_SESSION_PATTERNS);
-      if (hits.length) sessionHits.push({ file: rel(caseDir, f), hits });
+    const online = networkMode === 'online' || requestHits.length > 0;
+    const signOnly = networkMode === 'sign-only' && !requestHits.length;
+    const tlsRequired = tlsFingerprint === 'required';
+    if (!signOnly && !online && !noRealRequestHits.length && !docNoRealRequest) {
+      problems.push('未声明最终联网模式：请使用 FINAL_ARTIFACT_NETWORK_MODE=online 或 sign-only 明确标记。');
     }
-    if (!requestHits.length && !noRealRequestHits.length && !docNoRealRequest) {
-      problems.push('未检测到已确认的 TLS 指纹兼容请求客户端（Node.js CycleTLS / impers / curl-cffi-node，或 Python curl_cffi / cffi_curl / cyCronet）；最终验证不能依赖普通 fetch/requests 或浏览器自动化。如用户不发真实请求，入口必须明确只输出本地 sign / 参数，或在最终总结 / 经验沉淀 / notes 中声明"不发真实请求"或"目标无 TLS 指纹检测"。');
+    if (online && tlsRequired && !findMatches(requestSearchFiles.map(readText).join('\n'), JS_REQUEST_PATTERNS.concat(PY_REQUEST_PATTERNS)).length) {
+      problems.push('证据/配置声明需要 TLS 指纹，但未检测到 TLS 指纹兼容请求客户端。');
     }
-    if (requestHits.length && !noRealRequestHits.length && !docNoRealRequest && !sessionHits.length) {
-      problems.push('最终请求必须使用 Session 模式：即使只有一个请求，也要创建 session client，复用 Cookie jar / Header / UA / Client Hints / TLS 指纹，并在成功或失败后销毁 session。未检测到 createRequestSession / requests.Session / CookieJar / session.close 等证据。');
+    if (online && (!sessionCreateHits.length || !sessionReuseHits.length || !sessionCleanupHits.length)) {
+      problems.push(`最终联网请求必须具备可复用 Session 与清理：${[
+        !sessionCreateHits.length && '未检测到 Session 创建',
+        !sessionReuseHits.length && '未检测到 Session 复用请求',
+        !sessionCleanupHits.length && '未检测到 Session 关闭或清理',
+      ].filter(Boolean).join('；')}。`);
     }
+    if (online && networkMode === 'sign-only') warnings.push('代码检测到联网请求，覆盖 sign-only 声明；按联网模式执行 Session 门禁。');
   }
 
   const automationHits = [];
@@ -646,6 +774,9 @@ function check(args) {
     warnings,
     docNoRealRequest,
     docNoRealRequestHits,
+    networkMode,
+    tlsFingerprint,
+    validationRecord: validationRecord.result,
     reusedCryptoCheck: reuse,
     finalSummary: finalSummary.result,
     experience: experience.result,
@@ -670,9 +801,12 @@ function renderMarkdown(result) {
     '## 检查项',
     `- 是否只有一个执行入口：${result.problems.some(p => p.includes('执行入口')) ? '否' : '是'}`,
     `- 是否不含浏览器自动化代码：${result.problems.some(p => p.includes('自动化')) ? '否' : '是'}`,
-    `- 是否检测到 TLS 指纹兼容请求客户端或明确不发真实请求（代码标记或文档声明均可豁免）：${result.problems.some(p => p.includes('TLS 指纹兼容请求客户端')) ? '否' : '是'}`,
-    `- 文档声明不发真实请求 / 目标无 TLS（TLS 门禁豁免依据）：${result.docNoRealRequestHits.length ? result.docNoRealRequestHits.map(x => `${x.file}(${x.hits.join('、')})`).join('；') : '无'}`,
-    `- 是否使用 Session 模式并具备销毁逻辑：${result.problems.some(p => p.includes('Session 模式')) ? '否' : '是'}`,
+    `- 网络模式：${result.networkMode || '未声明'}`,
+    `- TLS 指纹要求：${result.tlsFingerprint || '未声明'}`,
+    `- 验证记录：${result.validationRecord.valid ? (result.validationRecord.exempt ? 'sign-only 已明确豁免' : `${result.validationRecord.attempts} 条有效 attempts`) : '未通过'}`,
+    `- TLS 指纹兼容客户端（仅 required 时强制）：${result.problems.some(p => p.includes('TLS 指纹兼容请求客户端')) ? '未通过' : (result.tlsFingerprint === 'required' ? '已检测' : '不强制')}`,
+    `- 旧文档兼容声明命中：${result.docNoRealRequestHits.length ? result.docNoRealRequestHits.map(x => `${x.file}(${x.hits.join('、')})`).join('；') : '无'}`,
+    `- 联网模式是否具备可复用 Session 与清理：${result.problems.some(p => p.includes('可复用 Session 与清理')) ? '否' : '是'}`,
     `- 是否不含指纹采样 Hook / Node.js 渲染库：${result.problems.some(p => p.includes('指纹采样 Hook') || p.includes('渲染库')) ? '否' : '是'}`,
     `- 是否未复用 cURL / fixture 中的加密参数样本值：${result.reusedCryptoCheck.reused.length || result.reusedCryptoCheck.hardcoded.length ? '否' : '是'}`,
     `- 是否已生成中文命名最终总结且包含默认 8 章：${result.finalSummary.required ? (result.finalSummary.present && !result.finalSummary.mojibakeSuspected && !result.finalSummary.missingSections.length ? '是' : '否') : (result.finalSummaryOptOut ? '用户明确豁免' : '未强制检查')}`,
@@ -724,10 +858,45 @@ function renderMarkdown(result) {
   return lines.join('\n') + '\n';
 }
 
+function runSelfTest() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'check-final-artifact-'));
+  try {
+    const resultDir = path.join(root, 'result');
+    fs.mkdirSync(resultDir);
+    const validAttempt = (index) => ({
+      timestamp: new Date(Date.now() + index).toISOString(),
+      httpStatus: 200,
+      parameterSummary: { attempt: index + 1 },
+      sessionStage: 'target-api',
+      responseValid: true,
+    });
+    const cases = [
+      { name: 'online-valid', mode: 'online', data: { mode: 'online', attempts: Array.from({ length: 5 }, (_, i) => validAttempt(i)) }, clean: true },
+      { name: 'online-too-few', mode: 'online', data: { mode: 'online', attempts: Array.from({ length: 4 }, (_, i) => validAttempt(i)) }, clean: false },
+      { name: 'online-invalid-response', mode: 'online', data: { mode: 'online', attempts: Array.from({ length: 5 }, (_, i) => ({ ...validAttempt(i), responseValid: i !== 2 })) }, clean: false },
+      { name: 'sign-only-valid', mode: 'sign-only', data: { mode: 'sign-only', signOnlyExempt: true, exemptionReason: '用户明确要求只输出参数不验证' }, clean: true },
+      { name: 'sign-only-missing-reason', mode: 'sign-only', data: { mode: 'sign-only', signOnlyExempt: true }, clean: false },
+    ];
+    for (const item of cases) {
+      fs.writeFileSync(path.join(resultDir, '验证记录.json'), JSON.stringify(item.data), 'utf8');
+      const actual = inspectValidationRecord(resultDir, item.mode).result.valid;
+      if (actual !== item.clean) throw new Error(`${item.name} 预期 valid=${item.clean}，实际为 ${actual}`);
+    }
+    return { clean: true, cases: cases.length };
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
 if (require.main === module) {
   try {
     const args = parseArgs(process.argv);
     if (args.help) { console.log(usage()); process.exit(0); }
+    if (args.selfTest) {
+      const result = runSelfTest();
+      console.log(`self-test passed: ${result.cases} cases`);
+      process.exit(0);
+    }
     const result = check(args);
     if (args.json) console.log(JSON.stringify(result, null, 2));
     if (args.markdown) process.stdout.write(renderMarkdown(result));
@@ -739,4 +908,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { check, extractSampleCryptoValuesFromText };
+module.exports = { check, extractSampleCryptoValuesFromText, inspectValidationRecord, runSelfTest };

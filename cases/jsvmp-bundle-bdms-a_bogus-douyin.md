@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] 三层 SDK 联动：`sdk-glue.js` → `bdms.js` → `webmssdk.es5.js`
@@ -74,7 +74,7 @@
 
 ## 标准流程
 
-### Phase 1-2：定位 + SDK 提取
+### FORENSIC_CAPTURE → TRACE_CAPTURE：定位 + SDK 提取
 
 ```
 1. 定位三层 SDK：sdk-glue.js（100KB）→ bdms.js（147KB）→ webmssdk.es5.js（387KB）
@@ -86,7 +86,7 @@
 7. 构建产物 bundle.js（final.js 唯一加载的文件）
 ```
 
-### Phase 3：环境补丁 + 常驻加载
+### TRACE_ANALYZE：环境补丁 + 常驻加载
 
 ```javascript
 // bundle.js 结构
@@ -128,7 +128,7 @@ const signer = {
 const aBogus = signer.sign(targetUrl);
 ```
 
-### Phase 4：验证
+### IMPLEMENT：验证
 
 ```
 1. signUrl 返回 a_bogus（非 null），长度 180-192 字符

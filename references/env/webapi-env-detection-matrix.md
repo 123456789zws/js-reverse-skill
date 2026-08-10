@@ -255,7 +255,7 @@ Promise resolved、Worker 回包出现或 probe 不报错都不能单独视为�
 - browser/Node 的 `probeSuiteVersion`、`probeSourceFile` 或 `probeSourceHash` 缺失，hash 不一致，源文件不在 case 内，或声明 hash 与实际文件不一致，直接阻断。
 - iframe/Worker 构造器或公开对象复用主 Realm、MessagePort 只实现单侧 close、DOM probe 把合法 selector 当非法、HTML parser 丢 Comment，直接阻断。
 - 存在 `xhr-fetch-session-bridge` 阻断项时，不得宣称 TLS 指纹已解决；fixture/mock 只能作为离线诊断结论。
-- 存在 `private-state-leakage` 阻断项时，不得交付；必须迁移到 addon / xbs private API 或 WeakMap。
+- 存在 `private-state-leakage` 阻断项时，不得交付；必须迁移到原生内部槽、模块级 `WeakMap` 或闭包私有变量。
 - 如果后续阶段新增 WebAPI 是因为本矩阵遗漏了已触发检测项，必须标为 `missed-from-webapi-env-matrix` 流程缺陷，并补写矩阵与代码变更记忆。
 - 如果真实请求失败但矩阵未覆盖 Worker / performance / iframe / DOM/CSS / writer branch，而 Trace 或阶段报告已经出现这些信号，下一步只能补矩阵和离线 diff，不能继续盲目真实请求。
 

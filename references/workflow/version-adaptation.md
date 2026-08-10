@@ -123,7 +123,7 @@ trace_property_access(mode="summary", collect_values=True)
   │
   ├─ Step 4：针对性修复
   │   ├─ 检测项增加 → 重新 trace → 补新属性
-  │   ├─ 算法变化 → 重新走 Phase 1-4
+  │   ├─ 算法变化 → 重新走 FORENSIC_CAPTURE → TRACE_CAPTURE → TRACE_ANALYZE → IMPLEMENT
   │   └─ Cookie 变化 → 更新 Cookie 生成逻辑
   │
   └─ Step 5：更新 case 变体说明

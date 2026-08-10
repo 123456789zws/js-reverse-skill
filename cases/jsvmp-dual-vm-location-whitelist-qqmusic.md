@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 - **JS 特征**：
   - webpack `vendor.chunk.<hash>.js`，单文件 660KB+
@@ -99,7 +99,7 @@ json   = JSON.parse(plain)
 | 参考文档 | 关联点 |
 |---------|--------|
 | `references/workflow/decision-tree.md` | JSVMP 题型判定 → 选 B vm 沙箱而非纯算还原 |
-| `references/workflow/phase-flow.md` | Phase 1-3 取证失败时的降级路径 |
+| `references/workflow/phase-flow.md` | FORENSIC_CAPTURE → TRACE_CAPTURE → TRACE_ANALYZE 取证失败时的降级路径 |
 | `references/quality/validation.md` | 交叉验证 ≥5 次、以业务 code 判定成功 |
 | `references/quality/high-strength-detection.md` | 静默降级型环境检测（非报错型反调试） |
 | `references/quality/final-summary.md` | 8 章总结模板 |

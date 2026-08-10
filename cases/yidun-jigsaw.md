@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 - JS 特征：`core-optimi.m25b40.*.min.js`（webpack 模块化：0xa 含 xorEncode/aes，0x3 含 sample/uuid，0x38 含 mod38）
 - 参数特征：`data` 参数 = JSON `{d,m,p,f,ext}` 全 AES 密文；**`m` 固定空串 `""`**；callback=`__JSONP_`+7 位随机+`_`+数字

@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 - JS 特征：`js_security_v3_*.js`（取证版 0.1.4）核心算法在 `_$sdnmd` **while-switch 字节码虚拟机**中，静态还原不可行；入口对象 `window.ParamsSign`（`new ParamsSign({appId:'b5216'}).sign({appid,clientVersion,client,functionId,t,body})` → Promise `{h5st}`）；beta 模式 `_$fI`=console.log；`_$ft.encode`/`_$fa.parse` 为 CryptoJS 魔改加解密
 - 参数特征：`h5st` 分号分隔 **10 字段**（v5.3）：17 位时间串；fp；appId(b5216)；token(tk03/tk06)；hash1(64hex sha256)；版本号；13 位毫秒时间戳；**base64url 加密环境数据**（明文为 JSON，含 pp/plugins 等）；hash2(64hex)；固定 base64 token

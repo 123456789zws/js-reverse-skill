@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] `window['_$webrt_1668687510']` — JSVMP 解释器入口函数，接受十六进制字节码字符串
@@ -171,17 +171,17 @@ grep -c "userAgentData\|navigator\.connection\|getBattery\|window\.chrome\|perfo
 
 ## 各 Phase 加速指引
 
-- **Phase 1**: `search_code(keyword="_SdkGlueInit")` 定位配置；`scripts(action='save')` 保存三件套（webmssdk.es5.js / bdms.js / sdk-glue.js）到 `case/js/`
-- **Phase 2**: 加载顺序 webmssdk → bdms → sdk-glue → `_SdkGlueInit`；签名在 XHR send 阶段追加
-- **Phase 3**: 用 trace 取证 `compare_env` + `evaluate_js` 分批采集真实环境，与 jsdom 逐项 diff，**确认需要补的环境项范围后再写补丁**
-- **Phase 4**: jsdom 配置需 `resources:'usable'`；XHR Hook 必须在 SDK 加载前安装；`scanPrototypeChain` 的 `Object.prototype` 边界不能突破
-- **Phase 5**: 连续 ≥5 次请求验证，200 + 空 body = 环境指纹不对不是算法错
+- **FORENSIC_CAPTURE**: `search_code(keyword="_SdkGlueInit")` 定位配置；`scripts(action='save')` 保存三件套（webmssdk.es5.js / bdms.js / sdk-glue.js）到 `case/js/`
+- **TRACE_CAPTURE**: 加载顺序 webmssdk → bdms → sdk-glue → `_SdkGlueInit`；签名在 XHR send 阶段追加
+- **TRACE_ANALYZE**: 用 trace 取证 `compare_env` + `evaluate_js` 分批采集真实环境，与 jsdom 逐项 diff，**确认需要补的环境项范围后再写补丁**
+- **IMPLEMENT**: jsdom 配置需 `resources:'usable'`；XHR Hook 必须在 SDK 加载前安装；`scanPrototypeChain` 的 `Object.prototype` 边界不能突破
+- **REAL_VERIFY**: 连续 ≥5 次请求验证，200 + 空 body = 环境指纹不对不是算法错
 
 ## 原始定位路径（参考，不要跳过 Phase 直接照做）
 
-> 以下是首次分析时的实际步骤记录，供理解方案演进过程。实战时仍需走 Phase 1-5。
+> 以下是首次分析时的实际步骤记录，供理解方案演进过程。实战时仍需走 FORENSIC_CAPTURE → TRACE_CAPTURE → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY。
 
-### Phase 1：网络捕获定位接口
+### FORENSIC_CAPTURE：网络捕获定位接口
 
 ```
 步骤 1: network_capture(action='start') + list_network_requests → 捕获带 a_bogus 的完整请求 URL
@@ -191,7 +191,7 @@ grep -c "userAgentData\|navigator\.connection\|getBattery\|window\.chrome\|perfo
         - sdk-glue.js (v1.0.0.64, 100KB) — SDK 胶水层
 ```
 
-### Phase 2：初始化链路还原
+### TRACE_CAPTURE：初始化链路还原
 
 ```
 步骤 3: search_code(keyword="enablePathList") → 定位到 sdk-glue 中的路径配置机制
@@ -200,7 +200,7 @@ grep -c "userAgentData\|navigator\.connection\|getBattery\|window\.chrome\|perfo
 步骤 6: search_code(keyword="bogusIndex") → 确认 a_bogus 由 JSVMP 的 XHR 拦截器生成（不同于 frontierSign 生成的 X-Bogus）
 ```
 
-### Phase 3：jsdom 沙箱验证
+### TRACE_ANALYZE：jsdom 沙箱验证
 
 ```
 步骤 7: 在 jsdom (runScripts: 'dangerously') 中依次加载三个脚本并调用 _SdkGlueInit，
@@ -209,7 +209,7 @@ grep -c "userAgentData\|navigator\.connection\|getBattery\|window\.chrome\|perfo
 步骤 9: jsdom 生成的 a_bogus 被服务端拒绝（返回空 body）→ 确认是环境指纹差异
 ```
 
-### Phase 4：环境指纹对比（核心突破点）
+### IMPLEMENT：环境指纹对比（核心突破点）
 
 ```
 步骤 10: 用 trace 取证 启动反检测浏览器，navigate 到目标页面
@@ -221,7 +221,7 @@ grep -c "userAgentData\|navigator\.connection\|getBattery\|window\.chrome\|perfo
 步骤 13: 逐项对比发现 58 项差异，按影响分级修复
 ```
 
-### Phase 5：环境补丁与验证
+### REAL_VERIFY：环境补丁与验证
 
 ```
 步骤 14: 编写 patchEnvironment() 函数修复全部 58 项差异

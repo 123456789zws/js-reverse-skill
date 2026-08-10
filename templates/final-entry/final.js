@@ -201,6 +201,14 @@ function parseArgs() {
 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
+function writeValidationRecord(record) {
+  fs.writeFileSync(path.join(__dirname, '验证记录.json'), `${JSON.stringify(record, null, 2)}\n`, 'utf8');
+}
+
+function summarizeParameters(params) {
+  return { names: Object.keys(params).sort(), count: Object.keys(params).length };
+}
+
 /**
  * 校验响应体是否符合预期业务数据。
  * 未配置 responseValidation 时退化为「非空即通过」。
@@ -266,6 +274,12 @@ async function main() {
       const { params, signature } = sign({}, { userCookie: opts.userCookie });
       console.log(`[第 ${i + 1} 次] sign=${signature} params=${JSON.stringify(params)}`);
     }
+    writeValidationRecord({
+      mode: 'sign-only',
+      signOnlyExempt: true,
+      exemptionReason: '用户明确指定 --sign-only，只输出参数不执行真实 HTTP 验证',
+      attempts: [],
+    });
     return;
   }
 
@@ -286,10 +300,19 @@ async function main() {
     console.log(`\n--- 交叉验证 ${opts.verify} 次 ---`);
     let successCount = 0;
     let failCount = 0;
+    const attempts = [];
 
     for (let i = 0; i < opts.verify; i++) {
+      let attempt = {
+        timestamp: new Date().toISOString(),
+        httpStatus: 0,
+        parameterSummary: '参数生成失败',
+        sessionStage: 'target-api',
+        responseValid: false,
+      };
       try {
         const req = buildSignedRequest({ userCookie: opts.userCookie });
+        attempt.parameterSummary = summarizeParameters(req.params);
         console.log(`\n[第 ${i + 1} 次请求]`);
         console.log(`  URL: ${req.url}`);
         console.log(`  sign: ${req.signature}`);

@@ -15,7 +15,7 @@
 
 ## 使用方式
 
-1. Phase 4 编码时复制到 `case/result/`：
+1. IMPLEMENT 编码时复制到 `result/`：
    ```
    cp templates/captcha-verify/final.js result/
    cp templates/captcha-verify/config.json result/
@@ -60,7 +60,7 @@ final.js（唯一执行入口）
 ```
 交付前跑 `node scripts/check_captcha_answer.js --file answer.json` 校验。
 
-## 验证（Phase 5）
+## REAL_VERIFY
 
 - 成功基线：`node scripts/check_success_baseline.js --file success_samples.json`
 - 失败复盘：`node scripts/check_verification_attempts.js --file attempts.json`

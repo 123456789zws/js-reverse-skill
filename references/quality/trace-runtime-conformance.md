@@ -82,10 +82,10 @@ audit-only 模式：
 `timeline` 必须由 runtime 在事件实际发生时追加，且保留严格递增 sequence。只给每个 observation 填写局部 `sequences`、再由审计脚本排序重建，不足以证明交错事件、terminate/close、reload 销毁或 DOM mutation 的真实顺序。
 运行：
 ```bash
-node scripts/run_trace_runtime_audit.js --case-dir case --entry case/result/final.js --markdown
+node scripts/run_trace_runtime_audit.js --case-dir case --entry result/final.js --markdown
 node scripts/check_trace_runtime_conformance.js --case-dir case --markdown
 ```
-Python 入口使用 `case/result/final.py`。
+Python 入口使用 `result/final.py`。
 ## 阻断条件
 - contract 或 Node audit 缺失。
 - `contractHash`、`traceSourceHash`、`baselineId` 不一致。

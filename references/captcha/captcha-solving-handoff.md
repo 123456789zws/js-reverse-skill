@@ -98,7 +98,7 @@ python scripts/analyze_tile_restore.py --image scrambled.png --rows 3 --cols 3 -
 
 ## 接口校验
 
-交付前对 solver 输出跑 schema 校验，不通过不进 Phase 4：
+交付前对 solver 输出跑 schema 校验，不通过不进 IMPLEMENT：
 
 ```bash
 node scripts/check_captcha_answer.js --file answer.json

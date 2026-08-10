@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "title": "JSVMP 字节码虚拟机 + XHR 拦截器 + 多层 SDK 联动",
+      "domains": ["douyin.com", "mssdk.bytedance.com"],
+      "signals": ["webmssdk", "byted_acrawler", "_SdkGlueInit", "a_bogus", "XHR interceptor", "JSVMP"],
+      "strategy": "D 环境伪装：在 jsdom 沙箱中运行原始 JSVMP，按真实 UA 分支补齐环境并通过 XHR 拦截器截出签名",
+      "file": "jsvmp-xhr-interceptor-env-emulation.md",
+      "verifiedAt": "2026-04-01"
+    },
+    {
+      "title": "JSVMP 双签名 + XHR/fetch 拦截器 + cacheOpts",
+      "domains": ["tiktok.com"],
+      "signals": ["webmssdk", "byted_acrawler", "_SdkGlueInit", "cacheOpts", "X-Bogus", "X-Gnarly", "msToken"],
+      "strategy": "D 环境伪装：使用 jsdom 构造 Firefox 环境，保留 XHR/fetch 双通道拦截并截出 X-Bogus 与 X-Gnarly",
+      "file": "jsvmp-dual-sign-xhr-intercept-cacheOpts-jsdom-firefox.md",
+      "verifiedAt": "2026-04-20"
+    },
+    {
+      "title": "RS6 412 挑战 Cookie + 业务层 MD5 签名",
+      "domains": ["nmpa.gov.cn"],
+      "signals": ["RS6", "412", "sdenv", "FSSBBIl1UgzbN7N", "NfBCSins2OywS", "business sign"],
+      "strategy": "D+A 双层：使用 sdenv 生成 RS6 挑战 Cookie，再纯算业务 MD5 签名并按真实 GET 请求链调用接口",
+      "file": "jsvmp-ruishu6-cookie-412-sdenv.md",
+      "verifiedAt": "2026-07-13"
+    },
+    {
+      "title": "通用 VMP 源码级插桩",
+      "domains": [],
+      "signals": ["while-switch", "dispatcher", "case_count", "hot_keys", "hot_methods", "JSVMP", "VMP"],
+      "strategy": "源码级插桩：识别 dispatcher 循环并采集 hot_keys/hot_methods，以运行时证据定位签名路径",
+      "file": "universal-vmp-source-instrumentation.md",
+      "verifiedAt": "2026-04-17"
+    },
+    {
+      "title": "vm 沙箱执行自定义算法",
+      "domains": [],
+      "signals": ["custom MD5", "modified MD5", "eval", "obfuscation", "non-standard digest", "vm sandbox"],
+      "strategy": "B vm 沙箱执行：提取最小算法闭包，在 vm.createContext 中补齐必要依赖并直接调用原始算法",
+      "file": "vm-sandbox-custom-algo.md",
+      "verifiedAt": "2026-07-11"
+    },
+    {
+      "title": "chameleon.js 生成 hexin-v",
+      "domains": ["iwencai.com", "10jqka.com.cn"],
+      "signals": ["chameleon", "hexin-v", "TOKEN_SERVER_TIME", "try-catch", "silent failure"],
+      "strategy": "B vm 沙箱执行：运行 chameleon.js，补齐 Element/Document/XHR 等中等规模环境并读取生成的 hexin-v",
+      "file": "vm-sandbox-chameleon-iwencai.md",
+      "verifiedAt": "2026-07-11"
+    },
+    {
+      "title": "SM2/SM4/SM3 国密三参数签名",
+      "domains": ["jobonline.cn"],
+      "signals": ["E-CONTENT-PATH", "E-SIGN", "businessData", "SM2", "SM4", "SM3"],
+      "strategy": "A 纯算还原：使用成熟国密实现复现 SM2/SM4/SM3 请求链和随机密钥下发流程",
+      "file": "sm2-sm4-sm3-guomi-jobonline.md",
+      "verifiedAt": "2026-07-11"
+    },
+    {
+      "title": "bundle.js 常驻 + bdms.init 截获 a_bogus",
+      "domains": ["douyin.com", "mssdk.bytedance.com"],
+      "signals": ["bundle.js", "bdms.init", "signUrl", "a_bogus", "mssdk.bytedance.com", "uncaughtException"],
+      "strategy": "B+D：在 vm 中常驻加载 bundle.js，补齐环境并 patch XHR，仅放行 mssdk 请求以截获 a_bogus",
+      "file": "jsvmp-bundle-bdms-a_bogus-douyin.md",
+      "verifiedAt": "2026-07-08"
+    },
+    {
+      "title": "小红书 X-s / X-s-common 双轨签名",
+      "domains": ["xiaohongshu.com", "edith.xiaohongshu.com"],
+      "signals": ["X-s", "X-s-common", "XYS_", "as-v2-ds.js", "modified CRC32", "custom Base64"],
+      "strategy": "A+B 双轨：纯算 X-S-Common，自定义环境 vm 沙箱执行 JSVMP 生成 X-s",
+      "file": "jsvmp-dual-sign-purealgo-vm-xiaohongshu.md",
+      "verifiedAt": "2026-07-12"
+    },
+    {
+      "title": "修改版 MD5 与 WAF Cookie",
+      "domains": ["match.yuanrenxue.cn", "yuanrenxue.com"],
+      "signals": ["RM4hZBv0dDon443M", "modified MD5", "$_zw", "charCode anti-hook", "WAF cookie", "obfuscator.io"],
+      "strategy": "浏览器取证提取关键值后在 Node.js 复现修改版 MD5，请求阶段复用完整 Cookie 链并识别静默降级",
+      "file": "browser-extract-modified-md5-yuanrenxue.md",
+      "verifiedAt": "2026-07-11"
+    },
+    {
+      "title": "快手 __NS_hxfalcon + kww 双轨签名",
+      "domains": ["kuaishou.com"],
+      "signals": ["__NS_hxfalcon", "kww", "Jose", "kwpsec", "Brook VM", "Mihawk VM", "caver"],
+      "strategy": "A+D 双轨：全局 eval Jose 纯算 __NS_hxfalcon，优先使用 AES-CBC 的 kww SSR fallback，必要时黑盒运行 kwpsec",
+      "file": "kuaishou-hxfalcon-kww-reverse.md",
+      "verifiedAt": "2026-07-12"
+    },
+    {
+      "title": "百度 WAF 三件套 nox_jst_v1 + tox_token",
+      "domains": ["gitee.com", "wafbotsr.baidu.com"],
+      "signals": ["gangplank", "nox", "tox", "nox_jst_v1", "tox_token", "window.Tox.getToken", "mejd42mp"],
+      "strategy": "D 环境伪装：在 vm 中按对象原型和构造函数语义补环境，协调 gangplank/nox/tox 生成 Cookie 与 query token",
+      "file": "jsvmp-baidu-waf-nox-tox-gitee.md",
+      "verifiedAt": "2026-07-16"
+    },
+    {
+      "title": "QQ 音乐双 VM 与 location.host 白名单",
+      "domains": ["y.qq.com", "u6.y.qq.com"],
+      "signals": ["_getSecuritySign", "__cgiEncrypt", "__cgiDecrypt", "musics.fcg", "zzc", "encoding=ag-1", "location.host"],
+      "strategy": "B+D：切出两段 JSVMP IIFE，在自引用 vm 沙箱中满足 qq.com 域名守卫并完成签名、请求加密和响应解密",
+      "file": "jsvmp-dual-vm-location-whitelist-qqmusic.md",
+      "verifiedAt": "2026-08-09"
+    },
+    {
+      "title": "网易易盾智能无感验证码 type=5",
+      "domains": ["dun.163.com", "c.dun.163.com", "ir-sdk.dun.163.com"],
+      "signals": ["NECaptcha", "core-optimi", "gdxidpyhxde", "neguardian", "vfnv46", "type=5", "INTELLISENSE"],
+      "strategy": "D 环境伪装：vm 运行 core-optimi SDK并通过模块访问器复用 uuid/AES/XOR，完成 get/check/neguardian 纯协议链",
+      "file": "yidun-intellisense-vm-env.md",
+      "verifiedAt": "2026-08-08"
+    },
+    {
+      "title": "网易易盾滑块 type=2 参数链",
+      "domains": ["dun.163.com", "c.dun.163.com"],
+      "signals": ["NECaptcha", "core-optimi", "type=2", "d/m/p/f/ext", "m empty string", "__JSONP_", "SCAN_PX"],
+      "strategy": "A 纯算还原：从 core-optimi 提取 XOR/AES/sample/mod38，接入坐标与阶梯轨迹生成并使用像素扫描兜底",
+      "file": "yidun-jigsaw.md",
+      "verifiedAt": "2026-08-09"
+    },
+    {
+      "title": "智通财经 SHA1 参数排序签名",
+      "domains": ["m.zhitongcaijing.com", "zhitongcaijing.com"],
+      "signals": ["token", "hex_sha1", "Object.keys().sort", "SHA1", "40 hex"],
+      "strategy": "A 纯算还原：参数按键名排序并按原序列化规则编码，再使用标准 SHA1 生成 token",
+      "file": "sha1-sort-params-zhitongcaijing.md",
+      "verifiedAt": "2026-07-08"
+    },
+    {
+      "title": "京东 h5st js_security_v3",
+      "domains": ["www.jd.com", "api.m.jd.com", "cactus.jd.com", "jra.jd.com"],
+      "signals": ["js_security_v3", "ParamsSign", "h5st", "request_algo", "x-api-eid-token", "jdd03", "JA3", "JA4"],
+      "strategy": "B+D：vm 执行原版 js_security_v3，维护 fp/eid 会话绑定与动态密钥预热，使用 Firefox 系 TLS 指纹请求业务接口",
+      "file": "jsvmp-h5st-js-security-v3-jd.md",
+      "verifiedAt": "2026-08-10"
+    }
+  ]
+}

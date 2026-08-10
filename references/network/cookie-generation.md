@@ -101,10 +101,10 @@ class CookieJar {
     constructor() {
         this.cookies = new Map(); // name -> { value, source }
     }
-    
+
     // source: 'user' | 'device' | 'refresh' | 'js'
     static PRIORITY = { user: 4, device: 3, refresh: 2, js: 1 };
-    
+
     set(name, value, source = 'js') {
         const existing = this.cookies.get(name);
         if (existing) {
@@ -116,7 +116,7 @@ class CookieJar {
             this.cookies.set(name, { value, source });
         }
     }
-    
+
     merge(cookieStr, source = 'js') {
         if (!cookieStr) return;
         cookieStr.split(';').forEach(c => {
@@ -129,17 +129,17 @@ class CookieJar {
             this.set(name, value, source);
         });
     }
-    
+
     get(name) {
         return this.cookies.get(name)?.value || null;
     }
-    
+
     toString() {
         return Array.from(this.cookies.entries())
             .map(([name, { value }]) => `${name}=${value}`)
             .join('; ');
     }
-    
+
     toDict() {
         const dict = {};
         for (const [name, { value }] of this.cookies) dict[name] = value;
@@ -160,17 +160,17 @@ class CookieJar {
 // 场景：用户 cookie 无效，用内置 DEVICE_COOKIE 刷新后与用户 cookie 合并重试
 async function requestWithCookieMerge(userCookie, targetUrl) {
     const jar = new CookieJar();
-    
+
     // 1. 先加内置 DEVICE_COOKIE
     jar.merge(process.env.DEVICE_COOKIE, 'device');
-    
+
     // 2. 用 DEVICE_COOKIE 访问主页刷新 cookie
     const refreshed = await fetchHomePage(targetUrl, jar.toString());
     jar.merge(refreshed.setCookie, 'refresh');
-    
+
     // 3. 用户 cookie 优先同名项合并
     if (userCookie) jar.merge(userCookie, 'user');
-    
+
     // 4. 用合并后的 cookie 发请求
     return await fetchApi(targetUrl, jar.toString());
 }
@@ -183,17 +183,17 @@ async function requestWithCookieMerge(userCookie, targetUrl) {
 ```javascript
 async function requestWithCookieRetry(requestFn, refreshFn, options = {}) {
     const { maxRetries = 2, onRefresh = () => {} } = options;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const result = await requestFn();
-        
+
         // 检测 Cookie 失效信号（按优先级）
         if (!isCookieExpired(result)) return result;
-        
+
         if (attempt === maxRetries) {
             throw new Error(`Cookie 失效，重试 ${maxRetries} 次仍失败`);
         }
-        
+
         onRefresh(attempt + 1);
         await refreshFn();  // 刷新 Cookie（访问主页/重新签名/重新 challenge）
     }

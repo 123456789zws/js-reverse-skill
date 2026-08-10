@@ -19,7 +19,7 @@
 
 ## 使用方式
 
-1. Phase 4 编码时复制到 `case/result/`：
+1. IMPLEMENT 编码时复制到 `result/`：
    ```
    cp templates/captcha-verify-py/final.py result/
    cp templates/captcha-verify-py/config.json result/

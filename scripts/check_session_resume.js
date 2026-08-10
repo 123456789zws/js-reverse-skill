@@ -61,7 +61,8 @@ function usage() {
   node scripts/check_session_resume.js --case-dir <case> --json
 
 说明：判定新会话是否可跳过 CHECK-1 完整环境自检。
---write-snapshot：在 CHECK-1 通过后写入/更新 case/notes/env-snapshot.json。
+--write-snapshot：仅在五项环境检测全部通过时写入/更新 case/notes/env-snapshot.json；失败退出非零且不写文件。
+result/ 进度从 case 目录父级的 result/ 读取。
 不带 --write-snapshot 时只做判定，不写文件。`;
 }
 
@@ -116,6 +117,34 @@ function buildSnapshotFromDetection(detect, caseDir, projectRoot) {
   };
 }
 
+function getEnvironmentChecks(detect) {
+  return {
+    node: !!detect?.node?.ok,
+    ruyipagePackage: !!detect?.ruyiPage?.packageInstalled,
+    ruyipageRuntime: !!detect?.ruyiPage?.managedRuntimeVerified,
+    ruyitrace: !!detect?.ruyiTrace?.exeExists,
+    ruyitraceKernel: !!detect?.ruyiTrace?.kernelVerified,
+  };
+}
+
+function failedEnvironmentChecks(checks) {
+  return Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
+}
+
+function normalizeStoredSnapshot(stored) {
+  if (!stored || typeof stored !== 'object') return null;
+  return {
+    ...stored,
+    projectRoot: stored.projectRoot || stored.root || '',
+    nodeVersion: stored.nodeVersion || stored.node || '',
+    ruyipageRuntime: stored.ruyipageRuntime || stored.ruyiPageRuntime || '',
+    ruyipagePackageInstalled: stored.ruyipagePackageInstalled ?? stored.ruyiPagePackageInstalled,
+    ruyipageManagedRuntimeVerified: stored.ruyipageManagedRuntimeVerified ?? stored.managedRuntimeVerified,
+    ruyitraceHome: stored.ruyitraceHome || stored.ruyiTraceHome || '',
+    ruyitraceKernelVerified: stored.ruyitraceKernelVerified ?? stored.kernelVerified,
+  };
+}
+
 function diffSnapshot(stored, current) {
   const diffs = [];
   const keysToCompare = [
@@ -124,7 +153,8 @@ function diffSnapshot(stored, current) {
     'ruyitraceHome', 'ruyitraceKernelVerified',
   ];
   for (const k of keysToCompare) {
-    const a = stored?.[k];
+    if (stored?.[k] === undefined) continue;
+    const a = stored[k];
     const b = current?.[k];
     if (a !== b) diffs.push({ key: k, stored: a, current: b });
   }
@@ -142,7 +172,7 @@ function findLatestStageReport(caseDir) {
 }
 
 function findResultProgress(caseDir) {
-  const resultDir = path.join(caseDir, 'result');
+  const resultDir = path.join(path.dirname(caseDir), 'result');
   if (!exists(resultDir)) return null;
   const out = { dir: resultDir, hasFinalJs: false, hasFinalSummary: false, hasExperience: false, srcFiles: 0 };
   if (exists(path.join(resultDir, 'final.js')) || exists(path.join(resultDir, 'final.py'))) out.hasFinalJs = true;
@@ -217,14 +247,20 @@ function main() {
   const notesDir = path.join(caseDir, 'notes');
   const snapshotPath = path.join(notesDir, 'env-snapshot.json');
   const snapshotExists = exists(snapshotPath);
-  const storedSnapshot = snapshotExists ? readJson(snapshotPath) : null;
+  const storedSnapshot = snapshotExists ? normalizeStoredSnapshot(readJson(snapshotPath)) : null;
 
   // 写快照模式
   if (args.writeSnapshot) {
     const detectRet = runCheckExternalTools(projectRoot);
     if (!detectRet.ok) {
       console.error(`无法生成快照：${detectRet.error}`);
-      process.exit(1);
+      process.exit(2);
+    }
+    const environmentChecks = getEnvironmentChecks(detectRet.data);
+    const failedChecks = failedEnvironmentChecks(environmentChecks);
+    if (failedChecks.length) {
+      console.error(`环境检测未全部通过，拒绝写入快照：${failedChecks.join(', ')}`);
+      process.exit(2);
     }
     const fresh = buildSnapshotFromDetection(detectRet.data, caseDir, projectRoot);
     if (storedSnapshot) fresh.createdAt = storedSnapshot.createdAt || fresh.createdAt;

@@ -1,15 +1,15 @@
 # trace 流程：ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）
 
-> **触发条件**：执行 Phase 1-2 取证/采集时读。本文档是两步取证流程的展开，所有 case 一律走此路径。
+> **触发条件**：执行 FORENSIC_CAPTURE → TRACE_CAPTURE 取证/采集时读。本文档是两步取证流程的展开，所有 case 一律走此路径。
 
 ## 总览
 
 ```
-Step 1: ruyipage 网络取证（Phase 1）
+Step 1: ruyipage 网络取证（FORENSIC_CAPTURE）
   → 抓网络包（HAR）+ 下载 JS 文件 + Cookie + 指纹基线
   → 建立网站轮廓，识别反爬类型，定位加密参数
 
-Step 2: RuyiTrace 日志采集（Phase 2）
+Step 2: RuyiTrace 日志采集（TRACE_CAPTURE）
   → 采集 NDJSON 运行时 DOM/JS API 调用日志
   → 环境指纹采集，调用链追踪，补环境证据
 ```
@@ -171,7 +171,7 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --tr
 
 摘要中出现 `## 长字段截断风险` 时，后续分析要先处理完整值补采问题，再判断参数长度、结构、hash、编码或是否可复现。
 
-## 根据 RuyiTrace 日志逆向分析（Phase 3）
+## 根据 RuyiTrace 日志逆向分析（TRACE_ANALYZE）
 
 日志导入后按以下顺序分析。所有 case 必须先完成 Step 1（ruyipage 网络包）+ Step 2（RuyiTrace NDJSON），再进入 Node.js 缺失环境追踪：
 

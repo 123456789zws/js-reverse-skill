@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] `webmssdk.es5.js` — JSVMP 签名引擎（380KB+），UMD 导出到 `window.byted_acrawler`
@@ -91,9 +91,9 @@
 
 ---
 
-## 已验证定位路径（CHECK-2 命中后直接执行）
+## 已验证定位路径（CASE_LOOKUP 命中后直接执行）
 
-### Phase 1：网络捕获定位接口
+### FORENSIC_CAPTURE：网络捕获定位接口
 
 ```
 步骤 1: network_capture(action='start', capture_body=true) + 触发业务操作
@@ -104,7 +104,7 @@
         - sdk-glue.js (100KB) — SDK 胶水层
 ```
 
-### Phase 2：初始化链路还原
+### TRACE_CAPTURE：初始化链路还原
 
 ```
 步骤 4: search_code(keyword="cacheOpts") → 定位到 sdk-glue 中的新版路径配置机制
@@ -114,7 +114,7 @@
 步骤 8: search_code(keyword="bogusIndex") → 确认 X-Bogus 由 XHR 拦截器追加到 URL
 ```
 
-### Phase 3：jsdom 沙箱验证
+### TRACE_ANALYZE：jsdom 沙箱验证
 
 ```
 步骤 9:  在 jsdom (runScripts: 'dangerously') 中依次加载三个脚本
@@ -124,7 +124,7 @@
 步骤 13: jsdom 生成的签名被服务端拒绝 → 确认是环境指纹差异
 ```
 
-### Phase 4：环境指纹对比（核心突破点 — Firefox 伪装）
+### IMPLEMENT：环境指纹对比（核心突破点 — Firefox 伪装）
 
 ```
 步骤 14: 用 trace 取证 启动反检测浏览器（注意：trace 取证 基于 Firefox）
@@ -140,7 +140,7 @@
   → jsdom 的 markNative 必须输出 Firefox 格式的 native code 字符串
 ```
 
-### Phase 5：环境补丁与验证
+### REAL_VERIFY：环境补丁与验证
 
 ```
 步骤 19: 编写 patchEnvironment() 修复全部 62 项差异

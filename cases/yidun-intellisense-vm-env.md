@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 - JS 特征：主 SDK `core-optimi.m25b40.v2.28.5.min.js`（631KB，obfuscator.io 多字符串数组混淆）；字符串解码 = 多数组共用同一自定义 base64 函数（标准 base64 字符集 + URL decode）；自定义 AES `__SBOX__`(512字符) + `__SEED_KEY__`=fd6a43ae25f74398b61c03c83be37449；模块访问器注入 `window.__RUIYU_MODS__(n)` 可枚举 webpack 模块
 - 参数特征：`fp`（window.gdxidpyhxde + cookie gdxidpyhxdE，含 `\` 字符 + `:时间戳` 后缀）；`cb`（uuid32 插入 `vfnv46` 于 pos=[1,10,12,13,26,31] + AES，92 字符含 `.`）；`dt`（getconf 下发存 localStorage key `ujg3ps2znyw`）；`data`（check 提交 `{d:'', m, p, ext}`，智能无感 d 恒空串，**与滑块 type=2 相反：无感 d 空/m 非空，滑块 d 非空/m 空串**）

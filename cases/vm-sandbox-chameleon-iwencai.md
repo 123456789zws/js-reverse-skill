@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] 文件名含 `chameleon`（如 `chameleon.1.9.min.1783727.js`）

@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 - JS 特征：app.js 内联 SM2 公钥常量（变量 `D`，130 位 hex，以 `04` 开头）；引用国密算法（sm-crypto 同款）；`EncryptFlag=2` 表示 SM 系列加密
 - 参数特征：`businessData`（请求体，SM4-CBC hex，192 字符）、`E-CONTENT-PATH`（Header，SM2 密文以 `04` 开头，456 字符）、`E-SIGN`（Header，SM3 哈希 64 字符 hex）
@@ -68,8 +68,8 @@ sm-crypto 库的 `sm2.doEncrypt` 返回 C1+C3+C2（不含 "04" 前缀），原�
 
 ### 本次执行中的问题
 
-1. **CHECK-1 全量检测耗时**：`check_external_tools.js` 一次性检测所有工具（10+ 次 spawnSync），纯算场景不需要。**已优化**：增加 `--quick` 模式。
-2. **CHECK-3 后跳过用户确认**：AI 在 CHECK-3 完成后直接进入 Phase 0，没有问用户选择哪种分析路径。**已优化**：CHECK-3 增加用户确认门禁。
+1. **INIT 全量检测耗时**：`check_external_tools.js` 一次性检测所有工具（10+ 次 spawnSync），纯算场景不需要。**已优化**：增加 `--quick` 模式。
+2. **INTENT_CONFIRM 未等待用户确认**：AI 在范围尚未确认时直接进入 ENV_READY，没有问用户选择哪种分析路径。**已优化**：INTENT_CONFIRM 增加用户确认门禁。
 3. **trace 取证不可用时默默走静态分析**：AI 没有告知用户有"安装 trace 取证工具走动态调试"的选项。**已优化**：trace 取证不可用时不默默走静态分析，必须先告知用户有安装选项，由用户选择。
 4. **静态分析效率问题**：2.25MB 压缩 JS 需要多次 Grep + 上下文提取才能定位算法，效率不如 trace 取证的 `get_request_initiator` 直接定位签名函数。
 

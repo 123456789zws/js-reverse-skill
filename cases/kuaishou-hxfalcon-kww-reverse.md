@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] 请求参数 `__NS_hxfalcon`（URL query），header `kww`
@@ -111,6 +111,6 @@
 
 | 参考文档 | 关联点 |
 |---------|--------|
-| `references/workflow/phase-flow.md` | Phase 5.5 经验沉淀 |
+| `references/workflow/phase-flow.md` | CLEANUP 经验沉淀 |
 | `references/env/env-native-protection.md` | realm / toString 检测绕过 |
 | `cases/jsvmp-dual-sign-purealgo-vm-xiaohongshu.md` | JSVMP 还原对照 |

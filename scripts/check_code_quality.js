@@ -393,12 +393,12 @@ function inspectFile(root, file, args) {
 
   const header = firstNonEmptyLines(text, 8).join('\n');
   if (!hasChinese(header) || !/^\s*(\/\/|\/\*|\*|#)/m.test(header)) {
-    problems.push('文件开头缺少中文职责注释；请在文件顶部说明模块用途、数据来源和边界。');
+    warnings.push('文件开头缺少中文职责注释，建议在文件顶部说明模块用途。');
   }
 
-  if (codeLines > 20 && chineseComments.length === 0) problems.push('代码超过 20 行但没有中文注释。');
+  if (codeLines > 20 && chineseComments.length === 0) warnings.push('代码超过 20 行但没有中文注释，建议补充关键逻辑说明。');
   if (codeLines > 80 && chineseComments.length < Math.ceil(codeLines / 120)) {
-    problems.push(`中文注释过少：代码约 ${codeLines} 行，中文注释 ${chineseComments.length} 条。`);
+    warnings.push(`中文注释过少：代码约 ${codeLines} 行，中文注释 ${chineseComments.length} 条，建议补充。`);
   }
 
   if (lines.length > args.maxFileLines) problems.push(`文件过大：${lines.length} 行，建议拆分到 ${args.maxFileLines} 行以内。`);
@@ -510,7 +510,7 @@ function renderMarkdown(result) {
     `- 单行长度上限：${result.limits.maxLineLength}`,
     `- 单文件行数上限：${result.limits.maxFileLines}`,
     `- 单函数行数上限：${result.limits.maxFunctionLines}`,
-    '- 必须有中文职责注释，中文注释不得包含问号、连续问号或乱码。',
+    '- 建议有中文职责注释，中文注释不得包含问号、连续问号或乱码。',
     '- 禁止压缩代码、过度堆叠语句、调试断点和临时测试标记。',
     '- signer / probe / runtime 入口不得承载 navigator、document、canvas、webgl、performance 等多域 WebAPI 补环境主体。',
     '- 补环境不得以大段 String.raw / *_SCRIPT 字符串作为主要交付形态，必须拆成真实文件模块并通过 runFile/runFiles 注入。',

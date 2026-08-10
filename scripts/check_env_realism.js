@@ -12,8 +12,6 @@ function parseArgs(argv) {
     requireDocumentAll: false,
     requireRuyiTrace: false,
     requireFingerprintFixture: false,
-    requireAddonFirst: true,
-    addonFirstOptOut: false,
     fingerprintFixture: '',
     json: false,
     markdown: false,
@@ -25,11 +23,6 @@ function parseArgs(argv) {
     else if (a === '--require-document-all') args.requireDocumentAll = true;
     else if (a === '--require-ruyitrace') args.requireRuyiTrace = true;
     else if (a === '--require-fingerprint-fixture') args.requireFingerprintFixture = true;
-    else if (a === '--require-addon-first') args.requireAddonFirst = true;
-    else if (a === '--no-require-addon-first' || a === '--allow-no-addon-first') {
-      args.requireAddonFirst = false;
-      args.addonFirstOptOut = true;
-    }
     else if (a === '--fingerprint-fixture') args.fingerprintFixture = argv[++i] || '';
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
@@ -43,11 +36,10 @@ function parseArgs(argv) {
 function usage() {
   return `用法：
   node scripts/check_env_realism.js --case-dir case --markdown
-  node scripts/check_env_realism.js --case-dir case --no-require-addon-first --markdown
-  node scripts/check_env_realism.js --case-dir case --require-document-all --require-ruyitrace --require-fingerprint-fixture --require-addon-first --json
+  node scripts/check_env_realism.js --case-dir case --require-document-all --require-ruyitrace --require-fingerprint-fixture --json
   node scripts/check_env_realism.js --file case/result/src/env/index.js --markdown
 
-说明：检查补环境交付代码是否体现原型链、属性描述符、访问器、函数 / 访问器 / 实例对象 toString 保护、addon-first/native fallback 规则、document.all 特殊对象处理、指纹终端 API 值回放策略，以及选择 RuyiTrace 时是否沉淀 NDJSON 证据。addon-first 是默认硬性要求；如果选择 xbs isolated-vm，则 window.xbs / globalThis.xbs 视为 native-first 证据；只有用户明确要求不使用 addon / 不做 addon-first 时，才允许传入 --no-require-addon-first 并在总结中记录豁免原因。`;
+说明：检查补环境交付代码是否体现原型链、属性描述符、访问器、函数 / 访问器 / 实例对象 toString 保护、document.all 特殊对象处理、指纹终端 API 值回放策略，以及选择 RuyiTrace 时是否沉淀 NDJSON 证据。addon、xbs 或纯 JS 实现按目标证据和运行时能力选择，不作为默认强制前置。`;
 }
 
 function exists(p) { try { fs.accessSync(p); return true; } catch { return false; } }
@@ -184,49 +176,6 @@ function inspectFingerprint(caseDir, files, args) {
   };
 }
 
-function inspectAddonFirst(files, requireAddonFirst) {
-  const allText = files.map(f => readText(f)).join('\n');
-  const result = {
-    required: !!requireAddonFirst,
-    usesNativeProtectFallback: /NativeProtect|markNativeFunction\s*\(|markObjectToString\s*\(|setNativeFunc\s*\(|setObjFunc\s*\(|Function\.prototype\.toString|Object\.prototype\.toString/.test(allText),
-    usesNativeLikeCreation: /\b(?:createNativeFunction|createNativeConstructor|createNativeGetter|createNativeSetter|defineNativeValue|defineNativeGetter|defineNativeSetter|defineNativeAccessor|createUndetectable|createInterceptor|createNativeObject|createProtoChains|createNativeCollection|getMimeTypesAndPlugins|createDocument|getProtoChainRegistry|deleteProtoChainRegistryEntry|clearProtoChainRegistry|setPrivate|getPrivate|hasPrivate|deletePrivate|throwTypeError)\s*\(/.test(allText),
-    directAddonApi: /(?:\b(?:addon|nativeAddon|addonApi)\.|\bxbs\s*\.\s*(?:dom\s*\.\s*)?|\b(?:window|globalThis)\s*\.\s*xbs\s*\.\s*(?:dom\s*\.\s*)?)(?:createNativeFunction|createGetter|createSetter|createNativeObject|createProtoChains|createUndetectable|createInterceptor|createNativeCollection|getMimeTypesAndPlugins|getProtoChainRegistry|deleteProtoChainRegistryEntry|clearProtoChainRegistry|getPrivate|setPrivate|hasPrivate|deletePrivate|throwTypeError|createDocument)\s*\(/.test(allText),
-    addonAwareHelper: /\b(?:createNativeFunction|createNativeConstructor|createNativeGetter|createNativeSetter|defineNativeValue|defineNativeGetter|defineNativeSetter|defineNativeAccessor|createUndetectable|createInterceptor|createNativeObject|createProtoChains|createNativeCollection|getMimeTypesAndPlugins|createDocument|getProtoChainRegistry|deleteProtoChainRegistryEntry|clearProtoChainRegistry|setPrivate|getPrivate|hasPrivate|deletePrivate|throwTypeError)\s*\([\s\S]{0,260}\b(?:addon|nativeAddon|options\.addon|addonResult|xbs|options\.xbs|xbsApi)\b/.test(allText),
-    normalizesAddonResult: /\b(?:normalizeAddon|getAddonApi)\s*\(|\baddonLike\.addon\b|\baddonResult\.addon\b|\baddon\s*&&\s*addon\.addon\b/.test(allText),
-    loadsAddon: /loadNativeAddon\s*\(|load_native_addon|WEB_JS_ENV_PATCHER_ADDON|WEB_JS_ENV_PATCHER_XBS_ISOLATED_VM|assets[\\/]+native-addon|native-addon|addon\.node|xbs-isolated-vm|isolated_vm\.node|window\.xbs|globalThis\.xbs|require\s*\([^)]*\.node/.test(allText),
-    acceptsAddonInput: /\boptions\.(?:addon|xbs|xbsIsolatedVmPath)\b|function\s+\w+\s*\([^)]*\b(?:addon|xbs)\b|,\s*(?:addon|xbs)\s*\)|\{\s*(?:addon|xbs)\s*\}/.test(allText),
-    fallbackDocumented: /fallback|降级|addon 不可用|addon不可用|NativeProtect fallback|JS fallback/.test(allText),
-    newProtoChainsApi: /\bcreateProtoChains\s*\(\s*\[|\.(?:createProtoChains)\s*\(\s*\[/.test(allText),
-    oldStyleCreateProtoChains: /\bcreateProtoChains\s*\(\s*['"][^'"]+['"]\s*,/.test(allText),
-    oldStyleCreateNativeObject: /\bcreateNativeObject\s*\(\s*['"][^'"]+['"]\s*,/.test(allText),
-  };
-  result.addonFirstEvidence = result.directAddonApi || result.addonAwareHelper || result.normalizesAddonResult || result.newProtoChainsApi;
-  result.needsAddonFirst = result.usesNativeProtectFallback || result.usesNativeLikeCreation;
-
-  const problems = [];
-  const warnings = [];
-  if (requireAddonFirst && result.needsAddonFirst && !result.addonFirstEvidence) {
-    problems.push('已要求 addon-first，但源码使用 native-like / NativeProtect 相关能力时未发现先尝试 addon.node 或 xbs native API 的证据；创建函数、getter、setter、document.all、原型链等应先走 native API，native 能力不可用时才降级 NativeProtect。');
-  }
-  if (requireAddonFirst && result.needsAddonFirst && !result.loadsAddon && !result.acceptsAddonInput) {
-    problems.push('已要求 addon-first，但源码既未加载 addon.node / xbs isolated-vm，也未显式接收 addon/options.addon/options.xbs；无法保证补环境时优先使用 native API。');
-  }
-  if ((requireAddonFirst || result.usesNativeProtectFallback) && result.usesNativeProtectFallback && !result.addonFirstEvidence && !result.fallbackDocumented) {
-    warnings.push('源码使用 NativeProtect / JS fallback，但未明显记录 addon.node / xbs native API 不可用或调用失败的降级原因；建议输出 native 能力可用性和降级说明。');
-  }
-  if (result.oldStyleCreateProtoChains) {
-    const msg = '发现旧式 createProtoChains(name, chain) 调用；新补环境代码应迁移为 createProtoChains(descriptors)，旧式形态只能出现在兼容层并记录迁移 / fallback 原因。';
-    if (/旧式|兼容|fallback|迁移|历史/.test(allText)) warnings.push(msg);
-    else problems.push(msg);
-  }
-  if (result.oldStyleCreateNativeObject) {
-    const msg = '发现旧式 createNativeObject(tag, proto, properties) 调用；新补环境代码应使用 createNativeObject(options) 或优先 createProtoChains(descriptors)，旧式形态只能出现在兼容层并记录迁移 / fallback 原因。';
-    if (/旧式|兼容|fallback|迁移|历史/.test(allText)) warnings.push(msg);
-    else problems.push(msg);
-  }
-  return { result, problems, warnings };
-}
-
 function check(args) {
   if (!args.caseDir && !args.file) throw new Error('必须提供 --case-dir 或 --file');
   const caseDir = args.caseDir ? path.resolve(args.caseDir) : path.resolve(path.dirname(args.file), '..', '..');
@@ -254,12 +203,9 @@ function check(args) {
   if (!checks.functionToString) problems.push('未发现函数 toString 保护（NativeProtect / createNativeFunction / markNativeFunction 等）。');
   if (!checks.accessorToString) problems.push('未发现访问器 getter/setter 的 toString 保护（createGetter/createSetter/defineNativeGetter/defineNativeSetter 等）。');
   if (!checks.instanceToString) problems.push('未发现实例对象 Object.prototype.toString 保护（Symbol.toStringTag / setObjFunc / createNativeObject 等）。');
-  if (args.requireDocumentAll && !checks.documentAllExact) problems.push('本 case 要求 document.all，但未发现 xbs.dom.createDocument 或 createUndetectable；document.all 不应仅用普通对象或 undefined 近似，isolated-vm 下优先 xbs.dom.createDocument，手写 document 时才用 xbs/createUndetectable handlers。');
-  if (!args.requireDocumentAll && checks.documentAllMentioned && !checks.documentAllExact) warnings.push('源码提到 document.all 但未发现 xbs.dom.createDocument 或 createUndetectable；如目标检测 HTMLDDA，isolated-vm 下优先 xbs.dom.createDocument，手写 document 时才用 xbs/createUndetectable handlers。');
+  if (args.requireDocumentAll && !checks.documentAllExact) problems.push('本 case 要求 document.all，但未发现可表达 HTMLDDA 语义的 createDocument 或 createUndetectable 实现；document.all 不应仅用普通对象或 undefined 近似。');
+  if (!args.requireDocumentAll && checks.documentAllMentioned && !checks.documentAllExact) warnings.push('源码提到 document.all 但未发现可表达 HTMLDDA 语义的 createDocument 或 createUndetectable 实现；如目标确实检测该行为，应选择具备对应能力的运行时。');
 
-  const addonFirst = inspectAddonFirst(files, args.requireAddonFirst);
-  problems.push(...addonFirst.problems);
-  warnings.push(...addonFirst.warnings);
   const ruyi = inspectRuyiTrace(caseDir, args.requireRuyiTrace);
   problems.push(...ruyi.problems);
   warnings.push(...ruyi.warnings);
@@ -280,10 +226,7 @@ function check(args) {
       instanceToString: matchingFiles(/setObjFunc\s*\(|markObjectToString\s*\(|Symbol\.toStringTag|createNativeObject\s*\(|createProtoChains\s*\(/, files, caseDir),
       documentAllExact: matchingFiles(/(?:createUndetectable\s*\(|xbs\s*\.\s*dom\s*\.\s*createDocument\s*\(|\bdom\s*\.\s*createDocument\s*\()/, files, caseDir),
       fingerprintValueReplay: matchingFiles(/installFingerprintValueReplay|findReplay|fingerprint\.fixture|指纹.*回放|value replay/i, files, caseDir),
-    addonFirstEvidence: matchingFiles(/(?:\b(?:addon|nativeAddon|addonApi)\.|\bxbs\s*\.\s*(?:dom\s*\.\s*)?|\b(?:window|globalThis)\s*\.\s*xbs\s*\.\s*(?:dom\s*\.\s*)?)(?:createNativeFunction|createGetter|createSetter|createNativeObject|createProtoChains|createUndetectable|createInterceptor|createNativeCollection|getMimeTypesAndPlugins|getProtoChainRegistry|deleteProtoChainRegistryEntry|clearProtoChainRegistry|getPrivate|setPrivate|hasPrivate|deletePrivate|throwTypeError|createDocument)\s*\(|\b(?:createNativeFunction|createNativeConstructor|createNativeGetter|createNativeSetter|defineNativeValue|defineNativeGetter|defineNativeSetter|defineNativeAccessor|createUndetectable|createInterceptor|createNativeObject|createProtoChains|createNativeCollection|getMimeTypesAndPlugins|createDocument|getProtoChainRegistry|deleteProtoChainRegistryEntry|clearProtoChainRegistry|setPrivate|getPrivate|hasPrivate|deletePrivate|throwTypeError)\s*\([\s\S]{0,260}\b(?:addon|nativeAddon|options\.addon|addonResult|xbs|options\.xbs|xbsApi)\b|\b(?:normalizeAddon|getAddonApi)\s*\(|\bcreateProtoChains\s*\(\s*\[/, files, caseDir),
     },
-    addonFirst: addonFirst.result,
-    addonFirstOptOut: args.addonFirstOptOut,
     ruyiTrace: ruyi.result,
     fingerprint: fingerprint.result,
     problems,
@@ -306,10 +249,7 @@ function renderMarkdown(result) {
     `- 函数 toString 保护：${result.checks.functionToString ? '通过' : '缺失'}`,
     `- 访问器 toString 保护：${result.checks.accessorToString ? '通过' : '缺失'}`,
     `- 实例对象 toString 保护：${result.checks.instanceToString ? '通过' : '缺失'}`,
-    `- addon-first 规则：${result.addonFirst.required ? (result.addonFirst.addonFirstEvidence ? '已发现先尝试 addon.node / xbs native API 的证据' : '缺失 native 优先证据') : (result.addonFirstOptOut ? '用户明确豁免，未强制检查' : '未强制检查')}`,
-    `  - 直接 addon API：${result.addonFirst.directAddonApi ? '是' : '否'}；addon-aware helper：${result.addonFirst.addonAwareHelper ? '是' : '否'}；加载 addon/xbs：${result.addonFirst.loadsAddon ? '是' : '否'}；接收 addon/xbs 输入：${result.addonFirst.acceptsAddonInput ? '是' : '否'}；新版 createProtoChains：${result.addonFirst.newProtoChainsApi ? '是' : '否'}`,
-    `  - 旧式 API：createProtoChains(name, chain)=${result.addonFirst.oldStyleCreateProtoChains ? '发现' : '未发现'}；createNativeObject(tag, proto, properties)=${result.addonFirst.oldStyleCreateNativeObject ? '发现' : '未发现'}`,
-    `- document.all 不可检测对象：${result.checks.documentAllExact ? '已使用 xbs.dom.createDocument / createUndetectable' : (result.checks.documentAllMentioned ? '提到但未精确处理' : '未涉及')}`,
+    `- document.all 不可检测对象：${result.checks.documentAllExact ? '已发现精确能力实现' : (result.checks.documentAllMentioned ? '提到但未精确处理' : '未涉及')}`,
     `- 指纹终端 API 值回放：${result.checks.fingerprintValueReplay ? '已体现' : (result.fingerprint.terminalApiMentioned ? '涉及指纹 API 但未明显体现回放' : '未涉及')}`,
     '',
     '## RuyiTrace 证据检查',

@@ -9,12 +9,12 @@
 > **骨架案例**。本文是**方法论模板**，适用于：自定义 MD5/SHA 实现、混淆后算法不可静态还原、算法可提取但依赖少量环境属性（非 JSVMP）等场景。
 >
 > 使用方式：
-> 1. 在 CHECK-2 指纹匹配时，若检测到"算法不可直接提取但 JS 可 vm 执行"特征，直接走本案例的流程
+> 1. 在 CASE_LOOKUP 指纹匹配时，若检测到"算法不可直接提取但 JS 可 vm 执行"特征，直接走本案例的流程
 > 2. 完成具体站点逆向后，复制本文件重命名为 `vm-<具体技术特征>.md`，按真实数据填充占位符
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [ ] 算法函数存在但不可直接提取（自定义 MD5 变种 / 混淆后控制流打乱 / eval 包裹）
@@ -62,7 +62,7 @@ vm 沙箱执行：提取算法 JS 代码 → 在 Node.js `vm` 模块中执行 �
 
 ## 标准流程（详见 references/workflow/trace-flow.md）
 
-### Phase 1-2：定位 + 提取
+### FORENSIC_CAPTURE → TRACE_CAPTURE：定位 + 提取
 
 ```
 1. trace 取证黄金路径定位签名函数
@@ -76,7 +76,7 @@ vm 沙箱执行：提取算法 JS 代码 → 在 Node.js `vm` 模块中执行 �
 5. 提取算法函数 + 依赖的全局变量/常量
 ```
 
-### Phase 3：vm 沙箱搭建
+### TRACE_ANALYZE：vm 沙箱搭建
 
 #### 3.1 基础 sandbox（算法自包含，无浏览器环境依赖）
 
@@ -173,7 +173,7 @@ const sign = sandbox.document.cookie;  // 或 sandbox.someGlobalVar
 - `document.cookie` 必须用 `Object.defineProperty` 实现 getter/setter，目标 JS 通过 setCookie 写入签名值
 - 不需要 NativeProtect（目标 JS 通常不做 toString 检测；若做则升级补环境）
 
-### Phase 4：验证
+### IMPLEMENT：验证
 
 ```
 1. 用浏览器样本的相同输入调用 generateSign
@@ -182,7 +182,7 @@ const sign = sandbox.document.cookie;  // 或 sandbox.someGlobalVar
 4. 一致 → ≥5 次请求验证稳定性
 ```
 
-### Phase 4 补充：常见陷阱
+### IMPLEMENT 补充：常见陷阱
 
 | 陷阱 | 现象 | 解决 |
 |------|------|------|

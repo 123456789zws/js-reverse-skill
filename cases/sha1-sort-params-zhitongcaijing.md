@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] Vue 构建，`app.js` + `chunk-vendors.js` 分包，无混淆无压缩（可直接 Grep）
@@ -62,7 +62,7 @@
 
 ## 标准流程
 
-### Phase 1-2：定位 + 提取
+### FORENSIC_CAPTURE → TRACE_CAPTURE：定位 + 提取
 
 ```
 1. 下载 app.js + chunk-vendors.js（curl -k，无混淆可直接读）
@@ -73,7 +73,7 @@
 6. Grep "encodeURIComponent" → 定位 cfd4 序列化器
 ```
 
-### Phase 3：纯算复现
+### TRACE_ANALYZE：纯算复现
 
 ```javascript
 const crypto = require('crypto');
@@ -114,7 +114,7 @@ function signGet(params) {
 }
 ```
 
-### Phase 4：验证
+### IMPLEMENT：验证
 
 ```
 1. 已知 token 928079f344b3d4b20faf84ed7afc989a774ab328（page=1 用例）复现成功

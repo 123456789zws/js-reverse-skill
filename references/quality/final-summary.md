@@ -86,22 +86,16 @@
 - 需要补充样本：
 - 后续复测建议：
 ```
-
 ## 生产级交付附加章节
 
-用户要求"生产级交付"时，在上述 8 章基础上追加以下章节（详见 SKILL.md Phase 5.4 交付加分 / `check_final_artifact.js --production`）：
+用户要求“生产级交付”时，在上述 8 章基础上追加以下 9 个章节，并与 `check_final_artifact.js --production` 的检查口径一致：
 
-- RuyiTrace 日志使用情况
-- 动态资源保鲜与运行时刷新
-- Cookie / Storage / Token 分析
-- 补环境框架选择与 Trace 复杂度评估
 - NativeProtect 使用情况
 - 指纹基线一致性
 - 环境与指纹 API 调用回放明细
 - 高强度环境检测覆盖矩阵
-- 指纹值回放
+- Session 请求链
 - 加密参数生成与样本复用检查
 - 代码质量与中文注释
-- TLS 请求验证与 Session 请求链
 - 清理结果
-- 阶段报告索引（如已生成阶段报告）
+- 阶段报告索引

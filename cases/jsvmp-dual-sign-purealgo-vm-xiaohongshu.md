@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] 文件名 `as-v2-ds.js`（本地 SDK，~60KB）+ `as-v2-fp.js`（指纹脚本，~390KB）
@@ -190,6 +190,6 @@
 | 参考文档 | 关联点 |
 |---------|--------|
 | `references/workflow/trace-flow.md` | RuyiTrace NDJSON 日志驱动逆向 |
-| `references/workflow/phase-flow.md` | Phase 5.5 经验沉淀 |
+| `references/workflow/phase-flow.md` | CLEANUP 经验沉淀 |
 | `cases/vm-sandbox-custom-algo.md` | vm 沙箱骨架模板（本案例为其具体填充） |
 | `cases/jsvmp-xhr-interceptor-env-emulation.md` | JSVMP + 环境伪装参考 |

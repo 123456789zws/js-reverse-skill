@@ -6,25 +6,15 @@ const { execFileSync } = require('child_process');
 const os = require('os');
 
 const TARGETS = {
-  addon: {
-    label: 'native addon.node',
-    version: '25.8.2',
-    nextCheck: 'node scripts/load_native_addon.js --json',
-  },
-  'isolated-vm': {
-    label: 'xbs isolated-vm',
-    version: '26.3.1',
-    nextCheck: 'node scripts/check_xbs_isolated_vm.js --strict --json',
-  },
-  xbs: {
-    label: 'xbs isolated-vm',
-    version: '26.3.1',
-    nextCheck: 'node scripts/check_xbs_isolated_vm.js --strict --json',
+  custom: {
+    label: '自定义 native 组件',
+    version: '',
+    nextCheck: '',
   },
 };
 
 function parseArgs(argv) {
-  const args = { target: 'addon', requiredVersion: '', json: false, markdown: false };
+  const args = { target: 'custom', requiredVersion: '', json: false, markdown: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--target') args.target = argv[++i] || '';
@@ -41,9 +31,8 @@ function parseArgs(argv) {
 function usage() {
   return [
     '用法：',
-    '  node scripts/check_node_runtime_compat.js --target addon --markdown',
-    '  node scripts/check_node_runtime_compat.js --target isolated-vm --json',
-    '  node scripts/check_node_runtime_compat.js --required-version 25.8.2 --markdown',
+    '  node scripts/check_node_runtime_compat.js --required-version 22.0.0 --markdown',
+    '  node scripts/check_node_runtime_compat.js --target custom --required-version 22.0.0 --json',
     '',
     '说明：只检测当前 Node / ABI / nvm 可用性并输出中文恢复建议，不会安装或切换 Node。',
   ].join('\n');

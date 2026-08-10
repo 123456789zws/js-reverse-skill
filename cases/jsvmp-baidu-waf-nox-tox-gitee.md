@@ -8,7 +8,7 @@
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - [x] 三件套协调器：`gangplank_20251103.js`（bantiOrigin: `https://wafbotsr.baidu.com`，sak: `a03fed3c32`）
@@ -123,6 +123,6 @@
 
 | 参考文档 | 关联点 |
 |---------|--------|
-| `references/workflow/phase-flow.md` | Phase 5.5 经验沉淀 |
+| `references/workflow/phase-flow.md` | CLEANUP 经验沉淀 |
 | `cases/jsvmp-dual-sign-purealgo-vm-xiaohongshu.md` | JSVMP 还原对照（小红书用纯算+vm，本项目用补环境） |
 | `cases/kuaishou-hxfalcon-kww-reverse.md` | JSVMP + 多参数签名对照（快手用 eval 全局运行，本项目用 vm 沙箱） |

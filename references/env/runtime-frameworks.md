@@ -45,18 +45,17 @@ node scripts/analyze_trace_complexity.js --case-dir case --markdown
 - **Node.js 内置 vm**：用户明确选择时需显式构造干净 context，不得暴露 `process`、`Buffer`、`require`、`module`、`global`，也不得把 vm 当强安全边界。
 - **sdenv**：用户明确选择时需自行安装（魔改 jsdom + C++ V8 扩展）。必须先确认 sdenv 项目路径、版本、入口模块和初始化函数；未提供文档时只能生成待适配模板，不能虚构 API。
 - **jsEnv**：用户明确选择时需自行实现或安装。必须先确认项目路径、版本、入口模块和初始化函数；未提供文档时只能生成待适配模板，不能虚构 API。
-- **xbs isolated-vm**：随包魔改的 isolated-vm 框架，提供 `window.xbs` / `xbs.dom.createDocument` 等 API。如目标站点随包提供 xbs runtime，需先读取 `references/env/xbs-isolated-vm-api.md` 确认 API 形状，再决定是否启用；未提供 xbs 构建时不得虚构 API。
-- **C++ Addon（native-first）**：sdenv / xbs 等框架依赖的 C++ Addon 提供原生对象采集与保护能力（如 `createNativeCollection` / `getMimeTypesAndPlugins` / `jsEnv`）。Addon API 形状与可用 private API 详见 `references/env/addon-api.md`；未提供 addon 构建产物时只能生成待适配模板。
+- **其他运行时或 native 扩展**：仅在目标证据表明纯 vm 无法表达所需行为，且用户提供了可用构建和 API 契约时启用。实现选择必须服从行为基线和交付可运行性，不要求默认优先某类 addon。
 
 ## Node ABI 兼容恢复
 
-C++ Addon（sdenv / xbs 等）对 Node ABI 敏感，Node 升级后常出现 `addon.node` 加载失败或符号未解析。出现以下任一信号时，先读取 `references/env/node-version-recovery.md` 排查，不要直接重装框架或退回 npm 原版运行时：
+所选框架包含 native 组件时，Node 升级后可能出现加载失败或符号未解析。出现以下任一信号时，先确认组件文档声明的 Node/ABI 版本，不要直接重装框架或切换到来源不明的运行时：
 
 - `Module did not self-register` / `The module was compiled against a different Node.js version`
-- `addon.node is not a valid Win32 application`
-- 升级 Node 后原本可用的 sdenv / xbs 突然 `require` 失败
+- native 模块不是有效的当前平台应用程序
+- 升级 Node 后原本可用的框架突然 `require` 失败
 
-排查方向：ABI 版本对齐 / `node-gyp rebuild` / 切换到匹配 Node 版本 / 使用 `scripts/check_node_runtime_compat.js` 检测兼容性。平台缺失时要求用户提供匹配构建产物或改选框架；不要自动 `npm install` 或退回 npm 原版运行时。
+排查方向：ABI 版本对齐 / 按组件官方说明重新构建 / 切换到匹配 Node 版本 / 使用 `scripts/check_node_runtime_compat.js --required-version <版本>` 检测兼容性。平台缺失时要求用户提供匹配构建产物或改选框架；不要自动安装来源不明的构建。
 
 ## 二次提醒触发条件
 

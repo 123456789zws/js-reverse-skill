@@ -168,12 +168,12 @@ class DeviceMotionEvent extends Event {
     constructor(type, init = {}) {
         super(type, init);
         this.acceleration = init.acceleration || { x: null, y: null, z: null };
-        this.accelerationIncludingGravity = init.accelerationIncludingGravity || 
+        this.accelerationIncludingGravity = init.accelerationIncludingGravity ||
             { x: 0, y: -9.8, z: 0 };
         this.rotationRate = init.rotationRate || { alpha: null, beta: null, gamma: null };
         this.interval = init.interval || 16;
     }
-    
+
     static requestPermission() { return Promise.resolve('granted'); }
 }
 

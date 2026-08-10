@@ -1,21 +1,21 @@
-# Phase 0-5 详细流程
+# SKILL 状态机详细流程
 
-> **触发条件**：执行某个 Phase 不确定具体怎么做时读
+> **触发条件**：执行某个状态、不确定具体怎么做时读
 >
-> 本文档是 SKILL.md Phase 0-5 顶层骨架的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
+> 本文档是 SKILL.md INIT → RESUME_PROBE → EVIDENCE_GATE → CASE_LOOKUP → INTENT_CONFIRM → ENV_READY → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE 顶层骨架的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
 
-## Phase 0：任务确认 + 环境搭建
+## INIT、EVIDENCE_GATE、INTENT_CONFIRM 与 ENV_READY
 
 ### 0.1 任务理解
-- 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实性，门禁通过后从包中提取信息，跳过 Phase 1 ruyipage 抓包，直接进入参数识别（**仍必须完成 Phase 2 RuyiTrace 日志采集，除非用户提供了 NDJSON**）
-- 用户只提供 URL + 参数名（无任何取证文件）→ 走完整 Phase 1 ruyipage 抓包 + Phase 2 RuyiTrace 日志采集；**URL 不是证据，禁止以"用户提供了证据"跳过 trace**
+- 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实性，门禁通过后从包中提取信息，跳过 FORENSIC_CAPTURE ruyipage 抓包，直接进入参数识别（**仍必须完成 TRACE_CAPTURE RuyiTrace 日志采集，除非用户提供了 NDJSON**）
+- 用户只提供 URL + 参数名（无任何取证文件）→ 走完整 FORENSIC_CAPTURE ruyipage 抓包 + TRACE_CAPTURE RuyiTrace 日志采集；**URL 不是证据，禁止以"用户提供了证据"跳过 trace**
 - 两种情况下都需下载目标 JS 文件用于识别反爬类型
 
 ### 0.2 信息完整性门禁
 - **必填**：目标 URL、目标参数名（可为空，自动识别）
 - **必填**：取证证据门禁结果（`check_evidence.js` 输出：Step 1 / Step 2 证据是否具备、可跳过哪些步骤）
 - **用户提供时**：目标 API、请求方法、参数位置、成功请求样本、响应特征
-- **自动获取时**（Phase 1 ruyipage 抓包填充）：上述字段
+- **自动获取时**（FORENSIC_CAPTURE ruyipage 抓包填充）：上述字段
 - **可选确认**：TLS 客户端、登录态
 
 强制阻断项：
@@ -48,7 +48,7 @@ case 根目录只允许两个子目录：
 └── result/        # 交付物（final.js + 最终项目总结.md + src/）
 ```
 
-## Phase 1：ruyipage 网络取证（Step 1）
+## FORENSIC_CAPTURE 与 IDENTIFY（Step 1）
 
 > 用户提供 cURL/HAR/JS 文件（经 `check_evidence.js` 门禁确认）时，跳过 1.1 抓包，从 1.2 开始。仅提供 URL → 必须从 1.1 开始完整抓包。
 
@@ -57,7 +57,7 @@ case 根目录只允许两个子目录：
 2. 收集：网络包（HAR）、Cookie、JS 文件 URL、响应状态码
 3. 下载目标 JS 文件到 `case/js/original/`
 4. 写入指纹基线 `case/notes/fingerprint-baseline.json`
-5. 抓包结果复用到 Phase 2 RuyiTrace 采集 + Phase 3 日志分析，**不重抓**
+5. 抓包结果复用到 TRACE_CAPTURE RuyiTrace 采集 + TRACE_ANALYZE 日志分析，**不重抓**
 
 ### 1.2 反爬类型识别
 基于抓包结果判断：
@@ -86,11 +86,11 @@ case 根目录只允许两个子目录：
 
 **只有记录到 `writer`，才能确认"找到的函数"确实影响目标请求。**
 
-入口定位：ruyipage 网络包 → JS 文件定位 → 待 Phase 2 RuyiTrace NDJSON stack 定位签名函数
+入口定位：ruyipage 网络包 → JS 文件定位 → 待 TRACE_CAPTURE RuyiTrace NDJSON stack 定位签名函数
 
-## Phase 2：RuyiTrace 日志采集 + 源码分析（Step 2）
+## TRACE_CAPTURE（Step 2）
 
-> 基于 Phase 1 ruyipage 抓包结果（JS 文件 + 网络包），RuyiTrace 采集运行时日志。
+> 基于 FORENSIC_CAPTURE ruyipage 抓包结果（JS 文件 + 网络包），RuyiTrace 采集运行时日志。
 
 ### 2.1 RuyiTrace NDJSON 采集（核心证据源，采集方式先让用户选择）
 - 手动 trace：用户用 RuyiTrace 采集后提供 NDJSON → `node scripts/capture_ruyitrace_log.js --input <日志> --case-dir case --markdown` 导入生成摘要（适合需登录/验证码/复杂交互）
@@ -141,7 +141,7 @@ crypto / encrypt / decrypt
 - [ ] 是否有前置请求（预热接口、Token 获取接口）
 - [ ] 是否有请求链改写（拦截 XHR/fetch 添加签名头）
 
-## Phase 3：日志逆向分析
+## TRACE_ANALYZE
 
 ### 3.1 环境指纹采集（核心突破点）
 ```
@@ -166,7 +166,7 @@ RuyiTrace NDJSON 狙击式采集:
 ### 3.4 多次请求对比
 ≥3 次请求，确认变化因子（时间戳/随机数/签名值）
 
-## Phase 4：算法还原 / 补环境
+## IMPLEMENT
 
 ### 4.1 编码原则
 1. 先通后全：先成功请求第 1 条数据，再扩展
@@ -203,7 +203,7 @@ RuyiTrace NDJSON 狙击式采集:
 | Headers 模板 | `case/notes/headers.json` |
 | 响应样本 | `case/notes/response_sample.json` |
 
-## Phase 5：验证与交付
+## REAL_VERIFY、DELIVER 与 CLEANUP
 
 ### 5.1 运行验证（默认向真实 API 发请求）
 - 运行 final.js/final.py，**默认向真实 API 发请求**，确认返回正确数据（200 + 正确响应体）
@@ -233,13 +233,13 @@ RuyiTrace NDJSON 狙击式采集:
 
 - `node scripts/check_final_artifact.js --case-dir . --production --markdown` —— 在默认门禁基础上追加校验最终总结的 9 个生产级附加章节
 - Session 模式 / 代码风格检查 / `check_code_quality.js` / `check_fingerprint_fixture.js` / `check_trace_api_coverage.js`
-- 完整 23 章总结 / trace 覆盖矩阵 / 选用 sdenv 路径时额外执行 runtime 自检
+- 默认 8 章与 9 个生产级附加章节 / trace 覆盖矩阵 / 选用 sdenv 路径时额外执行 runtime 自检
 
 > 默认只执行 5.2 解题必需 + 5.3 默认交付门禁。用户明确要求"生产级交付"时才执行 5.4 加分项。
 
 ### 5.5 最终项目总结
 - 默认：精简总结（8 章，模板见 `references/quality/final-summary.md`）
-- 用户要求"生产级交付"：追加 14 章附加章节
+- 用户要求"生产级交付"：追加 9 个生产级附加章节
 - 阶段报告：默认不生成，仅多轮复杂补环境 case 或用户明确要求时按需生成
 
 ### 5.6 清理（交付前必做）
@@ -249,9 +249,9 @@ RuyiTrace NDJSON 狙击式采集:
 
 ### 5.7 经验沉淀
 
-> **写入位置 = `result/`，不是 skill 内的 `cases/`**：skill 目录在运行期通常只读（部署后不可写），**agent 不得尝试写入 skill 内的 `cases/`**。把内化后的案例经验作为本次交付物写到 `result/`。经验沉淀文档与最终项目总结、final.js 同处 `result/` 目录，是交付物的一部分。
+> **写入位置 = `result/`，不是 skill 内的 `cases/`**：skill 目录在运行期通常只读（部署后不可写），**agent 不得尝试写入 skill 内的 `cases/`**。将命中案例中确认过的定位方法、踩坑和验证结论整理为本次交付物，写入 `result/经验沉淀-<站点>.md`。经验沉淀文档与最终项目总结、验证记录、final.js 同处 `result/` 目录，是交付物的一部分。
 
 - **默认产出**：任务完成后默认生成 `result/经验沉淀-<站点>.md`（**按 `cases/_template.md` 的 Part 2 格式**），不询问、不跳过；仅当用户明确说"不沉淀经验"时才跳过，并传 `--no-require-experience` 给检查脚本，在最终总结里记录跳过原因
-- 内容：题型 / 反爬类型 / 关键踩坑 / 已内化为的编码约束 / 验证结论
+- 内容：题型 / 反爬类型 / 关键踩坑 / 由踩坑转成的具体编码约束 / 验证结论
 - **5.3 默认交付门禁会检查经验沉淀文档**：result/ 下必须存在 `经验沉淀-*.md`，缺失则门禁失败
 - **开发者周期回写**：skill 维护者定期把 `result/` 中质量高的经验按 `_template.md` 合并进 skill 的 `cases/` 库；agent 运行期只产出、不回写 skill 目录

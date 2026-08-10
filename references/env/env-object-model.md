@@ -283,7 +283,7 @@ installFingerprintValueReplay(globalThis, fingerprintFixture, {
 
 ## 高强度补充 WebAPI 对象清单
 
-从 Cloudflare / Turnstile / Akamai / DataDome / Kasada / Shape / F5 等高强度检测样本抽象出的通用对象范围。只有目标 trace / fixture / 取证证据访问到时才补，但一旦补就必须遵循 native-first、原型链、描述符、访问器、构造函数行为、`Symbol.toStringTag` 和 native-like 保护。
+从 Cloudflare / Turnstile / Akamai / DataDome / Kasada / Shape / F5 等高强度检测样本抽象出的通用对象范围。只有目标 trace / fixture / 取证证据访问到时才补，但一旦补就必须遵循行为基线、原型链、描述符、访问器、构造函数行为、`Symbol.toStringTag` 和 native-like 保护。具体实现可使用纯 JS、框架或 native 扩展，以证据和运行时能力为准。
 
 | 对象 / API | 重点行为 | 补环境要求 |
 |---|---|---|

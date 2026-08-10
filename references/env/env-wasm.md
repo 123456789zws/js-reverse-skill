@@ -28,7 +28,7 @@ const fs = require('fs');
 
 async function loadWasm(wasmPath, importObject = {}) {
     const wasmBuffer = fs.readFileSync(wasmPath);
-    
+
     const defaultImports = {
         env: {
             memory: new WebAssembly.Memory({ initial: 256 }),
@@ -45,7 +45,7 @@ async function loadWasm(wasmPath, importObject = {}) {
         },
         ...importObject,
     };
-    
+
     const result = await WebAssembly.instantiate(wasmBuffer, defaultImports);
     return result.instance;
 }
@@ -62,12 +62,12 @@ function inspectWasmImports(wasmPath) {
     const wasmBuffer = fs.readFileSync(wasmPath);
     const module = new WebAssembly.Module(wasmBuffer);
     const imports = WebAssembly.Module.imports(module);
-    
+
     console.log('WASM 导入依赖：');
     for (const imp of imports) {
         console.log(`  ${imp.module}.${imp.name} (${imp.kind})`);
     }
-    
+
     return imports;
 }
 
@@ -98,12 +98,12 @@ function patchWasmBindgenEnv() {
     const win = new Window();
     win.window = win;
     win.self = win;
-    
+
     globalThis.Window = Window;
     globalThis.window = win;
     globalThis.self = win;
     globalThis.document = win.document;
-    
+
     // wasm-bindgen 可能检查 instanceof
     // 确保 win instanceof Window === true
 }
@@ -136,7 +136,7 @@ async function runWasmSign(wasmPath, inputData) {
     const wasmBuffer = fs.readFileSync(wasmPath);
     const module = new WebAssembly.Module(wasmBuffer);
     const requiredImports = WebAssembly.Module.imports(module);
-    
+
     // 2. 准备导入对象
     const importObject = {
         env: {
@@ -148,33 +148,33 @@ async function runWasmSign(wasmPath, inputData) {
             // 按 requiredImports 补全其他依赖
         },
     };
-    
+
     // 3. 实例化
     const { instance } = await WebAssembly.instantiate(wasmBuffer, importObject);
     const exports = instance.exports;
-    
+
     // 4. 调用导出函数
     // 假设导出函数名为 _sign，输入为指针 + 长度，输出为指针
     const memory = exports.memory || importObject.env.memory;
     const sign = exports._sign || exports.sign;
-    
+
     // 写入输入数据
     const inputBuf = new TextEncoder().encode(inputData);
     const inputPtr = exports._malloc(inputBuf.length + 1);
     new Uint8Array(memory.buffer, inputPtr, inputBuf.length).set(inputBuf);
-    
+
     // 调用
     const outputPtr = sign(inputPtr, inputBuf.length);
-    
+
     // 读取输出
     const outputBuf = new Uint8Array(memory.buffer, outputPtr);
     const nullIdx = outputBuf.indexOf(0);
     const result = new TextDecoder().decode(outputBuf.slice(0, nullIdx >= 0 ? nullIdx : undefined));
-    
+
     // 释放
     exports._free(inputPtr);
     exports._free(outputPtr);
-    
+
     return result;
 }
 ```

@@ -1,36 +1,63 @@
-# 交付入口模板索引
+# 交付模板索引
 
-本目录提供 7 类交付入口模板，复制到 `case/result/` 后按站点签名逻辑填充。
+本目录保持 7 类模板资产。它们不是 7 个互斥的交付方案：`final-entry/`、`python-request/` 和两个验证码模板提供执行入口，其余目录是按实现路径组合进交付物的请求或运行时模块。
 
 ## 模板清单
 
-| 模板 | 入口文件 | 解法模式 | 用途 |
-|------|---------|---------|------|
-| `final-entry/` | `final.js` + `config.json` + `package.json` | 所有模式 | **Node.js 唯一执行入口**：`final.js` 默认发真实 API 请求验证（≥5 次），带 `require.main` 守卫（被 `require('./result')` 时只导出 `sign` / `buildSignedRequest` 等 API、不自动执行、不发请求）；`config.json` 外置静态配置；`package.json` 依赖契约 |
-| `node-request/` | `client.js` | B/C/D | **Node.js TLS 客户端**：curl-cffi-node → impers 优先级检测（已移除 CycleTLS）。纯算法模式 A 且无 TLS 指纹检测时可跳过 |
-| `python-request/` | `final.py` + `client.py` + `requirements.txt` | A/B/C/D | **Python 唯一执行入口 + TLS 客户端**：`final.py` 自验（带 `__main__` 守卫，可被 `from final import sign` 取 API）、默认发真实请求（≥5 次）；`client.py` 提供 `create_request_session`+`CookieJar`（curl_cffi → cffi_curl → cyCronet 优先级）；`requirements.txt` 依赖契约 |
-| `vm-sandbox/` | `install-env.js` + `vm-context.js` + `native-protect.js` | B/D | **补环境安装**：JS 层 NativeProtect 保护（`native-protect.js` 已内联，交付物不依赖 skill 仓库） |
-| `wasm-loader/` | `loader.js` | C | **WASM 加载器**：buffer 实例化 + importObject 注入 |
-| `captcha-verify/` | `final.js` + `config.json` + `package.json` | 验证码 | **验证码逆向专用（Node 版）**：load→solve→verify 三段链路 + 业务接口消费凭据；answer JSON 契约衔接 solver/verifier；challenge 一次性不复用。solver 调 ddddocr 需跨语言桥接 |
-| `captcha-verify-py/` | `final.py` + `config.json` + `requirements.txt` | 验证码 | **验证码逆向专用（Python 版）**：三段链路同上；solver 直接 `import ddddocr`，答案层工具链（ddddocr/OpenCV/Whisper）原生可用。**答案层用 ddddocr/OpenCV 时优先选此模板**；config.json 与 Node 版字段一致可共用 |
+| 模板 | 角色 | 入口或模块 | 适用模式 |
+|------|------|-----------|---------|
+| `final-entry/` | Node.js 基础入口 | `final.js` + `config.json` + `package.json` | A/B/C/D |
+| `node-request/` | Node.js 请求模块 | `client.js` | 需要 TLS 指纹或统一 Session 的 Node.js 交付 |
+| `python-request/` | Python 基础入口与请求模块 | `final.py` + `client.py` + `requirements.txt` | A/B/C/D |
+| `vm-sandbox/` | Node.js 运行时模块 | `install-env.js` + `vm-context.js` + `native-protect.js` | B/D |
+| `wasm-loader/` | Node.js WASM 模块 | `loader.js` | C |
+| `captcha-verify/` | Node.js 验证码完整入口 | `final.js` + `config.json` + `package.json` | 验证码封装层主要在 Node.js 还原 |
+| `captcha-verify-py/` | Python 验证码完整入口 | `final.py` + `config.json` + `requirements.txt` | 答案层主要使用 ddddocr/OpenCV/Whisper |
 
-## 模板间引用关系
+## 实际组合
 
+按最终语言和证据确定的实现路径选择组合，不要机械复制全部 7 类：
+
+| 场景 | 基础模板 | 按需组合 |
+|------|---------|---------|
+| Node.js 纯算法 | `final-entry/` | 有 TLS 指纹或 Session 要求时加入 `node-request/` |
+| Node.js vm 补环境 | `final-entry/` | `vm-sandbox/`；需要真实请求适配时再加入 `node-request/` |
+| Node.js WASM | `final-entry/` | `wasm-loader/`；WASM 外层依赖浏览器环境时再加入 `vm-sandbox/` |
+| Python 纯算法或协议请求 | `python-request/` | 标准算法直接在 Python signer 中实现 |
+| Python 调用原始 JavaScript | `python-request/` | 仅在证据要求时通过 JS 运行时桥接所需模块，不复制 Node.js 入口 |
+| 验证码 Node.js | `captcha-verify/` | 封装层需要 vm 时加入 `vm-sandbox/`；请求层需要 TLS 适配时复用 `node-request/` |
+| 验证码 Python | `captcha-verify-py/` | solver 直接使用 Python 答案层库；只有封装层必须执行原始 JS 时才桥接 Node.js 模块 |
+
+`final-entry/` 和 `python-request/` 已分别承担常规 Node.js、Python 交付入口；`captcha-verify/` 与 `captcha-verify-py/` 已承担验证码三段链入口。一个交付物只保留一个最终执行入口。
+
+## 组合结构
+
+典型 Node.js 组合：
+
+```text
+result/
+├── final.js
+├── config.json
+├── package.json
+└── src/
+    ├── signer.js
+    ├── env/
+    │   ├── install-env.js
+    │   └── native-protect.js
+    ├── request/
+    │   └── client.js
+    └── wasm/
+        └── loader.js
 ```
-final.js（唯一执行入口，带 require.main 守卫）
-  ├── 引用 ./src/signer.js          → 用户实现 generateSign + buildParams
-  ├── 引用 ./src/env/install-env.js → 复制自 vm-sandbox/install-env.js（含内联 native-protect.js）
-  ├── 引用 ./src/request/client.js  → 复制自 node-request/client.js
-  └── 读 ./config.json（静态外置配置）
 
-result/ 被其他项目调用：const { sign, buildSignedRequest } = require('/path/to/result');  // 守卫生效，不自动执行
-```
+其中 `src/env/`、`src/request/`、`src/wasm/` 都是按需项。`final.js` 带 `require.main` 守卫，被其他项目 `require` 时只导出 API，不自动执行或发请求。
 
-Python 交付同理：`final.py` 唯一执行入口，引用 `python-request/client.py`（含 CookieJar）与 `src/signer.py`（实现 `generate_sign(params, env)` + `build_params(config)`）；若需补环境，通过 `execjs` 桥接 `vm-sandbox/install-env.js`。
+Python 交付以 `final.py` 为唯一入口，按需引用 `client.py` 和 `src/signer.py`。验证码模板已经包含 load→solve→verify 三段链骨架和一次性 challenge 约束，不再叠加常规入口模板。
 
 ## 使用方式
 
-1. Phase 4 编码时，根据解法模式选择对应模板
-2. 复制模板文件到 `case/result/`（`final-entry/`：final.js + config.json + package.json）
-3. 按站点签名逻辑填充 `src/signer.js` / `src/signer.py`（参考 `cases/` 中的还原代码模板）
-4. `vm-sandbox/install-env.js` 是"快速验证用"简化版，正式交付时需完善原型链和构造函数（参考 `references/env/env-native-protection.md` 保护策略）
+1. 根据实现语言和解法模式确定唯一入口模板。
+2. 只复制实际需要的请求、vm 或 WASM 模块到 `result/` 的对应 `src/` 目录。
+3. 按站点逻辑实现 signer、环境安装和请求链，不从案例 README 手工速查；案例检索统一使用 `cases/index.json` 与 `scripts/search_cases.js`。
+4. 保持模板自带的入口守卫、配置外置和依赖契约。
+5. `vm-sandbox/` 是运行时骨架，正式交付时必须按本次 trace 证据补齐必要对象语义，不扩展无关环境。

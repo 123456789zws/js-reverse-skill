@@ -126,7 +126,7 @@ search_code(keyword="EventSource") → 找到 SSE URL
 检测到 WebSocket / SSE 信号
   │
   ├─ 签名在连接 URL 中？
-  │   ├─ 是 → 按标准 HTTP 签名分析（Phase 1-4）
+  │   ├─ 是 → 按标准 HTTP 签名分析（FORENSIC_CAPTURE → TRACE_CAPTURE → TRACE_ANALYZE → IMPLEMENT）
   │   └─ 否 → 签名在消息帧中
   │       │
   │       ├─ 消息是 JSON → 提取 sign 字段生成逻辑

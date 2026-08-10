@@ -73,12 +73,12 @@ const Module = {
     printErr: (text) => console.error('stderr:', text),
     noInitialRun: true,
     noExitRuntime: true,
-    
+
     // 内存配置
     INITIAL_MEMORY: 16777216,    // 16MB
     MAXIMUM_MEMORY: 268435456,   // 256MB
     ALLOW_MEMORY_GROWTH: true,
-    
+
     // 运行时回调
     onRuntimeInitialized: function() {
         console.log('WASM Runtime Ready');
@@ -86,11 +86,11 @@ const Module = {
     onAbort: function(e) {
         console.error('WASM Aborted:', e);
     },
-    
+
     // 环境变量
     ENV: {},
     PATH: '/',
-    
+
     // 文件系统（如果 WASM 用到 FS）
     // 轻量方案：stub 掉 FS 调用
     // 完整方案：引入 emscripten 的 MEMFS
@@ -111,22 +111,22 @@ const emscriptenImports = {
         emscripten_get_heap_size: function() {
             return Module.HEAP8.buffer.byteLength;
         },
-        
+
         // 时间
         emscripten_date_now: function() { return Date.now(); },
         emscripten_performance_now: function() { return performance.now(); },
         emscripten_get_now: function() { return Date.now(); },
-        
+
         // 日志
         emscripten_log: function(priority, format, varArgs) {
             // 简化：忽略格式化，直接读取字符串
         },
-        
+
         // 退出
         emscripten_exit_with_live_runtime: function() {},
         emscripten_force_exit: function(status) { throw new Error('force_exit: ' + status); },
         exit: function(status) { if (status !== 0) throw new Error('exit: ' + status); },
-        
+
         // syscall stubs
         __syscall_fcntl64: function(fd, cmd, varargs) { return 0; },
         __syscall_ioctl: function(fd, op, varargs) { return 0; },
@@ -142,7 +142,7 @@ const emscriptenImports = {
 ```javascript
 const Module = {
     // ...其他配置
-    
+
     ASYNCIFY: {
         // ASYNCIFY 需要主动管理栈
         // 由 WASM 内部通过 imports.wasi_snapshot_preview1.asyncio_* 调用
@@ -169,18 +169,18 @@ wasm-bindgen（Rust）生成的 WASM 需要 `wbg` 模块。完整模板：
 function buildWbgImports(memory) {
     const decoder = new TextDecoder('utf-8');
     const encoder = new TextEncoder();
-    
+
     function getString(ptr, len) {
         return decoder.decode(new Uint8Array(memory.buffer, ptr, len));
     }
-    
+
     function appendString(str) {
         const bytes = encoder.encode(str);
         const ptr = wasm.__wbindgen_export_0(bytes.length, 1);
         new Uint8Array(memory.buffer, ptr, bytes.length).set(bytes);
         return [ptr, bytes.length];
     }
-    
+
     return {
         wbg: {
             // 字符串传递
@@ -193,7 +193,7 @@ function buildWbgImports(memory) {
                 new Uint32Array(memory.buffer, ptrptr, 1)[0] = ptr;
                 new Uint32Array(memory.buffer, lenptr, 1)[0] = len;
             },
-            
+
             // 对象管理
             __wbindgen_object_drop_ref: function(idx) {
                 dropObject(idx);
@@ -201,27 +201,27 @@ function buildWbgImports(memory) {
             __wbindgen_object_clone_ref: function(idx) {
                 return addObject(getObject(idx));
             },
-            
+
             // 异常
             __wbindgen_throw: function(ptr, len) {
                 throw new Error(getString(ptr, len));
             },
-            
+
             // console
             __wbindgen_log: function(ptr, len) {
                 console.log(getString(ptr, len));
             },
-            
+
             // 性能
             __wbindgen_now: function() {
                 return performance.now();
             },
-            
+
             // 随机数
             __wbindgen_math_random: function() {
                 return Math.random();
             },
-            
+
             // 其他按目标 JS 的 wbg 适配文件补全
             // 通常在 .wasm 同目录有 *_bg.js 文件参考
         }
@@ -329,11 +329,11 @@ async function loadWasmStreaming(wasmPath, importObject) {
     // 但可以用 compile + instantiate 分离
     const stream = fs.createReadStream(wasmPath);
     const chunks = [];
-    
+
     for await (const chunk of stream) {
         chunks.push(chunk);
     }
-    
+
     const buffer = Buffer.concat(chunks);
     const module = await WebAssembly.compile(buffer);
     return await WebAssembly.instantiate(module, importObject);
@@ -362,10 +362,10 @@ const workerContext = {
     onmessage: null,      // 接收主线程消息
     importScripts: null,  // 加载其他脚本
     close: null,          // 关闭 Worker
-    
+
     // Worker 没有 window / document
     // 但有 navigator / location / indexedDB / caches 等
-    
+
     // WASM 在 Worker 中加载与主线程一致
     // 但 importObject 可能需要通过 postMessage 接收
 };
@@ -388,13 +388,13 @@ Service Worker 可以拦截 fetch 请求注入签名：
 // Service Worker 上下文
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-    
+
     // 匹配需要签名的接口
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(async function() {
             // 在 SW 中调用 WASM 生成签名
             const signature = await wasmSign(url);
-            
+
             // 克隆请求并添加签名头
             const signedRequest = new Request(event.request, {
                 headers: {
@@ -402,7 +402,7 @@ self.addEventListener('fetch', (event) => {
                     'X-Signature': signature,
                 }
             });
-            
+
             return fetch(signedRequest);
         }());
     }
@@ -487,7 +487,7 @@ async function loadWasmCached(wasmPath, importObject) {
         const module = await WebAssembly.compile(buffer);
         moduleCache.set(wasmPath, module);
     }
-    
+
     const module = moduleCache.get(wasmPath);
     return await WebAssembly.instantiate(module, importObject);
 }

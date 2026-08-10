@@ -27,7 +27,7 @@ search_code(keyword="new Worker") → 找到 Worker URL
 
 ### 2. Worker 上下文定位签名函数
 
-Worker 内部的签名定位与主线程一致（Phase 1-2 黄金路径）：
+Worker 内部的签名定位与主线程一致（FORENSIC_CAPTURE → TRACE_CAPTURE 黄金路径）：
 
 ```
 scripts(action='save', url='<worker.js>') → 保存 Worker 脚本
@@ -88,7 +88,7 @@ function createWorkerContext(workerCode, mainThreadCallbacks) {
             }
         },
         close: function() {},
-        
+
         // Worker 中的 navigator（精简版）
         navigator: {
             userAgent: '<UA>',
@@ -97,28 +97,28 @@ function createWorkerContext(workerCode, mainThreadCallbacks) {
             hardwareConcurrency: 8,
             // WorkerNavigator 没有 plugins / mimeTypes
         },
-        
+
         // Worker 中的 location（只读）
         location: new URL('<worker_script_url>'),
-        
+
         // fetch / XHR（如需）
         fetch: globalThis.fetch,
         XMLHttpRequest: globalThis.XMLHttpRequest,
-        
+
         // console
         console: console,
-        
+
         // WASM（如 Worker 加载 WASM）
         WebAssembly: globalThis.WebAssembly,
     };
-    
+
     workerContext.self = workerContext;
     workerContext.globalThis = workerContext;
-    
+
     // 执行 Worker 脚本
     vm.createContext(workerContext);
     vm.runInContext(workerCode, workerContext);
-    
+
     return {
         context: workerContext,
         postMessage: function(data) {
@@ -182,7 +182,7 @@ self.addEventListener('fetch', (event) => {
 SW 的签名逻辑通常可以直接提取（不需要模拟 SW 生命周期）：
 
 1. 从 SW 脚本中提取 `generateSign` 函数
-2. 按标准 Phase 2-4 流程还原签名
+2. 按标准 TRACE_CAPTURE → TRACE_ANALYZE → IMPLEMENT 流程还原签名
 3. 在 Node.js 中直接调用签名函数
 
 **不需要**模拟完整的 SW 生命周期（install/activate/fetch 事件）。SW 只是签名的执行环境，签名算法本身与执行环境无关。
@@ -249,5 +249,5 @@ SW 的签名逻辑通常可以直接提取（不需要模拟 SW 生命周期）�
 | `references/hooks/hook-templates.md` | postMessage Hook（模板 11）、fetch Hook（模板 3） |
 | `references/env/env-wasm-advanced.md` | Worker 中加载 WASM 的分析路径 |
 | `references/env/env-object-model.md` | Worker 中 navigator/location 的对象模型 |
-| `references/workflow/phase-flow.md` | Phase 1-4 标准流程（Worker 内同样适用） |
+| `references/workflow/phase-flow.md` | FORENSIC_CAPTURE → TRACE_CAPTURE → TRACE_ANALYZE → IMPLEMENT 标准流程（Worker 内同样适用） |
 | `references/workflow/decision-tree.md` | 题型判定 |

@@ -1,6 +1,6 @@
 # 常见签名分析场景速查
 
-10 个核心场景的快速定位卡。AI 在 Phase 1-2 识别目标特征后速查本文件。
+10 个核心场景的快速定位卡。AI 在 FORENSIC_CAPTURE → TRACE_CAPTURE 识别目标特征后速查本文件。
 
 ## 场景 1：请求参数签名（sign/m/token）
 - **特征**：URL/Body 含签名参数

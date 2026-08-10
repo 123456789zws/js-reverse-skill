@@ -57,7 +57,7 @@ async function requestWithBackoff(requestFn, options = {}) {
         jitter = 0.3,          // 30% 抖动
         onRetry = (err, attempt, delay) => console.log(`第${attempt}次重试，${delay}ms后`),
     } = options;
-    
+
     let lastError;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -66,12 +66,12 @@ async function requestWithBackoff(requestFn, options = {}) {
             return result;
         } catch (err) {
             lastError = err;
-            
+
             // 不可重试的错误直接抛出
             if (isNonRetryable(err)) throw err;
-            
+
             if (attempt === maxRetries) break;
-            
+
             // 计算退避时间：指数 + 抖动
             const expDelay = Math.min(
                 baseDelay * Math.pow(2, attempt),
@@ -79,7 +79,7 @@ async function requestWithBackoff(requestFn, options = {}) {
             );
             const jitterAmount = expDelay * jitter * (Math.random() * 2 - 1);
             const delay = Math.max(0, Math.round(expDelay + jitterAmount));
-            
+
             if (onRetry) onRetry(err, attempt + 1, delay);
             await sleep(delay);
         }
@@ -111,7 +111,7 @@ class CircuitBreaker {
         this.lastFailureTime = 0;
         this.isOpen = false;
     }
-    
+
     async execute(fn) {
         if (this.isOpen) {
             if (Date.now() - this.lastFailureTime > this.cooldown) {
@@ -121,7 +121,7 @@ class CircuitBreaker {
                 throw new Error('Circuit breaker open');
             }
         }
-        
+
         try {
             const result = await fn();
             this.failures = 0;

@@ -11,7 +11,7 @@
 - 不得在补环境网络对象内部直接调用 Node 宿主 `fetch`、`http`、`https`、`axios`、`undici` 或 Python 普通 `requests` 绕过已确认 TLS 客户端。
 - 如果最终用户选择 Python `curl_cffi`，`final.py` 必须持有唯一 `curl_cffi.requests.Session()`；Node JS runtime 通过 stdio / IPC / 嵌入式 bridge 请求 Python 发送，Node 侧只实现浏览器 API 语义与桥接协议。
 - Bridge 只能作为唯一 `final.js` / `final.py` 入口内部的受控模块存在，不得交付另一个手动启动入口、临时 HTTP server、调试 bridge 或常驻本地服务。
-- XHR/fetch 对象本身不得通过 `_` / `__` 自有属性保存状态；状态用 addon / xbs private API 或模块级 `WeakMap`。
+- XHR/fetch 对象本身不得通过 `_` / `__` 自有属性保存状态；状态用原生内部槽、模块级 `WeakMap` 或闭包私有变量。
 - Session Bridge 只证明“由哪个客户端发送”，不能证明请求语义正确。真实请求前必须继续按 `xhr-fetch-semantics-audit.md` 比较浏览器与 Node 的 no-send network transcript。
 - 代码里出现 `curl_cffi`、`IPC`、`sessionBridge` 等关键词不算验收证据；必须有运行时 `xhr-fetch-bridge-audit.json` 和机器生成的 `xhr-fetch-semantics-audit.json`。
 

@@ -1,10 +1,10 @@
 # js-reverse-skill
 
-通用网页端 JS 逆向工程技能：统一通过 ruyipage + RuyiTrace 采集运行时日志，基于日志证据逆向还原加密参数。融合黑盒补环境（JS 层 NativeProtect）、纯算还原、验证码逆向（verify 接口 w/cb/sig 加密参数、轨迹加密、challenge 绑定；答案层资产 ddddocr/坐标/轨迹脚本 + 题型分类器已内化）等多路径，支持 Node.js / Python 双语言纯协议交付。已在抖音 / 小红书 / 快手 / 同花顺 / 猿人学 / 国密（就业在线）等真实案例场景中得到实践（见「真实案例平台与参数」）。
+网页端 JavaScript 请求参数逆向与纯协议还原。分析网页签名、Cookie/Token、设备指纹、混淆、WASM、JSVMP、验证码 verify 或 Session/TLS 请求链时触发，覆盖桌面网页、移动 H5 与内置浏览器，交付 Node.js/Python 实现。不用于 App、小程序、桌面程序及 Native 逆向；JSVMP 默认黑盒执行或最小环境复现。
 
 ## 来源
 
-本 Skill 综合融合并重构了以下来源的流程骨架、工具链与案例经验：
+本 Skill 采用以下项目的流程、工具和案例，并按本仓库的证据门禁与交付规则组织：
 
 | 来源 | 贡献 |
 |------|------|
@@ -15,30 +15,14 @@
 
 ## 能力边界
 
-**适用**：
-- 签名 / token / 指纹 / 设备参数生成
-- JSVMP 黑盒补环境、WASM 加载、混淆还原、TLS 指纹模拟
-- 验证码封装层逆向（verify 接口加密参数/轨迹加密/challenge 绑定）
+**触发**：
+- 网页签名、Token、Cookie、指纹或设备参数生成逻辑
+- JSVMP 黑盒执行或最小环境复现、WASM 加载、混淆还原、TLS 指纹模拟
+- 验证码封装层的 verify 接口参数、轨迹加密和 challenge 绑定
 
-**不适用**：App / Android / iOS / 小程序 / Windows / EXE / DLL / Native / Frida / IDA
+**不触发**：App 内 JS、小程序容器、Windows 桌面程序、EXE、DLL、Native、Frida 或 IDA 逆向。
 
-**默认不主动分析 JSVMP 字节码源码**：遇到 JSVMP 只做黑盒补环境
-
-## 实测平台
-
-| 平台 | 目标参数 / 技术栈 | 难度 |
-|------|------|------|
-| 智通财经 (m.zhitongcaijing.com) | `sign`(SHA1 排序签名，标准算法示例) | ★ |
-| 就业在线 (jobonline.cn) | `businessData`(SM4) / `E-CONTENT-PATH`(SM2) / `E-SIGN`(SM3) | ★★ |
-| 猿人学 (yuanrenxue.cn) | `m`(修改版 MD5) / `f` / `RM4hZBv0dDon443M` | ★★★ |
-| 同花顺问财 (iwencai.com) | `hexin-v`(chameleon + vm 沙箱) | ★★★ |
-| 抖音 (douyin.com) | `a_bogus`(bundle + bdms) | ★★★ |
-| 小红书 (xiaohongshu.com) | `X-s` / `X-s-common`(JSVMP) | ★★★ |
-| 快手 (kuaishou.com) | `__NS_hxfalcon` / `kww`(Jose + kwpsec JSVMP) | ★★★ |
-| QQ 音乐 (y.qq.com / u6.y.qq.com) | `sign`(zzc 前缀, 双 JSVMP) / `encoding=ag-1`(musics.fcg 加解密) + location.host 白名单静默降级 | ★★★ |
-| 政府监管类 (nmpa.gov.cn) | `FSSBBIl1UgzbN7N` / `sdenv`(魔改 jsdom + C++ Addon) | ★★★★ |
-| Gitee (gitee.com) | 百度 WAF 三件套 `nox_jst_v1` / `tox_token`(JSVMP + vm 沙箱补环境) | ★★★★ |
-| 网易易盾 (dun.163.com) | 无感(type=5) `data{d,m,p,ext}` + 滑块(type=2) `data{d,m,p,f,ext}`（vm 沙箱跑 core-optimi SDK + 自定义 AES/XOR） | ★★★★ |
+**JSVMP 边界**：默认黑盒执行或最小环境复现，不反编译字节码源码。
 
 ## 目录结构
 
@@ -47,9 +31,9 @@ js-reverse-skill/
 ├── SKILL.md              流程骨架 + 规则 + 索引（AI 加载的主文档；版本号见 front-matter `version`）
 ├── README.md             本文件
 ├── assets/               可复用资产（AST 反混淆 + 补环境片段 + fixture 模板）
-├── templates/            交付入口模板（6 类：final.js / Node客户端 / Python客户端 / vm沙箱 / WASM / 验证码）
-├── references/           知识参考（11 子域，按需读取；含 captcha/ 验证码：封装层+答案层资产）
-├── cases/                经验案例（已验证案例 + 模板）
+├── templates/            7 类交付入口模板（Node/Python、请求客户端、vm 沙箱、WASM、验证码）
+├── references/           知识参考（按需读取；含验证码封装层与答案层资产）
+├── cases/                17 个经验案例 + `index.json` 机器索引
 └── scripts/              工具脚本（ruyipage+RuyiTrace 采集/导入/检查 + 验证码题型分类/坐标/轨迹/答案校验）
 ```
 
@@ -88,16 +72,37 @@ js-reverse-skill/
 - 一次性偏好（如"本次用原生 https，不模拟 TLS 指纹"）
 ```
 
+## 执行门禁
+
+环境检查通过后写入或更新快照，再执行证据门禁：
+
+```powershell
+node scripts/check_session_resume.js --case-dir <project-root>/case --write-snapshot --markdown
+node scripts/check_evidence.js --case-dir <project-root> --url <target-url> --inputs <材料路径> --markdown
+```
+
+Step 1 只接受有效 `capture.json` 网络记录，或通过内容校验的 HAR、cURL、原始 HTTP 请求文本；单独 JS、截图和指纹基线只作辅助材料，不计为 Step 1。Step 2 只接受内容可解析、记录非空且关联目标域的 RuyiTrace NDJSON/JSONL；摘要不能替代日志。脚本输出 `none`、`step1-only`、`step2-only` 或 `both`，据此补采缺失步骤。
+
+## 案例查询
+
+按域名、参数名或技术特征查询机器索引，命中后再读取对应案例：
+
+```powershell
+node scripts/search_cases.js --domain jd.com --signal h5st
+```
+
 ### skill 默认交付内容
 
-每次任务默认产出以下交付物（与 SKILL.md §5.2 一致，不通过不交付）：
+每次任务默认产出以下交付物（与 SKILL.md 交付规范一致，不通过不交付）：
 
 ```
 result/
 ├── final.js                 # 唯一执行入口（默认发真实 API 请求验证）
 ├── config.json              # 外置配置（脱敏静态配置）
 ├── package.json             # 依赖契约（curl-cffi-node 等）
-├── 最终项目总结.md           # 必选：项目总结报告
+├── 最终项目总结.md           # 目标、分析过程、实现方案与交付说明
+├── 经验沉淀-<站点>.md        # 可复用经验，供后续合并到 cases/
+├── 验证记录.md               # 脱敏的真实请求结果与可复现命令
 └── src/                     # 源码模块（按需拆分）
     ├── signer.js            # 签名生成
     ├── env/                 # 补环境（路径 D 时，含内联 native-protect.js）
@@ -106,9 +111,9 @@ result/
 
 - 纯协议、无浏览器自动化代码（可在无显示器 / Docker 环境独立运行）
 - ≥5 次真实 API 请求验证通过（200 响应 + 正确业务数据）
-- `最终项目总结.md` 缺失 = 任务未完成
+- `最终项目总结.md`、`经验沉淀-<站点>.md`、`验证记录.md` 任一缺失 = 任务未完成
 
-> Python 交付同理：`final.py` 入口 + `src/` 模块。完整交付规范见 SKILL.md §5.2。
+> Python 交付同理：`final.py` 入口 + `src/` 模块。完整交付规范见 SKILL.md。
 
 ## License
 

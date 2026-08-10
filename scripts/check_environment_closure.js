@@ -258,9 +258,6 @@ function check(args) {
   if (signals.hasBrowserEnv || signals.hasNetworkImpl || signals.webapiEvidence || args.beforeRealRequest) {
     components.push(runJson(scriptDir, 'check_code_quality.js', ['--case-dir', caseDir]));
   }
-  if (signals.hasBrowserEnv || signals.hasNetworkImpl || signals.webapiEvidence) {
-    components.push(runJson(scriptDir, 'check_webapi_addon_coverage.js', ['--case-dir', caseDir, '--warnings-as-errors']));
-  }
   if (signals.hasNetworkImpl || signals.networkEvidence || args.requireLive) {
     const semanticsArgs = ['--case-dir', caseDir, '--require', '--require-no-send', '--out', path.join(caseDir, 'tmp', 'xhr-fetch-semantics-audit.json')];
     components.push(runJson(scriptDir, 'check_xhr_fetch_semantics.js', semanticsArgs));

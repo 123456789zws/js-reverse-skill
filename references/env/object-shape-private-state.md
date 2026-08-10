@@ -6,7 +6,7 @@
 - 任何目标 JS 能拿到的对象、实例、prototype、构造函数、集合对象、XHR / fetch / Response / Headers / Request / Event / DOM 节点 / Storage / Performance 等，都不得暴露自定义 `_` / `__` 字符串自有属性。
 - 禁止 `this.__state = ...`、`this._headers = ...`、`Object.defineProperty(obj, "__readyState", ...)`、`defineValue(obj, "_impl", ...)`、`Reflect.defineProperty(obj, "_x", ...)`、`obj["_x"] = ...` 等写法；即使 `enumerable:false` 也不允许。
 - 禁止用自定义 `Symbol("private")`、`Symbol.for("private")` 等在浏览器对象上保存状态，除非真实浏览器 baseline 存在同名可见 symbol。
-- 允许的内部状态位置：addon / xbs `setPrivate/getPrivate/hasPrivate/deletePrivate`、浏览器 native 内部槽、模块级 `WeakMap`、闭包私有变量。
+- 允许的内部状态位置：浏览器原生内部槽、模块级 `WeakMap`、闭包私有变量。
 - JS fallback 使用 `WeakMap` 时，key 必须是浏览器可见实例，value 不能被挂回实例；销毁对象或 session 时清理 WeakMap 中关联状态。
 - 状态字段名可以在 WeakMap value 里使用 `_` / `__`，因为目标 JS 无法通过对象枚举访问；但不得把 value 暴露回浏览器对象。
 ## 对象形状审计矩阵
@@ -88,7 +88,7 @@ case/notes/object-shape-audit.md
 - 浏览器 baseline：case/fixtures/browser-object-shape-baseline.json
 - Node audit：case/tmp/node-object-shape-audit.json
 - baselineId：
-- 私有状态实现：addon/xbs private API / WeakMap / native / 未涉及
+- 私有状态实现：原生内部槽 / WeakMap / 闭包私有变量 / 未涉及
 - `_` / `__` 自有属性泄露：无 / 列表
 - 阻断项：无 / 列表
 | 对象 | Probe | 浏览器证据 | Node 证据 | 状态 | 处理 |

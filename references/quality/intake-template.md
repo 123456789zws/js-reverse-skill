@@ -1,8 +1,8 @@
 # 信息收集模板
 
 > **输入方式**：
-> - 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实存在，门禁通过后从包中提取信息，跳过 Phase 1 ruyipage 抓包
-> - 用户只提供 URL + 参数名 → Phase 1 ruyipage 自动抓包获取其余信息；**URL 不是取证材料，不能作为跳过 trace 的证据**
+> - 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实存在，门禁通过后从包中提取信息，跳过 FORENSIC_CAPTURE ruyipage 抓包
+> - 用户只提供 URL + 参数名 → FORENSIC_CAPTURE ruyipage 自动抓包获取其余信息；**URL 不是取证材料，不能作为跳过 trace 的证据**
 >
 > 本模板用于用户主动补充信息或 skill 抓包后确认信息时使用。
 
@@ -11,7 +11,7 @@
 - **目标 URL**（必填）：页面 URL 或 API URL
 - **目标加密参数名**（可选）：如 sign / a_bogus / token；为空时 skill 自动识别可疑参数
 
-> 用户只提供 URL 时，skill 通过 Phase 1 ruyipage 抓包 + Phase 2 RuyiTrace 日志采集获取：目标 API、请求方法、参数位置、成功请求样本、响应特征、反爬类型、补环境证据。
+> 用户只提供 URL 时，skill 通过 FORENSIC_CAPTURE ruyipage 抓包 + TRACE_CAPTURE RuyiTrace 日志采集获取：目标 API、请求方法、参数位置、成功请求样本、响应特征、反爬类型、补环境证据。
 > 抓包遇到登录/交互/验证码时暂停，要求用户补充请求包。
 
 ## 用户提供 cURL/HAR/JS 文件时
@@ -27,13 +27,13 @@
 >
 > 所有"用户已提供材料"的判定，必须先用 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径,逗号分隔> --markdown` 验证文件真实存在，并以脚本输出的可跳过步骤为准。
 
-从包中直接提取：目标 API、请求方法、参数位置、成功请求样本、响应特征、JS 文件 URL。跳过 Phase 1 抓包，但仍需下载 JS 文件识别反爬类型。
+从包中直接提取：目标 API、请求方法、参数位置、成功请求样本、响应特征、JS 文件 URL。跳过 FORENSIC_CAPTURE 抓包，但仍需下载 JS 文件识别反爬类型。
 
-## 自动获取字段（Phase 1 ruyipage 抓包后回填，用户可修正）
+## 自动获取字段（FORENSIC_CAPTURE ruyipage 抓包后回填，用户可修正）
 
 ### 反爬类型（自动判断，用户可覆盖）
 
-skill 根据 Phase 1 抓包结果 + JS 文件特征自动判断：
+skill 根据 FORENSIC_CAPTURE 抓包结果 + JS 文件特征自动判断：
 - JS 文件 <50KB + 无 while-switch + 标准 md5/aes 特征 → 纯算还原
 - JS 文件含 WASM 加载 → WASM 加载
 - JS 文件含 webmssdk / a_bogus → 行为型补环境
@@ -56,7 +56,7 @@ skill 根据 Phase 1 抓包结果 + JS 文件特征自动判断：
 ### 成功请求样本
 
 - 用户提供 cURL/HAR 时：用户提供的请求/响应包即为成功样本
-- 自动抓包时：skill 通过 Phase 1 自动抓取至少一份成功请求（含完整 Headers/Cookie/Body/Response）
+- 自动抓包时：skill 通过 FORENSIC_CAPTURE 自动抓取至少一份成功请求（含完整 Headers/Cookie/Body/Response）
 
 用户也可补充 cURL：
 

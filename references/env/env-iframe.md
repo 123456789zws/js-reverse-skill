@@ -238,13 +238,13 @@ function createIframeRealm(options) {
 - `postMessage` 实现为跨 context 异步任务，不能同步触发
 - `event.source` 跨源时返回透明 wrapper（Proxy 限制可访问字段）
 
-### 策略 C：addon / xbs native-first（高强度检测）
+### 策略 C：具备原生语义的隔离运行时（高强度检测）
 
-目标 JS 检测 iframe Realm 的 native 行为（如 `typeof iframe.contentWindow.document.all === 'undefined'`、`Object.prototype.toString.call(iframe.contentWindow.document)` 等不可检测语义）时，纯 JS 无法可靠模拟，需升级 addon 或 xbs isolated-vm：
+目标 JS 检测 iframe Realm 的原生行为（如 `typeof iframe.contentWindow.document.all === 'undefined'`、`Object.prototype.toString.call(iframe.contentWindow.document)` 等不可检测语义）时，纯 JS 无法可靠模拟，应根据证据选择具备对应能力的隔离运行时：
 
-- addon 提供 `createNativeCollection`、`getMimeTypesAndPlugins`、`jsEnv` 等 native-first 实现
-- xbs isolated-vm 提供 `xbs.dom.createDocument` 创建独立 Document Realm
-- 详见 `addon-api.md`、`xbs-isolated-vm-api.md`、`runtime-frameworks.md`
+- 运行时必须能创建独立 Realm，并保持 Window、Document、构造器和内部槽关系
+- 对 `document.all` 等 HTMLDDA 行为必须做浏览器基线与 Node 行为对比，不能以普通对象近似
+- 具体运行时必须由用户提供可用构建和 API 契约，详见 `runtime-frameworks.md`
 
 ## 验证码 iframe 场景
 
@@ -354,8 +354,7 @@ iframeCtx.navigator = mainCtx.navigator;
 | `env-object-model.md` | iframe 内的对象模型同样遵循通用原则，本文件补充 iframe 特有内容 |
 | `env-native-protection.md` | iframe 内的 native-like 保护与主 Realm 一致 |
 | `webapi-env-detection-matrix.md` | iframe/Worker/MessagePort 行为矩阵门禁，本文件是其 iframe 章节的展开 |
-| `runtime-frameworks.md` | 多 Realm 模拟可能需要 isolated-vm 或 xbs，详见该文档 |
-| `addon-api.md` / `xbs-isolated-vm-api.md` | native-first 方案下 iframe Realm 的实现 |
+| `runtime-frameworks.md` | 多 Realm 模拟的运行时选择与兼容性要求 |
 | `references/captcha/captcha-request-chain.md` | 验证码 iframe 的请求链模型 |
 | `references/captcha/captcha-motion-encryption.md` | 验证码 iframe 内的轨迹采集与加密 |
 

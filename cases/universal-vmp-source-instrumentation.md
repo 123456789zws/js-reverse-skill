@@ -10,12 +10,12 @@
 >
 > 使用方式：
 >
-> 1. 在 CHECK-2 指纹匹配时，若检测到 VMP 特征（`find_dispatch_loops` 返回 case_count > 50），直接走本案例的「已验证定位路径」
-> 2. 完成一次具体站点逆向后，复制本文件重命名为 `vmp-<具体技术特征>.md`，按真实站点数据填充 `[填入...]` 占位符，加入 cases/README.md 索引
+> 1. 在 CASE_LOOKUP 指纹匹配时，若检测到 VMP 特征（`find_dispatch_loops` 返回 case_count > 50），直接走本案例的「已验证定位路径」
+> 2. 完成一次具体站点逆向后，复制本文件重命名为 `vmp-<具体技术特征>.md`，按真实站点数据填充 `[填入...]` 占位符，只在 cases/index.json 增加索引记录
 
 ---
 
-## 技术指纹（供 CHECK-2 自动匹配）
+## 技术指纹（供 CASE_LOOKUP 自动匹配）
 
 ### JS 特征
 - 单 JS 文件 100KB+，通常命名模式为 `sdenv-*.js` / `FuckCookie_*.js` / `webmssdk.es5.js` / `sensor_data.js` / `akam/xxx.js` / `a_bogus.js`
@@ -97,7 +97,7 @@ Step 5 — 装兜底 hook（若 Step 2 没走 pre_inject_hooks）
   # （RS/Akamai），不要这样用 hook_jsvmp_interpreter，改为：
   #   - instrument_jsvmp_source(mode="ast")  （首选）
   #   - hook_jsvmp_interpreter(mode="transparent")  （备选）
-  # 参考 SKILL.md "反爬类型三分法（Phase 0 识别用）" + "工具栈选择" 章节
+  # 参考 SKILL.md "反爬类型三分法（INIT 识别用）" + "工具栈选择" 章节
   bypass_debugger_trap()
 
 Step 6 — instrumentation(action='reload') 让探针先于 VMP 生效
@@ -217,7 +217,7 @@ function genSign(input) {
 
 ## 指纹匹配时的权重建议
 
-作为 CHECK-2 指纹匹配的备选路径，本案例应命中以下任一条件即触发"尝试源码级插桩"：
+作为 CASE_LOOKUP 指纹匹配的备选路径，本案例应命中以下任一条件即触发"尝试源码级插桩"：
 
 - **高权重（直接走）**：`find_dispatch_loops` 返回 case_count > 50
 - **中权重（优先试）**：单 JS > 200KB + 含 while-switch + 参数长度 128/192/256 + Base64 变体

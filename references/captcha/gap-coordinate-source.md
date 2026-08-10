@@ -21,7 +21,7 @@
 
 核心认知：A/B 属于**逆向**范畴（与封装层同一套方法论），C 属于**视觉求解**范畴。同一厂商不同版本可能切换实现（如极验 v4 部分版本隐写、部分版本纯图），**以本次 trace 证据为准，不套历史结论**。
 
-## 判定流程（Phase 1-2 取证时完成）
+## 判定流程（FORENSIC_CAPTURE → TRACE_CAPTURE 取证时完成）
 
 拿到成功链路（用户手动通过一次）的 RuyiTrace NDJSON + ruyipage 抓包后，按顺序判定：
 
@@ -74,7 +74,7 @@
 - **判定**：bg 图缺口位置不是普通"抠图"视觉缺口，SDK 靠读取图片像素拿 x；若按 C 类对它做模板匹配，结果通常不准且不稳定。
 - **证据**：从 trace 抓 `getImageData`/`createImageBitmap` 调用与后续数值运算，定位解码函数；素材图 URL 与 load 响应字段一起保存。
 - **复现**：把解码段提取为纯函数（Node PNG 解码喂入），输出 x 后与缺口目测位置交叉验证；数值必须稳定。
-- **版本时效**：极验 SDK 周级更新，编码方式可能随版本变化；命中案例后必须过 SKILL.md CHECK-2 版本时效校验（JS URL / sha256 / 参数结构），不一致就以本次 trace 重新分析。
+- **版本时效**：极验 SDK 周级更新，编码方式可能随版本变化；命中案例后必须过 SKILL.md CASE_LOOKUP 版本时效校验（JS URL / sha256 / 参数结构），不一致就以本次 trace 重新分析。
 - **封装层照常**：坐标来源是 A/B/C 不影响 w 参数加密、轨迹加密与 challenge 绑定还原，照 `captcha-motion-encryption.md` 走。
 
 ## 三路线输出统一进 answer JSON
@@ -164,7 +164,7 @@ ddddocr 不准 → **不要先换识别算法，先回头判 A/B/C**。复核：
 - v4 的 `load` 响应可能直接含加密字段（A 路线），也可能 bg 图隐写（B 路线），**不同版本不同**，以本次 trace 为准
 - v4 w 内嵌 PoW（`pow_msg`/`pow_sign`），坐标获取方式不影响 PoW 计算
 - v4 通过凭据是 seccode 四件套（`pass_token`/`gen_time`/`captcha_output`/`lot_number`），缺一即失败
-- SDK 周级更新，B 路线解码逻辑可能随版本变化，命中案例后必须过 CHECK-2 版本时效校验
+- SDK 周级更新，B 路线解码逻辑可能随版本变化，命中案例后必须过 CASE_LOOKUP 版本时效校验
 - 其他厂商若也出现 B 路线（隐写），同样按 B-1/B-2/B-3 降级，方法论不变
 
 ### 能力边界声明
