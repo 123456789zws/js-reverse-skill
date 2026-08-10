@@ -47,7 +47,7 @@ def main():
             nh = int(H * scale * 0.62)
             nw = max(1, int(fw * nh / fh))
             fr_r = cv2.resize(fr, (nw, nh), interpolation=cv2.INTER_AREA)
-            if fr_r.shape[2] == 4:
+            if fr_r.ndim == 3 and fr_r.shape[2] == 4:
                 alpha = fr_r[:, :, 3:4] / 255.0
                 rgb = fr_r[:, :, :3]
                 pad = 10

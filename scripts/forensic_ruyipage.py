@@ -113,10 +113,66 @@ def resolve_browser(args: argparse.Namespace) -> Tuple[str, str]:
     except Exception as e:
         return "", f"resolve_firefox_path(allow_system=False) 失败：{e}"
     if not resolved:
+        # 兜底：扫描项目 tools/ruyipage-browsers/ 下的 managed runtime（与 check_external_tools.js 同一来源），
+        # 避免"检测已装好、取证脚本却不认"的不一致。
+        resolved = _find_managed_runtime()
+    if not resolved:
         return "", "未能解析到 ruyiPage 定制 Firefox（已禁用系统回退）。请传 --browser-path 或先安装 runtime。"
     if not is_ruyi_custom_firefox(resolved):
         return "", f"解析到的 Firefox 非定制内核：{resolved}"
     return os.path.abspath(resolved), ""
+
+
+def find_project_root() -> str:
+    """向上查找项目根（含 SKILL.md 的目录）；找不到时回退当前工作目录。"""
+    cur = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(5):
+        if os.path.isfile(os.path.join(cur, "SKILL.md")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return os.getcwd()
+
+
+def _resolve_exe_from_install_json(runtime_dir: str) -> Optional[str]:
+    """读 managed runtime 根目录 install.json 的 executable 字段，解析出 Firefox 可执行文件路径。"""
+    marker = os.path.join(runtime_dir, "install.json")
+    if not os.path.isfile(marker):
+        return None
+    try:
+        with open(marker, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        exe_rel = str(data.get("executable") or "")
+        if not exe_rel:
+            return None
+        p = os.path.abspath(os.path.join(runtime_dir, exe_rel))
+        return p if os.path.isfile(p) else None
+    except Exception:
+        return None
+
+
+def _find_managed_runtime() -> Optional[str]:
+    """扫描项目 tools/ruyipage-browsers/ 下的 managed runtime，返回 Firefox 主版本号最高的定制内核路径。"""
+    tools_dir = os.path.join(find_project_root(), "tools", "ruyipage-browsers")
+    if not os.path.isdir(tools_dir):
+        return None
+    candidates = []
+    for entry in os.listdir(tools_dir):
+        d = os.path.join(tools_dir, entry)
+        if not os.path.isdir(d):
+            continue
+        exe = _resolve_exe_from_install_json(d)
+        if exe and is_ruyi_custom_firefox(exe):
+            candidates.append((entry, exe))
+    if not candidates:
+        return None
+
+    def rank(item) -> int:
+        m = re.search(r"firefox[-_]?(\d+)(?:\.\d+)*", item[0], re.I)
+        return int(m.group(1)) if m else 0
+    return max(candidates, key=rank)[1]
 
 
 # ============================================================
