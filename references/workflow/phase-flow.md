@@ -27,7 +27,7 @@
 ### 0.3 环境检测
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root>/case --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --markdown
 node scripts/check_external_tools.js --markdown
 node scripts/precheck_runtime.js
 ```
@@ -35,7 +35,7 @@ node scripts/precheck_runtime.js
 `resume` 表示环境快照可复用；`fresh`、检测失败，或用户说明重装 Node、替换 Firefox、迁移工具目录、升级 ruyipage/RuyiTrace 时，重新完成环境检查。五项环境检测全部通过后，必须运行以下命令写入或更新快照：
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root>/case --write-snapshot --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
 ```
 
 未通过时：

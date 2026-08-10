@@ -123,8 +123,8 @@ P0/P1 中 Trace 已命中的基础 WebAPI 不允许"先不补，遇错再补"。
 存在 Trace 的 case 在进入 signer probe 前和交付前都应运行：
 
 ```bash
-node scripts/check_trace_api_coverage.js --case-dir case --markdown
-node scripts/check_trace_api_coverage.js --case-dir case --require-stage-audit --json
+node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown
+node scripts/check_trace_api_coverage.js --case-dir <project-root> --require-stage-audit --json
 ```
 
 检查失败时，下一阶段只能修复 Trace 覆盖矩阵或补齐首轮实现，不能继续新增 signer、发送请求或宣称阶段验证通过。

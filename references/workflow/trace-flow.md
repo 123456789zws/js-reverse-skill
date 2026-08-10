@@ -196,7 +196,7 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-
 3. 将命中的 `api`、`stack.file`、`line`、`col`、参数摘要写入 `notes/missing-env-priority.md`。
 4. 再用 Node trace 复现缺失路径，确认哪些对象需要在 `env.js` 中固化；固化时要同时处理属性描述符、访问器、原型链、函数 / 访问器 / 实例对象 toString 保护。
 5. 如果 RuyiTrace 没有相关证据，明确标记"RuyiTrace 未覆盖"，再使用 Proxy trace / Hook / 断点继续排查。
-6. 交付前运行 `node scripts/check_fingerprint_fixture.js --case-dir case --require canvas,webgl,audio,dom --markdown`；并手动复核 NativeProtect 保护证据（涉及 `document.all` 时确认 HTMLDDA 近似处理）。
+6. 交付前运行 `node scripts/check_fingerprint_fixture.js --case-dir <project-root> --require canvas,webgl,audio,dom --markdown`；并手动复核 NativeProtect 保护证据（涉及 `document.all` 时确认 HTMLDDA 近似处理）。
 
 日志可能很大。大文件处理原则：
 

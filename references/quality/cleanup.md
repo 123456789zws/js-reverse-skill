@@ -120,7 +120,7 @@ node scripts/clean_case.js --case-dir case --dry-run --json
 补环境真实性复查：
 
 ```bash
-node scripts/check_fingerprint_fixture.js --case-dir case --markdown
+node scripts/check_fingerprint_fixture.js --case-dir <project-root> --markdown
 ```
 
 最终产物复查：

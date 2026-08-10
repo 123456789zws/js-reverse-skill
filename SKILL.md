@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.2.0
+version: 2.2.1
 description: >
   网页端 JavaScript 请求参数逆向与纯协议还原。分析网页签名、Cookie/Token、设备指纹、混淆、WASM、JSVMP、验证码 verify 或 Session/TLS 请求链时触发，覆盖桌面网页、移动 H5 与内置浏览器，交付 Node.js/Python 实现。不用于 App、小程序、桌面程序及 Native 逆向；JSVMP 默认黑盒执行或最小环境复现。
 argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
@@ -75,6 +75,8 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 └── result/
 ```
 
+所有脚本的 `--case-dir` 统一传 `<project-root>`；`check_session_resume`/`check_fingerprint_fixture`/`check_trace_api_coverage` 已归一化，传 `<project-root>` 或 `<project-root>/case` 均可。
+
 先确认目标 URL、参数名、接口 URL（如已知）、请求方法、请求范围和当前项目根目录。范围明确后输出一条简明方案声明：
 
 - 目标 URL、接口 URL、目标参数和请求范围。
@@ -88,7 +90,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 随后检查环境：
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root>/case --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --markdown
 node scripts/check_external_tools.js --markdown
 node scripts/precheck_runtime.js
 ```
@@ -96,7 +98,7 @@ node scripts/precheck_runtime.js
 `resume` 表示环境快照可复用；`fresh`、检测失败，或用户说明重装 Node、替换 Firefox、迁移工具目录、升级 ruyipage/RuyiTrace 时，重新完成环境检查。Node.js、ruyipage、其 managed Firefox、RuyiTrace 和 trace Firefox 的状态以检测输出为准，缺失项按检测结果补齐。五项环境检测全部通过后，必须立即运行以下命令写入或更新快照，再进入 `EVIDENCE_GATE`：
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root>/case --write-snapshot --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
 ```
 
 不得因已有阶段报告或 `result/` 跳过环境快照写入或证据核验。
@@ -190,7 +192,7 @@ node scripts/search_cases.js <关键词...> --json
 
 ```powershell
 node scripts/analyze_trace.js --trace <project-root>/case/tmp/env-trace.jsonl --summary <project-root>/case/tmp/missing-env.json --markdown
-node scripts/check_trace_api_coverage.js --case-dir <project-root>/case --markdown
+node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown
 ```
 
 默认只观察不修改。只有 NDJSON 缺失、截断或无法覆盖关键入口时，才使用已有 hook 模板，并且只能注入 ruyipage 定制 Firefox。Hook 必须在目标 SDK 加载前安装，命中后及时移除。

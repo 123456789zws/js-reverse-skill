@@ -240,7 +240,7 @@ Node.js 交付环境中匹配指纹样本时，按以下顺序：
 9. 交付前运行：
 
    ```bash
-   node scripts/check_fingerprint_fixture.js --case-dir case --require canvas,webgl,audio,dom --markdown
+   node scripts/check_fingerprint_fixture.js --case-dir <project-root> --require canvas,webgl,audio,dom --markdown
    node scripts/check_final_artifact.js --case-dir <project-root> --markdown
    ```
 

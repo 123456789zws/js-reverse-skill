@@ -60,7 +60,7 @@ obj.constructor.name
 建议交付前运行：
 
 ```bash
-node scripts/check_fingerprint_fixture.js --case-dir case --require canvas,webgl --markdown
+node scripts/check_fingerprint_fixture.js --case-dir <project-root> --require canvas,webgl --markdown
 ```
 
 ## 指纹值回放真实性

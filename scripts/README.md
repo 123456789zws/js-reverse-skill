@@ -2,14 +2,14 @@
 
 本目录包含 50 个可执行脚本（43 个 JavaScript、7 个 Python），按功能分为 9 类。以下索引以 `scripts/` 当前实际文件为准，不包含 `README.md`。
 
-本文中的 `<project-root>` 指项目根目录，其下包含平级的 `case/` 与 `result/` 目录。需要 case 目录的脚本使用 `<project-root>/case`，需要项目根目录的脚本直接使用 `<project-root>`。`forensic_ruyipage.py` 与 `capture_ruyitrace_log.js` 会在 `--case-dir` 下创建 `case/`，因此必须传入 `<project-root>`。
+本文中的 `<project-root>` 指项目根目录，其下包含平级的 `case/` 与 `result/` 目录。需要 case 目录的脚本使用 `<project-root>/case`，需要项目根目录的脚本直接使用 `<project-root>`。`forensic_ruyipage.py` 与 `capture_ruyitrace_log.js` 会在 `--case-dir` 下创建 `case/`，因此必须传入 `<project-root>`。`check_session_resume`/`check_fingerprint_fixture`/`check_trace_api_coverage` 已归一化，传 `<project-root>` 或 `<project-root>/case` 均可。
 
 ## 环境与会话检测（7 个）
 
 | 脚本 | 功能 | 典型用法 |
 |------|------|---------|
 | `check_external_tools.js` | 检测 Node.js、ruyiPage 包与定制 Firefox runtime、RuyiTrace 与 trace 内核 | `node scripts/check_external_tools.js --markdown` |
-| `check_session_resume.js` | 对比环境快照，判定新会话应续接环境检查还是重走 ENV_READY；仅在 Node、ruyiPage 包、定制 runtime、RuyiTrace 可执行文件与 trace 内核五项检测全部通过时允许 `--write-snapshot`，失败退出非零且不写；兼容旧版 v1 快照；从 `<project-root>/result` 读取进度 | `node scripts/check_session_resume.js --case-dir <project-root>/case --markdown` |
+| `check_session_resume.js` | 对比环境快照，判定新会话应续接环境检查还是重走 ENV_READY；仅在 Node、ruyiPage 包、定制 runtime、RuyiTrace 可执行文件与 trace 内核五项检测全部通过时允许 `--write-snapshot`，失败退出非零且不写；兼容旧版 v1 快照；从 `<project-root>/result` 读取进度 | `node scripts/check_session_resume.js --case-dir <project-root> --markdown` |
 | `check_node_leakage.js` | 检查 Node 宿主常见泄露变量与 Web API 兼容层，给出阻断清单 | `node scripts/check_node_leakage.js --markdown` |
 | `check_node_runtime_compat.js` | 检测当前 Node 版本、ABI 与 nvm 可用性并给出恢复建议，不执行安装或切换 | `node scripts/check_node_runtime_compat.js --required-version 22.0.0 --markdown` |
 | `check_tls_clients.js` | 检测 TLS 指纹兼容客户端（CycleTLS / impers / curl-cffi-node / curl_cffi / cyCronet） | `node scripts/check_tls_clients.js --markdown` |
@@ -35,7 +35,7 @@
 | `check_evidence.js` | 验证取证材料真实性并输出 none / step1-only / step2-only / both 路由；Step 1 只认有效 capture 网络记录或用户 HAR、cURL、原始 HTTP 请求文本，Step 2 只认有效 NDJSON | `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <材料路径> --markdown` |
 | `forensic_ruyipage.py` | ruyiPage 通用取证：抓包、目标请求命中、JS 落盘与指纹基线采集 | `python scripts/forensic_ruyipage.py --url <目标URL> --case-dir <project-root> --targets "feed/hot" --browser-path <定制Firefox> --markdown` |
 | `capture_ruyitrace_log.js` | 自动采集或手动导入 RuyiTrace NDJSON 日志 | `node scripts/capture_ruyitrace_log.js --url <目标URL> --case-dir <project-root> --ruyitrace-home <RuyiTrace目录> --import-after --markdown` |
-| `import_ruyitrace_log.js` | 导入 RuyiTrace NDJSON，生成摘要并标记截断字段 | `node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown` |
+| `import_ruyitrace_log.js` | 导入 RuyiTrace NDJSON，生成摘要并标记截断字段 | `node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown` |
 
 `check_evidence.js` 的四种证据路由都是正常诊断结果并退出 `0`；只有未知参数、参数缺值、非法 URL 或材料格式处理异常等调用/格式错误才非零。JS、截图、指纹基线和 `ruyitrace-summary.md` 可展示为辅助材料，但不能分别替代 Step 1 网络记录或 Step 2 NDJSON。可运行 `node scripts/check_evidence.js --self-test` 执行内置自测。
 
@@ -49,7 +49,7 @@
 | `run_with_trace.js` | 在隔离 vm 探测上下文运行目标脚本并输出环境访问日志 | `node scripts/run_with_trace.js --target case/js/original/app.js --entry window.makeSign --fixture case/fixtures/sample.fixture.json` |
 | `run_trace_runtime_audit.js` | 在强制 no-send 模式下运行项目审计入口并生成 Node runtime audit | `node scripts/run_trace_runtime_audit.js --case-dir case --entry result/final.js --markdown` |
 | `check_trace_runtime_conformance.js` | 比较 Trace 运行时契约与 Node audit，阻断关键行为不一致 | `node scripts/check_trace_runtime_conformance.js --case-dir case --markdown` |
-| `check_trace_api_coverage.js` | 检查 Trace API inventory、环境覆盖矩阵与运行时闭环状态 | `node scripts/check_trace_api_coverage.js --case-dir <project-root>/case --markdown` |
+| `check_trace_api_coverage.js` | 检查 Trace API inventory、环境覆盖矩阵与运行时闭环状态 | `node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown` |
 
 ## 补环境与网络语义检查（7 个）
 
@@ -69,7 +69,7 @@
 |------|------|---------|
 | `check_code_quality.js` | 检查代码简洁性、模块化、编码与交付代码规则 | `node scripts/check_code_quality.js --case-dir <project-root> --markdown` |
 | `check_final_artifact.js` | 检查交付目录、单一入口、禁用浏览器自动化、总结与经验沉淀等规则 | `node scripts/check_final_artifact.js --case-dir <project-root> --markdown` |
-| `check_fingerprint_fixture.js` | 检查指纹 fixture 对 Canvas、WebGL、Audio、DOM 几何等的覆盖 | `node scripts/check_fingerprint_fixture.js --case-dir case --markdown` |
+| `check_fingerprint_fixture.js` | 检查指纹 fixture 对 Canvas、WebGL、Audio、DOM 几何等的覆盖 | `node scripts/check_fingerprint_fixture.js --case-dir <project-root> --markdown` |
 | `check_dynamic_resources.js` | 检查动态资源是否仅作快照，并具备运行时刷新设计 | `node scripts/check_dynamic_resources.js --case-dir case --markdown` |
 | `check_change_memory.js` | 检查代码变更记忆中的修改原因、禁止回退与验证记录 | `node scripts/check_change_memory.js --case-dir case --markdown` |
 | `compare_fixture.js` | 对比 fixture 样本与实际输出，定位首个偏差点 | `node scripts/compare_fixture.js --fixture sample.fixture.json --actual node-output.json --field sign --markdown` |

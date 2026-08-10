@@ -251,7 +251,7 @@ if __name__ == "__main__":
 交付前执行：
 
 ```bash
-node scripts/check_fingerprint_fixture.js --case-dir case --require canvas,webgl,audio,dom --markdown
+node scripts/check_fingerprint_fixture.js --case-dir <project-root> --require canvas,webgl,audio,dom --markdown
 node scripts/check_final_artifact.js --case-dir <project-root> --markdown
 ```
 

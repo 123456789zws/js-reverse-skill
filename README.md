@@ -77,7 +77,7 @@ js-reverse-skill/
 环境检查通过后写入或更新快照，再执行证据门禁：
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root>/case --write-snapshot --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
 node scripts/check_evidence.js --case-dir <project-root> --url <target-url> --inputs <材料路径> --markdown
 ```
 
