@@ -112,6 +112,16 @@ async function createRequestSession(options = {}) {
         followRedirects: mergedOpts.followRedirects ?? followRedirects,
         timeout: mergedOpts.timeout || 30,
       };
+      if (mergedOpts.json !== undefined) {
+        merged.body = JSON.stringify(mergedOpts.json);
+        if (!merged.headers['Content-Type']) merged.headers['Content-Type'] = 'application/json';
+      }
+      if (mergedOpts.data !== undefined) {
+        merged.body = typeof mergedOpts.data === 'object'
+          ? new URLSearchParams(mergedOpts.data).toString()
+          : String(mergedOpts.data);
+        if (!merged.headers['Content-Type']) merged.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      }
       const res = await rawRequest(merged);
       const response = {
         status: res.status,
@@ -225,6 +235,11 @@ class CookieJar {
 //       headers: { 'x-sign': sign, Cookie: jar.toString() },
 //     });
 //     console.log(res.json());
+//
+//     // 5. POST 请求（JSON / 表单）
+//     await session.post(url, { json: { key: 'val' } });      // Content-Type: application/json
+//     await session.post(url, { data: { key: 'val' } });      // Content-Type: application/x-www-form-urlencoded
+//     await session.post(url, { body: 'raw string' });        // 原始 body
 //   } finally {
 //     if (session.close) session.close();
 //   }

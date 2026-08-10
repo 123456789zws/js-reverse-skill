@@ -139,7 +139,7 @@ async function verifyChain(session, config, loadResult, answer) {
   //   极验 v3：必须 GET + JSONP（callback=geetest_<ts>，w 等参数全拼 query string），POST 返回 error_31
   //   且 w 含自定义 base64 的 ()，encodeURIComponent 后须把 %28/%29 还原为字面括号，否则被 WAF 拦
   //   其他厂商多为 POST
-  const res = await session.post(config.target.verify_api, payload);
+  const res = await session.post(config.target.verify_api, { data: payload });
   const cred = res.data;
   if (!cred.validate && !cred.seccode && !cred.ticket && !cred.pass) {
     throw new Error('verify 响应缺少通过凭据：' + JSON.stringify(cred).slice(0, 200));
@@ -151,7 +151,7 @@ async function verifyChain(session, config, loadResult, answer) {
  * ④ 业务接口消费凭据
  */
 async function callBusinessApi(session, config, credential) {
-  const res = await session.post(config.target.business_api, { credential });
+  const res = await session.post(config.target.business_api, { json: { credential } });
   return res.data;
 }
 
