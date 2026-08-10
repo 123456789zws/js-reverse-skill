@@ -11,7 +11,7 @@
 
 ## 目录结构
 
-> `<case 根>` 下只有 `case/` 和 `result/` 两个平级子目录（SKILL.md `INIT` 目录约束）。
+> `<case 根>` 下只有 `case/` 和 `result/` 两个平级子目录（SKILL.md 目录约束）。
 
 ```text
 <case 根>/

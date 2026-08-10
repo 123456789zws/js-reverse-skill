@@ -4,15 +4,15 @@
 /**
  * 会话续接判定脚本
  *
- * 用途：新会话激活 skill 时，判定是否可跳过 CHECK-1 完整环境自检，
+ * 用途：新会话激活 skill 时，判定是否可跳过 ENV_READY 五项环境检测，
  *      直接读最新阶段报告续接（避免会话被 context 限制切断后另开会话重走环境检测流程）。
  *
  * 判定逻辑：
  *   1. 扫描 case 目录是否存在 notes/env-snapshot.json；
  *   2. 若存在，调用 check_external_tools.js --json 获取当前环境检测结果；
  *   3. 对比快照中的 nodeVersion / ruyipageRuntime / ruyitraceHome / projectRoot 与当前值；
- *   4. 全部一致 → 输出 resume=true，建议跳过 CHECK-1，直接读最新阶段报告续接；
- *      任一不一致 → 输出 resume=false，需走完整 CHECK-1，并在通过后写入新快照。
+ *   4. 全部一致 → 输出 resume=true，建议跳过 ENV_READY 环境检测，直接读最新阶段报告续接；
+ *      任一不一致 → 输出 resume=false，需走完整环境检测，并在通过后写入新快照。
  *
  * 快照字段：
  *   {
@@ -30,7 +30,7 @@
  *
  * 用法：
  *   node scripts/check_session_resume.js --case-dir <case> --markdown
- *   node scripts/check_session_resume.js --case-dir <case> --write-snapshot  # CHECK-1 通过后写快照
+ *   node scripts/check_session_resume.js --case-dir <case> --write-snapshot  # ENV_READY 检测通过后写快照
  *   node scripts/check_session_resume.js --case-dir <case> --json
  */
 
@@ -60,7 +60,7 @@ function usage() {
   node scripts/check_session_resume.js --case-dir <case> --write-snapshot --markdown
   node scripts/check_session_resume.js --case-dir <case> --json
 
-说明：判定新会话是否可跳过 CHECK-1 完整环境自检。
+说明：判定新会话是否可跳过 ENV_READY 五项环境检测。
 --write-snapshot：仅在五项环境检测全部通过时写入/更新 case/notes/env-snapshot.json；失败退出非零且不写文件。
 result/ 进度从 case 目录父级的 result/ 读取。
 不带 --write-snapshot 时只做判定，不写文件。`;
@@ -192,7 +192,7 @@ function findResultProgress(caseDir) {
 
 function renderMarkdown(result) {
   const lines = ['# 会话续接判定结果', ''];
-  lines.push(`- 模式：${result.mode === 'resume' ? '续接模式（跳过 CHECK-1 完整环境自检）' : '全新模式（需走完整 CHECK-1）'}`);
+  lines.push(`- 模式：${result.mode === 'resume' ? '续接模式（跳过 ENV_READY 环境检测）' : '全新模式（需走完整 ENV_READY 检测）'}`);
   lines.push(`- case 目录：${result.caseDir || '(未提供)'}`);
   if (result.snapshotPath) lines.push(`- 环境快照：${result.snapshotExists ? '存在' : '不存在'} - ${result.snapshotPath}`);
   if (result.mode === 'resume') {
@@ -211,9 +211,9 @@ function renderMarkdown(result) {
       lines.push('- result/ 进度：无');
     }
     lines.push('', '## 续接动作');
-    lines.push('1. 跳过 CHECK-1 完整环境自检（环境快照与当前一致）');
+    lines.push('1. 跳过 ENV_READY 环境检测（环境快照与当前一致）');
     lines.push('2. 直接读取最新阶段报告，恢复上次推进现场');
-    lines.push('3. 走 CHECK-2 经验库速查 + CHECK-3 意图声明（用户确认本次范围后继续）');
+    lines.push('3. 按 INTENT_CONFIRM 确认本次范围后继续');
     lines.push('4. 若用户明确表示环境已变更（如重装 Node、换 Firefox、迁移 tools/ 目录），手动跑 `node scripts/check_external_tools.js --markdown` 重建快照');
   } else {
     lines.push('', '## 全新模式动作');
@@ -222,13 +222,13 @@ function renderMarkdown(result) {
     } else if (result.detectError) {
       lines.push(`- 调用 check_external_tools.js 失败：${result.detectError}`);
     } else {
-      lines.push('- 环境快照与当前不一致，需重走 CHECK-1 完整环境自检');
+      lines.push('- 环境快照与当前不一致，需重走 ENV_READY 完整环境检测');
       lines.push('', '## 差异项');
       for (const d of result.diffs) {
         lines.push(`- ${d.key}: 快照=${JSON.stringify(d.stored)} / 当前=${JSON.stringify(d.current)}`);
       }
     }
-    lines.push('', '## CHECK-1 通过后');
+    lines.push('', '## ENV_READY 检测通过后');
     lines.push('运行 `node scripts/check_session_resume.js --case-dir <case> --write-snapshot` 写入/更新环境快照，供下次会话续接');
   }
   return lines.join('\n') + '\n';

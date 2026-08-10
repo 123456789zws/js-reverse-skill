@@ -48,7 +48,7 @@ function usage() {
   node scripts/check_evidence.js --self-test
 
 说明：
-- 取证证据门禁：在 CHECK-3 意图声明和 Phase 0.1 判定"用户已提供证据 / 可跳过取证"前必跑。
+- 取证证据门禁：在 INTENT_CONFIRM 之后、EVIDENCE_GATE 判定"用户已提供证据 / 可跳过取证"时必跑。
 - 判定 Step 1（ruyipage 网络取证）与 Step 2（RuyiTrace 日志采集）的证据是否真实存在，
   并输出 none / step1-only / step2-only / both 路由；四种路由均为正常结果并退出 0。
 - Step 1 只接受有效 capture 网络记录或用户 HAR / cURL / 原始 HTTP 请求文本；JS、截图和指纹只能作为辅助材料。

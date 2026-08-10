@@ -48,7 +48,7 @@
 - 经验库没查 → 重复踩坑 / 从零写已有方案
 - "快速开干"其实慢得多——12 轮对话写错误方案，先完成状态准入检查
 
-**判定测试**：翻 skill 激活后的前 3 条对话记录。前 3 条里已记录 `INIT`、`RESUME_PROBE`、`EVIDENCE_GATE` 的进入依据 → 合规；前 3 条是 "launch_browser / navigate" → 违规
+**判定测试**：翻 skill 激活后的前 3 条对话记录。前 3 条里已记录 `INTENT_CONFIRM`、`ENV_READY`、`EVIDENCE_GATE` 的进入依据 → 合规；前 3 条是 "launch_browser / navigate" → 违规
 
 ## 反模式 4：在工作区已有方案时从零建新项目
 

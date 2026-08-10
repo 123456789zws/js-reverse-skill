@@ -97,7 +97,7 @@ Step 5 — 装兜底 hook（若 Step 2 没走 pre_inject_hooks）
   # （RS/Akamai），不要这样用 hook_jsvmp_interpreter，改为：
   #   - instrument_jsvmp_source(mode="ast")  （首选）
   #   - hook_jsvmp_interpreter(mode="transparent")  （备选）
-  # 参考 SKILL.md "反爬类型三分法（INIT 识别用）" + "工具栈选择" 章节
+  # 参考 SKILL.md 7. IDENTIFY 章节（识别请求与反爬类型）
   bypass_debugger_trap()
 
 Step 6 — instrumentation(action='reload') 让探针先于 VMP 生效

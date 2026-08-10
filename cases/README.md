@@ -29,7 +29,7 @@ node scripts/search_cases.js a_bogus --json
 2. 运行 `search_cases.js`，只读取命中的案例文件。
 3. 从命中案例中提取可复用的定位方法、已知坑点和最后验证日期。
 4. 对命中案例执行 JS 资源、内容和参数结构的时效性校验；只有全部一致时才复用算法细节，否则只作为方法论参考。
-5. 未命中时直接走标准 INIT → RESUME_PROBE → EVIDENCE_GATE → CASE_LOOKUP → INTENT_CONFIRM → ENV_READY → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE，结束后把新经验沉淀到 `result/`，不写本目录。
+5. 未命中时直接走标准 INTENT_CONFIRM → ENV_READY → EVIDENCE_GATE → CASE_LOOKUP → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE，结束后把新经验沉淀到 `result/`，不写本目录。
 
 ## 新增案例
 
