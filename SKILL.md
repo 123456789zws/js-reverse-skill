@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.1.2
+version: 2.1.3
 description: >
   网页端 JS 逆向工程技能：逆向还原浏览器请求中的加密参数、签名、token、cookie 与设备指纹。
   适用于 sign/a_bogus/X-Bogus/acw_sc__v2/hexin-v/FSSBBIl1UgzbN7N/_token 等各类动态参数的生成逻辑分析，
@@ -400,7 +400,7 @@ case 根目录只允许两个子目录：
 >
 > ⚠️ 本脚本**同步阻塞**：运行结束即向 stdout 输出 Markdown 报告并写入 `case/forensic/capture.json` / `target-hits.json`。调用方必须**等待脚本返回后读取结果**，不得在其运行期间轮询输出"仍在运行 / 等待"等占位提示。抓包完成判据：指定 `--targets/--targets-regex` 时**目标接口命中即停**（命中非失败 2xx 响应）；未指定时**网络静默即停**（包数不再增长且连续 `--settle` 秒无新包，默认 5s）；两者都受 `--wait` 总超时保护。完成判定与页面 `load` 事件是否触发无关；即便 `page.get` 因长轮询超时，已捕获的包也会照常落盘，不是取证失败。
 >
-> 🛡️ 脚本内置防卡死：`page.get` 用 eager 等待（DOM interactive 即返回，不等 load complete）；`capture.stop` 用守护线程硬超时（`--stop-timeout` 默认 15s）；禁用 ruyipage 的 body fallback replay（`capture.stop` 逐包拉 body 时对拿不到 body 的 GET 逐个页面内 fetch，京东等大页面会拖到数百秒）；body 等待超时 10s→1s。JS body 缺失时不再写空文件并标记 `body_missing`（报告 `stopTimedOut` 时需补采）。
+> 🛡️ 脚本内置防卡死：**不调用 `capture.stop()`**——它会对每个包做 2 次 BiDi get_data RPC（共 2N 次），京东等大页面包多 + 浏览器繁忙时 RPC 慢，会拖到数百秒；metadata 由 `steps` 快照**零 RPC** 读取，body 只在 JS 文件 / 目标命中包上**按需拉取**（禁 fallback replay、body 超时 10s→1s）。`page.get` 用 `wait="interactive"`（DOMContentLoaded 即返回，不等 load complete；`wait` 是 BiDi 协议值，传 `"eager"` 会导航失败抓 0 包）。JS body 缺失不写空文件并标记 `body_missing` 需补采。
 > ```bash
 > python scripts/forensic_ruyipage.py --url <目标页> --targets "feed/hot" --browser-path <定制Firefox> --markdown
 > # 仅检测环境并打印计划（不启动浏览器）：
@@ -744,6 +744,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 
 | 版本 | 摘要 |
 |------|------|
+| 2.1.3 | 修正 2.1.2 卡死修复方案（实测确认）：根因是 `capture.stop()` 对每个包做 2 次 BiDi get_data RPC（共 2N 次），京东 234 包即数百次 RPC、浏览器繁忙时拖到数百秒；改为**不调 stop()**——metadata 用 `steps` 快照零 RPC 读取，body 仅对 JS 文件 / 目标命中包按需拉取；`page.get` 传 `wait="eager"` 是无效 BiDi 值（导航失败、抓 0 包），改为 `wait="interactive"`；已实测京东：234 包、pc_home_feed 命中、35 个 JS 落盘，数十秒完成不卡死 |
 | 2.1.2 | ruyiPage 取证防卡死：定位 `capture.stop()` 逐包拉 body 时对拿不到 body 的 GET 请求做页面内 fetch replay（15s/个），京东等大页面会拖到数百秒；脚本内置防挂补丁（禁用 replay + body 超时 10s→1s）、`capture.stop` 守护线程硬超时（`--stop-timeout` 默认 15s）、`page.get` 改用 eager 等待（不等 load complete）；JS body 缺失不写空文件并标记 `body_missing` |
 | 2.1.1 | ruyiPage 取证完成判定优化：指定 `--targets` 时目标接口命中即停，未指定时网络静默即停（包数不再增长且连续 `--settle` 秒无新包）；`page.get` 因长轮询超时不再中断取证（已捕获包照常落盘），报告新增 `getTimedOut` 标记与 `=== FORENSIC DONE ===` 完成信号；明确脚本同步阻塞——调用方须等返回后读 `case/forensic/capture.json`，不得运行期间轮询"仍在运行"占位提示；`resolve_browser` 兜底扫描 `tools/ruyipage-browsers/` managed runtime |
 | 2.1.0 | 工具链升级到最新：ruyipage 1.2.61 + Firefox 155 定制 runtime（v1.2.58）、RuyiTrace 2.5.5（新版内核移至 resources/kernel/，检测/采集脚本兼容新旧两代目录结构，多版本 runtime 自动选最新）；适配 1.2.6x API 变化（`page.close()` 只关标签页→改用 `page.quit()` 关整浏览器、smart_fingerprint 默认 require_country="US"→缺省不校验出口国家）；取证脚本显式 `close_on_exit(True)` 进程级兜底 + quit 优先 + 进程树兜底三级关闭 |

@@ -33,7 +33,6 @@ import os
 import re
 import subprocess
 import sys
-import threading
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -352,20 +351,29 @@ def build_options(args: argparse.Namespace, browser_path: str):
 def _classify_packets(steps, args, substrings, regexes):
     """遍历抓包 steps，分离三类产物。
 
-    - records_meta：每包 to_dict(include_bodies=False)，用于 capture.json（不含正文，安全可序列化）
+    - records_meta：每包 to_dict(include_bodies=False)，纯 metadata、零 BiDi RPC，用于 capture.json
     - js_records：识别为 JS 的包，response_body 落盘到 case/js/original/
     - target_hits：命中 --targets/--targets-regex 的包，body 转字符串并按阈值截断
 
+    性能关键：metadata 全部用 include_bodies=False 读取（不触发 RPC）；
+    只有 JS 文件 / 目标命中的包才 to_dict(include_bodies=True) 按需拉 body——
+    避免对所有包逐包拉 body（每个都是 BiDi get_data RPC，京东几百包会拖到数百秒）。
+
     返回 (records_meta, js_records, target_hits, js_dir)。
     """
-    records_meta = [p.to_dict(include_bodies=False) for p in steps]
     js_records = []
     target_hits = []
     js_dir = os.path.join(args.case_subdir, "js", "original")
     os.makedirs(js_dir, exist_ok=True)
+    records_meta = []
     for p in steps:
-        d = p.to_dict(include_bodies=True)
-        if is_js_packet(d):
+        d = p.to_dict(include_bodies=False)
+        records_meta.append(d)
+        is_js = is_js_packet(d)
+        is_target = match_targets(d, substrings, regexes)
+        if is_js or is_target:
+            d = p.to_dict(include_bodies=True)
+        if is_js:
             body = _safe_body(d.get("response_body"))
             fname = sanitize_filename(d.get("url", ""))
             fpath = os.path.join(js_dir, fname)
@@ -380,7 +388,7 @@ def _classify_packets(steps, args, substrings, regexes):
                 "body_missing": not body,
                 "source_mapping_url": extract_sourcemap(body) if body else None,
             })
-        if match_targets(d, substrings, regexes):
+        if is_target:
             body = _safe_body(d.get("response_body"))
             if len(body) > args.max_body_bytes:
                 d["response_body"] = body[:args.max_body_bytes].decode("utf-8", "replace") + (
@@ -581,30 +589,6 @@ def _apply_ruyipage_anti_hang_patch():
         logger.warning("防挂补丁 response_body_timeout 调整失败：%s", e)
 
 
-def _stop_capture_with_timeout(page, seconds: int) -> bool:
-    """capture.stop() 逐包拉 body，极端情况下仍可能长时间阻塞；
-    用守护线程加硬超时兜底，超时放弃等待（metadata 仍可落盘）。"""
-    if seconds <= 0:
-        seconds = 15
-    done = threading.Event()
-
-    def worker():
-        try:
-            page.capture.stop()
-        except Exception:
-            pass
-        finally:
-            done.set()
-
-    t = threading.Thread(target=worker, daemon=True)
-    t.start()
-    done.wait(seconds)
-    if done.is_set():
-        return True
-    logger.warning("capture.stop 超过 %ss 未返回，放弃等待（部分响应体可能缺失）", seconds)
-    return False
-
-
 def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
     """ruyiPage 取证主流程：启动浏览器 → 抓全部包 → 分类（元数据/JS/目标）→ JS 落盘 → 报告。
 
@@ -640,9 +624,10 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
 
         get_timed_out = False
         try:
-            # wait="eager"（DOM interactive 即返回）：京东等首页 load 事件因长轮询
-            # 迟迟不触发，等 complete 无意义；eager 让抓包更早开始，缩短 get 阻塞。
-            page.get(args.url, timeout=args.wait + 20, wait="eager")
+            # wait="interactive"（DOMContentLoaded 即返回）：京东等首页 load 事件因长轮询
+            # 迟迟不触发，等 complete 无意义；interactive 让抓包更早开始，缩短 get 阻塞。
+            # 注意：wait 是 BiDi 协议值（none/interactive/complete），不是 load_mode 的 "eager"。
+            page.get(args.url, timeout=args.wait + 20, wait="interactive")
         except Exception as e:
             # 京东等首页常有长轮询/持续请求，load 事件迟迟不触发；
             # get 超时不能中断取证——已捕获的包必须照样 stop + 落盘。
@@ -705,8 +690,9 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             if not done:
                 logger.info("未在 %ss 内达到静默，按 --wait 超时收尾（已捕获 %s 个包）", args.wait, prev_count)
 
-        # 收尾：stop 可能逐包等待响应体（极端情况较久），用守护线程硬超时兜底
-        stop_ok = _stop_capture_with_timeout(page, args.stop_timeout)
+        # 收尾：不调用 capture.stop()——它对每个包做 2 次 BiDi get_data RPC（共 2N 次），
+        # 京东等大页面包多 + 浏览器繁忙时 RPC 慢，会拖到数百秒；浏览器关闭断连后才快速返回。
+        # metadata 由 steps 快照直接读取（零 RPC），body 在 _classify_packets 里按需拉取。
         try:
             steps = page.capture.steps
         except Exception as e:
@@ -744,7 +730,6 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             webdriver_flag, wd_err, has_filter,
         )
         result["getTimedOut"] = get_timed_out
-        result["stopTimedOut"] = not stop_ok
         result["outputs"] = _write_outputs(
             args, browser_path, records_meta, target_hits, fingerprint, baseline_id, js_dir
         )
@@ -786,7 +771,6 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--no-fp", action="store_true", help="跳过 smart_fingerprint（禁用智能指纹）")
     p.add_argument("--wait", type=int, default=30, help="完成判定的总超时秒：目标命中 / 网络静默共用，默认 30")
     p.add_argument("--settle", type=int, default=5, help="未指定 --targets 时的静默窗口：包数不再增长且连续 N 秒无新包视为抓包完成，默认 5")
-    p.add_argument("--stop-timeout", type=int, default=15, help="capture.stop 硬超时秒数（防逐包等响应体卡死），默认 15")
     p.add_argument("--max-body-bytes", type=int, default=1048576, help="target-hits 响应体截断阈值，默认 1MB")
     p.add_argument("--click", default="", help="导航后拟人点击的 CSS 选择器")
     p.add_argument("--scroll", type=int, default=0, help="导航后滚动像素数")
@@ -879,8 +863,6 @@ def render_markdown(r: Dict[str, Any]) -> str:
     L.append(f"- navigator.webdriver 自检：{r.get('navigatorWebdriverSelfCheck')}")
     if r.get("getTimedOut"):
         L.append("- ⚠️ page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
-    if r.get("stopTimedOut"):
-        L.append("- ⚠️ capture.stop 超过超时未返回，已放弃等待（部分响应体可能缺失）；metadata 已落盘，缺失的 JS body 需补采")
     L.append(f"- 取证验收：{r.get('acceptance')}")
     if r.get("onlyOptionsWarning"):
         L.append(f"- ⚠️ 仅捕获到 OPTIONS 预检，未捕获真实业务响应：{r['onlyOptionsWarning']}")
