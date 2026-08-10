@@ -66,7 +66,7 @@
 - baseline 文件：case/notes/fingerprint-baseline.json
 
 ## 补环境框架
-- 选择：不使用（默认） / vm / jsdom
+- 选择：不使用（默认） / vm / sdenv / jsEnv
 ```
 
 ## 阶段报告清单
@@ -128,7 +128,7 @@
 > 一句话说明最终采用的方案路径 + 核心方法，其后可展开算法细节 / 关键常量 / 还原代码。
 
 - 路径：A 纯算还原 / B vm 沙箱执行 / C WASM 加载 / D 环境伪装
-- 框架：不使用 / vm / jsdom
+- 框架：不使用 / vm / sdenv / jsEnv
 - TLS 客户端：CycleTLS（需手动实现）/ curl-cffi-node / impers / curl-cffi / curl_cffi / cyCronet / 不发真实请求
 - 核心思路：（一句话）
 

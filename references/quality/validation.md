@@ -21,7 +21,7 @@
 
 期望：
 - 不进入正式流程，要求补充 API URL、请求方法、参数位置、成功请求样本、取证模式和 TLS 客户端。
-- 运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --markdown`，判定为"仅提供 URL，URL 不是证据"，必须走完整两步取证（ruyipage 网络取证 + RuyiTrace 日志采集），禁止以"用户提供了证据"为由跳过 trace。
+- 运行 `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --markdown`，判定为"仅提供 URL，URL 不是证据"，必须走完整两步取证（ruyipage 网络取证 + RuyiTrace 日志采集），禁止以"用户提供了证据"为由跳过 trace。
 
 ### 测试 2.1：用户声称提供证据但只有 URL
 
@@ -52,7 +52,6 @@
 
 期望：
 - 第一回复必须输出"信息完整性检查"，列出已识别信息和缺失/待确认信息。
-- 必须提示缺少取证模式，给出选项：ruyiPage + RuyiTrace / 仅 ruyiPage / 用户手动取证 / AI 自行决定。
 - 必须提示缺少 TLS 客户端，给出选项：Node.js CycleTLS / impers / curl-cffi / Python curl_cffi / cffi_curl / cyCronet / 不发真实请求。
 - 必须从 cURL 中初步列出可疑加密参数候选，要求用户确认。
 - 确认前不启动浏览器取证、下载 JS、运行 Hook、发送真实请求。
@@ -69,15 +68,15 @@
 
 ## 二、取证工具选择
 
-### 测试 7：取证工具选择权前置
+### 测试 7：取证路径由 EVIDENCE_GATE 自动判定
 
-当新任务开始且用户未明确选择取证工具时。
+当新任务开始时。
 
 期望：
 - 不直接启动任何浏览器工具。
-- 提供选择：ruyiPage + RuyiTrace / 仅 ruyiPage / 用户手动取证 / AI 自行决定。
+- 由 EVIDENCE_GATE（`check_evidence.js`）自动判定 Step 1/Step 2 证据状态，决定取证路径。
 - 说明 Trace 日志只用于授权补环境和防御性分析。
-- 用户确认后，后续抓包、JS 收集、Hook、断点、截图、Trace 日志采集必须沿用该模式。
+- 后续抓包、JS 收集、Hook、断点、截图、Trace 日志采集必须沿用 EVIDENCE_GATE 判定的路径。
 
 ### 测试 8：存在自动化/CDP 检测风险
 
@@ -109,27 +108,25 @@ node scripts/check_external_tools.js --markdown
 - 只有"ruyiPage 包可用 + 定制 Firefox runtime 验证通过"才判定 ruyiPage 可用。
 - 系统 Firefox fallback 判定不合格。
 
-### 测试 13：RuyiTrace 采集方式由用户选择
+### 测试 13：RuyiTrace 采集默认自动、失败转手动
 
-当取证模式为 ruyiPage + RuyiTrace，检测结果均通过，case 中尚无 NDJSON 时。
+当 EVIDENCE_GATE 判定需要采集 trace，检测结果均通过，case 中尚无 NDJSON 时。
 
 期望：
-- 不替用户默认采集方式，先让用户在"手动 trace（指定日志）"与"自动 trace"之间选择。
-- 用户选择自动 trace 时，运行自动捕获计划：
+- 默认运行自动 trace：
 
 ```bash
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
+node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --import-after --markdown
 ```
 
 - 自动 trace 成功后必须导入 NDJSON 并生成摘要。
-- 用户选择手动 trace 时，等待用户采集完成并提供 NDJSON 路径，用 `node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown` 导入。
+- 用户已提供 NDJSON 时，直接导入，不重复采集：`node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown`。
 - 自动 trace 失败、需要登录/验证/权限交互时，转手动 trace（用户指定日志）。
 
 ### 测试 14：RuyiTrace 日志导入
 
 ```bash
-node scripts/import_ruyitrace_log.js --input trace.ndjson --case-dir case --markdown
+node scripts/import_ruyitrace_log.js --input trace.ndjson --case-dir <project-root> --markdown
 ```
 
 期望：日志复制到 `case/ruyi-trace/logs/`，生成摘要，包含类别和 stack.file 统计。
@@ -303,7 +300,7 @@ node scripts/precheck_runtime.js --markdown
 
 ### 测试 48：用户已提供 Trace 日志时必须持续参考日志
 
-期望：如果没有 `notes/trace-summary.md` 或 `notes/missing-env-priority.md`，检查失败。遇到后续异常时仍必须先回看日志。
+期望：如果没有 `notes/ruyitrace-summary.md` 或 `notes/missing-env-priority.md`，检查失败。遇到后续异常时仍必须先回看日志。
 
 ### 测试 49：不主动分析 JSVMP 源码
 
@@ -471,11 +468,11 @@ node scripts/precheck_runtime.js --markdown
 
 ### 测试 87：补环境前必须询问框架选择且默认不使用
 
-期望：必须提醒用户选择：不使用补环境框架（默认）/ Node.js 内置 vm / jsEnv。用户未明确选择时记录为"不使用"。
+期望：必须提醒用户选择：不使用补环境框架（默认）/ Node.js 内置 vm / sdenv / jsEnv。用户未明确选择时记录为"不使用"。
 
 ### 测试 88：Trace 复杂度评估不绑定框架选择
 
-期望：即使复杂度为高，也不得自动选择 vm / jsEnv。
+期望：即使复杂度为高，也不得自动选择 vm / sdenv / jsEnv。
 
 ## 十六、最终总结与清理
 
@@ -527,7 +524,7 @@ node scripts/precheck_runtime.js --markdown
 
 JD `pc_home_feed` 步骤：
 1. 用 ruyiPage 定制 Firefox + `smart_fingerprint()` 打开 `https://www.jd.com/`。
-2. 运行 `python scripts/forensic_ruyipage.py --url https://www.jd.com/ --targets "pc_home_feed" --browser-path <定制Firefox>`（脚本内部用 `targets=True` 抓全部包，事后过滤 `pc_home_feed`，避免只抓单接口漏掉 JS）。
+2. 运行 `python scripts/forensic_ruyipage.py --url https://www.jd.com/ --case-dir <project-root> --markdown`（脚本内部用 `targets=True` 抓全部包，事后过滤 `pc_home_feed`，避免只抓单接口漏掉 JS）。
 3. 等待并最少量滚动触发首页 feed。
 
 期望：`navigator.webdriver === false`；捕获到 `pc_home_feed` 的 2xx 响应；请求 URL 中能观察到 `h5st` 等动态参数。
