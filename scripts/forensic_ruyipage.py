@@ -550,18 +550,12 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
         _trigger_actions(page, args, args.human_algorithm)
 
         if substrings or regexes:
-            # 目标命中即停：轮询等待目标接口非失败 2xx 响应出现，命中立即结束抓包
+            # 目标命中即停：每轮先检查已捕获包（目标可能在 get 期间已返回，不能等新包），
+            # 命中非失败 2xx 立即结束；未命中再等新包。总时长受 --wait 约束。
             import time
             deadline = time.time() + args.wait
             target_done = False
             while time.time() < deadline:
-                try:
-                    pkt = page.capture.wait(timeout=2, count=1)
-                except Exception as e:
-                    logger.warning("capture.wait 异常：%s", e)
-                    break
-                if pkt is None:
-                    continue
                 try:
                     steps_now = page.capture.steps
                 except Exception:
@@ -570,18 +564,41 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
                     target_done = True
                     logger.info("目标接口已命中，提前结束抓包")
                     break
+                try:
+                    pkt = page.capture.wait(timeout=2, count=1)
+                except Exception as e:
+                    logger.warning("capture.wait 异常：%s", e)
+                    break
             if not target_done:
                 logger.info("未在 %ss 内命中目标接口，按 --wait 超时收尾", args.wait)
         else:
-            first = page.capture.wait(timeout=args.wait, count=1)
-            if first is None:
-                logger.warning("等待 %ss 未捕获到任何包", args.wait)
-            else:
-                logger.info("已捕获首个包：%s", first.url)
-            if args.settle > 0:
-                import time
-                logger.info("静置 %ss 等待剩余流量...", args.settle)
-                time.sleep(args.settle)
+            # 未指定目标：网络静默即停——包数不再增长且连续 settle 秒无新包视为抓包完成。
+            # 比"首个包+固定 sleep"更早结束（早完成早停），避免页面加载完仍在空等。
+            import time
+            deadline = time.time() + args.wait
+            prev_count = 0
+            last_seen = time.time()
+            done = False
+            while time.time() < deadline:
+                try:
+                    steps_now = page.capture.steps
+                except Exception:
+                    steps_now = []
+                count = len(steps_now)
+                if count > prev_count:
+                    prev_count = count
+                    last_seen = time.time()
+                elif count > 0 and time.time() - last_seen >= args.settle:
+                    logger.info("包数保持 %s 个且连续 %ss 无新包，抓包完成", count, args.settle)
+                    done = True
+                    break
+                try:
+                    pkt = page.capture.wait(timeout=2, count=1)
+                except Exception as e:
+                    logger.warning("capture.wait 异常：%s", e)
+                    break
+            if not done:
+                logger.info("未在 %ss 内达到静默，按 --wait 超时收尾（已捕获 %s 个包）", args.wait, prev_count)
 
         # 收尾：stop + 读取 steps + 分类 + 落盘。stop 可能等待响应体加载，包一层兜底。
         try:
@@ -664,8 +681,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--require-country", default="", help="smart_fingerprint require_country（ISO-2）；缺省不校验出口国家（适配代理出口 IP 与目标国家不一致）")
     p.add_argument("--manual-geo", default="", help="地理探测失败时的 manual_geo（JSON 字符串或文件路径）")
     p.add_argument("--no-fp", action="store_true", help="跳过 smart_fingerprint（禁用智能指纹）")
-    p.add_argument("--wait", type=int, default=30, help="等待首个包的超时秒，默认 30")
-    p.add_argument("--settle", type=int, default=5, help="首个包后静置秒数，默认 5")
+    p.add_argument("--wait", type=int, default=30, help="完成判定的总超时秒：目标命中 / 网络静默共用，默认 30")
+    p.add_argument("--settle", type=int, default=5, help="未指定 --targets 时的静默窗口：包数不再增长且连续 N 秒无新包视为抓包完成，默认 5")
     p.add_argument("--max-body-bytes", type=int, default=1048576, help="target-hits 响应体截断阈值，默认 1MB")
     p.add_argument("--click", default="", help="导航后拟人点击的 CSS 选择器")
     p.add_argument("--scroll", type=int, default=0, help="导航后滚动像素数")
