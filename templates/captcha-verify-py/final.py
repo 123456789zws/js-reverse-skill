@@ -146,7 +146,7 @@ def verify_chain(session: object, config: dict, load_result: dict, answer: dict)
 
 def call_business_api(session: object, config: dict, credential: dict) -> dict:
     """④ 业务接口消费凭据。"""
-    res = session.post(config["target"]["business_api"], json={"credential": credential})
+    res = session.post(config["target"]["business_api"], json_body={"credential": credential})
     return res.json()
 
 
@@ -154,7 +154,8 @@ def call_business_api(session: object, config: dict, credential: dict) -> dict:
 # 主流程：完整链路 + 交叉验证
 # ============================================================
 def run_once(config: dict, cookie_str: str = "") -> dict:
-    session = create_request_session(cookie_str)
+    headers = {"Cookie": cookie_str} if cookie_str else {}
+    session = create_request_session(headers=headers)
     try:
         load_result = load_challenge(session, config)
         answer = solve_captcha(session, config, load_result)
@@ -203,7 +204,8 @@ def main(argv=None) -> int:
             time.sleep(1.0 + random.random() * 2.0)
 
     print(f"[captcha-verify-py] 完成 {success}/{verify_count}")
-    return 0 if success > 0 else 1
+    # 要求全部成功才算通过（与 README ≥5 次交叉验证一致）
+    return 0 if success == verify_count else 1
 
 
 if __name__ == "__main__":

@@ -159,7 +159,9 @@ async function callBusinessApi(session, config, credential) {
 // 主流程：完整链路 + 交叉验证
 // ============================================================
 async function runOnce(config, cookieStr) {
-  const session = createRequestSession(cookieStr);
+  const session = await createRequestSession({
+    headers: cookieStr ? { Cookie: cookieStr } : {},
+  });
   const jar = new CookieJar();
   session.defaults({ jar });
 
@@ -183,7 +185,7 @@ async function main() {
   console.log(`[captcha-verify] provider=${config.captcha.provider} type=${config.captcha.captcha_type} verify=${verifyCount}`);
 
   if (args['sign-only']) {
-    const session = createRequestSession();
+    const session = await createRequestSession();
     const loadResult = await loadChallenge(session, config);
     const answer = await solveCaptcha(session, config, loadResult);
     const encrypted = verifier.encryptVerifyParam(answer, loadResult);
@@ -202,7 +204,8 @@ async function main() {
     }
   }
   console.log(`[captcha-verify] 完成 ${success}/${verifyCount}`);
-  process.exit(success > 0 ? 0 : 1);
+  // 要求全部成功才算通过（与 README ≥5 次交叉验证一致）
+  process.exit(success === verifyCount ? 0 : 1);
 }
 
 if (require.main === module) {

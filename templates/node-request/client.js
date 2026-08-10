@@ -91,25 +91,63 @@ async function createRequestSession(options = {}) {
   const rawRequest = session.request ? session.request.bind(session) : null;
   if (rawRequest) {
     session.request = async function (method, url, opts = {}) {
+      // 合并 defaults
+      const defaults = session._defaults || {};
+      const mergedOpts = { ...defaults, ...opts };
+      // 构建 query string
+      let finalUrl = url;
+      if (mergedOpts.params) {
+        const urlObj = new URL(url);
+        for (const [k, v] of Object.entries(mergedOpts.params)) {
+          urlObj.searchParams.set(k, String(v));
+        }
+        finalUrl = urlObj.toString();
+      }
       const merged = {
         method,
-        url,
-        headers: { ...finalHeaders, ...(opts.headers || {}) },
-        body: opts.body,
-        proxy: opts.proxy || proxy,
-        followRedirects: opts.followRedirects ?? followRedirects,
-        timeout: opts.timeout || 30, // 单位：秒（curl-cffi-node / impers）
+        url: finalUrl,
+        headers: { ...finalHeaders, ...(mergedOpts.headers || {}) },
+        body: mergedOpts.body,
+        proxy: mergedOpts.proxy || proxy,
+        followRedirects: mergedOpts.followRedirects ?? followRedirects,
+        timeout: mergedOpts.timeout || 30,
       };
       const res = await rawRequest(merged);
-      return {
+      const response = {
         status: res.status,
         headers: res.headers,
         body: res.body,
         text: () => Promise.resolve(typeof res.body === 'string' ? res.body : JSON.stringify(res.body)),
         json: () => Promise.resolve(typeof res.body === 'string' ? JSON.parse(res.body) : res.body),
       };
+      // data 属性：与 Axios 的 res.data 语义对齐
+      Object.defineProperty(response, 'data', {
+        get() {
+          if (mergedOpts.responseType === 'arraybuffer' || mergedOpts.responseType === 'buffer') {
+            return res.body;
+          }
+          if (typeof res.body === 'string') {
+            try { return JSON.parse(res.body); } catch { return res.body; }
+          }
+          return res.body;
+        },
+      });
+      // Cookie 自动管理
+      if (mergedOpts.jar && res.headers['set-cookie']) {
+        mergedOpts.jar.merge(res.headers['set-cookie']);
+      }
+      return response;
     };
   }
+
+  // 便捷方法：get/post/defaults
+  session.get = async function (url, opts = {}) { return session.request('GET', url, opts); };
+  session.post = async function (url, opts = {}) { return session.request('POST', url, opts); };
+  session._defaults = {};
+  session.defaults = function (opts = {}) {
+    Object.assign(session._defaults, opts);
+    return session;
+  };
 
   session._clientName = name;
   session._impersonate = impersonate;
