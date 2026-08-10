@@ -363,10 +363,10 @@ function verifyRuyiRuntimeCandidate(label, executablePath) {
   return ret;
 }
 
-function runtimePathFromRuyiPage(pkg, args) {
+function runtimePathFromRuyiPage(pkg, args, installDir) {
   if (!pkg.packageInstalled) return { defaultRuntimePath: '', defaultRuntimePathExists: false, pathCommandOk: false, pathCommandOutput: '', pathCommandError: '' };
   const pathArgs = ['-m', 'ruyipage', 'path'];
-  if (args.ruyiPageInstallDir) pathArgs.push('--install-dir', args.ruyiPageInstallDir);
+  if (installDir) pathArgs.push('--install-dir', installDir);
   const pathRet = run(pkg.python, pkg.pythonArgsPrefix.concat(pathArgs), 20000);
   const lines = (pathRet.stdout || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   const last = lines.length ? lines[lines.length - 1] : '';
@@ -380,10 +380,10 @@ function runtimePathFromRuyiPage(pkg, args) {
   };
 }
 
-function ruyiPageDoctor(pkg, args) {
+function ruyiPageDoctor(pkg, args, installDir) {
   if (!pkg.packageInstalled) return { doctorOk: false, doctorJsonOk: false, doctorOutput: '', doctorJson: null };
   const baseArgs = ['-m', 'ruyipage', 'doctor'];
-  if (args.ruyiPageInstallDir) baseArgs.push('--install-dir', args.ruyiPageInstallDir);
+  if (installDir) baseArgs.push('--install-dir', installDir);
   const jsonRet = run(pkg.python, pkg.pythonArgsPrefix.concat(baseArgs, ['--json']), 20000);
   let doctorJson = null;
   try { doctorJson = JSON.parse((jsonRet.stdout || '').replace(/^\uFEFF/, '')); } catch { doctorJson = null; }
@@ -394,10 +394,17 @@ function ruyiPageDoctor(pkg, args) {
 
 function detectRuyiPage(args) {
   const pkg = detectRuyiPagePackage(args.python);
-  const defaultPath = runtimePathFromRuyiPage(pkg, args);
-  const doctor = ruyiPageDoctor(pkg, args);
-  const checks = [];
+  // 多版本 runtime 并存时（如 151-ruyi 旧版 + 155 新版），按 Firefox 主版本号降序选最新
+  const pickLatest = (list) => {
+    if (!list.length) return null;
+    const rank = (c) => {
+      const m = /firefox[-_]?(\d+)(?:\.\d+)*[a-z]?/i.exec((c.runtimeAsset || '') + ' ' + (c.runtimeVersion || '') + ' ' + path.basename(c.installRoot || ''));
+      return m ? parseInt(m[1], 10) : 0;
+    };
+    return list.slice().sort((a, b) => rank(b) - rank(a))[0];
+  };
 
+  const checks = [];
   if (args.ruyiPageBrowserPath) {
     checks.push(verifyRuyiRuntimeCandidate('用户指定 --ruyipage-browser-path', args.ruyiPageBrowserPath));
   }
@@ -407,14 +414,24 @@ function detectRuyiPage(args) {
   if (process.env.RUYIPAGE_BROWSER_PATH) {
     checks.push(verifyRuyiRuntimeCandidate('环境变量 RUYIPAGE_BROWSER_PATH', process.env.RUYIPAGE_BROWSER_PATH));
   }
-  if (defaultPath.defaultRuntimePath) {
-    checks.push(verifyRuyiRuntimeCandidate('ruyiPage 默认解析路径（python -m ruyipage path）', defaultPath.defaultRuntimePath));
-  }
 
   for (const dir of getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir)) {
     for (const exe of scanInstallDir(dir)) {
       checks.push(verifyRuyiRuntimeCandidate(`managed runtime 扫描：${dir}`, exe));
     }
+  }
+
+  // 先确定实际生效的 managed runtime 目录，再让 ruyipage 的 path/doctor 检查同一目录：
+  // 不传 --install-dir 时 ruyipage 只查默认路径（AppData），项目 tools/ 内已装好的 runtime 会被误报"尚未安装"
+  const verified0 = checks.filter((c) => c.managedRuntimeVerified);
+  const explicitCheck0 = checks.find((c) => c.label.startsWith('用户指定')) || null;
+  const selected0 = explicitCheck0 && explicitCheck0.managedRuntimeVerified ? explicitCheck0 : pickLatest(verified0);
+  const installDir = args.ruyiPageInstallDir || (selected0 && selected0.installRoot ? path.dirname(selected0.installRoot) : '') || '';
+  const defaultPath = runtimePathFromRuyiPage(pkg, args, installDir);
+  const doctor = ruyiPageDoctor(pkg, args, installDir);
+
+  if (defaultPath.defaultRuntimePath) {
+    checks.push(verifyRuyiRuntimeCandidate('ruyiPage 默认解析路径（python -m ruyipage path）', defaultPath.defaultRuntimePath));
   }
 
   const dedupedChecks = [];
@@ -429,15 +446,6 @@ function detectRuyiPage(args) {
   const verified = dedupedChecks.filter(c => c.managedRuntimeVerified);
   const defaultCheck = dedupedChecks.find(c => c.label.startsWith('ruyiPage 默认解析路径')) || null;
   const explicitCheck = dedupedChecks.find(c => c.label.startsWith('用户指定')) || null;
-  // 多版本 runtime 并存时（如 151-ruyi 旧版 + 155 新版），按 Firefox 主版本号降序选最新
-  const pickLatest = (list) => {
-    if (!list.length) return null;
-    const rank = (c) => {
-      const m = /firefox[-_]?(\d+)(?:\.\d+)*[a-z]?/i.exec((c.runtimeAsset || '') + ' ' + (c.runtimeVersion || '') + ' ' + path.basename(c.installRoot || ''));
-      return m ? parseInt(m[1], 10) : 0;
-    };
-    return list.slice().sort((a, b) => rank(b) - rank(a))[0];
-  };
   const selected = explicitCheck && explicitCheck.managedRuntimeVerified ? explicitCheck
     : (defaultCheck && defaultCheck.managedRuntimeVerified ? defaultCheck : pickLatest(verified));
   const defaultIsSystemFallback = !!defaultCheck && !!defaultCheck.executable && !defaultCheck.managedRuntimeVerified;

@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.1.3
+version: 2.1.4
 description: >
   网页端 JS 逆向工程技能：逆向还原浏览器请求中的加密参数、签名、token、cookie 与设备指纹。
   适用于 sign/a_bogus/X-Bogus/acw_sc__v2/hexin-v/FSSBBIl1UgzbN7N/_token 等各类动态参数的生成逻辑分析，
@@ -744,6 +744,7 @@ ruyipage runtime、RuyiTrace 均来自 GitHub。本机若处于代理 / 透明�
 
 | 版本 | 摘要 |
 |------|------|
+| 2.1.4 | 环境检测修复：`check_external_tools.js` 的 ruyipage path/doctor 命令原本不传 `--install-dir`，只查 ruyipage 默认路径（AppData），项目 `tools/ruyipage-browsers/` 内已装好的 runtime 被误报"尚未安装"；现自动把已验证 managed runtime 目录回传给 `--install-dir`，path/doctor 检查真实在用的 runtime，不再误报，结论由"可使用但需显式指定"变为"可使用" |
 | 2.1.3 | 修正 2.1.2 卡死修复方案（实测确认）：根因是 `capture.stop()` 对每个包做 2 次 BiDi get_data RPC（共 2N 次），京东 234 包即数百次 RPC、浏览器繁忙时拖到数百秒；改为**不调 stop()**——metadata 用 `steps` 快照零 RPC 读取，body 仅对 JS 文件 / 目标命中包按需拉取；`page.get` 传 `wait="eager"` 是无效 BiDi 值（导航失败、抓 0 包），改为 `wait="interactive"`；已实测京东：234 包、pc_home_feed 命中、35 个 JS 落盘，数十秒完成不卡死 |
 | 2.1.2 | ruyiPage 取证防卡死：定位 `capture.stop()` 逐包拉 body 时对拿不到 body 的 GET 请求做页面内 fetch replay（15s/个），京东等大页面会拖到数百秒；脚本内置防挂补丁（禁用 replay + body 超时 10s→1s）、`capture.stop` 守护线程硬超时（`--stop-timeout` 默认 15s）、`page.get` 改用 eager 等待（不等 load complete）；JS body 缺失不写空文件并标记 `body_missing` |
 | 2.1.1 | ruyiPage 取证完成判定优化：指定 `--targets` 时目标接口命中即停，未指定时网络静默即停（包数不再增长且连续 `--settle` 秒无新包）；`page.get` 因长轮询超时不再中断取证（已捕获包照常落盘），报告新增 `getTimedOut` 标记与 `=== FORENSIC DONE ===` 完成信号；明确脚本同步阻塞——调用方须等返回后读 `case/forensic/capture.json`，不得运行期间轮询"仍在运行"占位提示；`resolve_browser` 兜底扫描 `tools/ruyipage-browsers/` managed runtime |
