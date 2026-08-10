@@ -39,5 +39,5 @@ node scripts/search_cases.js a_bogus --json
 2. 补全头部元数据块：难度、还原方案、实现语言、最后验证日期、平台类型。
 3. 填写 5 个标准段（**缺一不可**）：技术指纹、加密方案、踩坑记录、可验证事实清单、相关参考。
 4. 在“可验证事实清单（经验资产）”段列出 5-15 条最小可验证事实。
-5. 只在 `index.json` 新增对应记录，确保 `domains`、`signals`、`strategy`、`file`、`verifiedAt` 与案例正文一致。
+5. 只在 `index.json` 新增对应记录，确保 `domains`、`signals`、`strategy`、`file`、`verifiedAt` 与案例正文一致。骨架/方法论模板（非具体站点实证）须加 `"kind": "template"` 标记，与实证案例区分。
 6. 使用 `search_cases.js` 按域名和核心信号检索，确认新记录可被命中且目标文件存在。

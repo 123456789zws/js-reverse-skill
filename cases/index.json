@@ -31,6 +31,7 @@
       "signals": ["while-switch", "dispatcher", "case_count", "hot_keys", "hot_methods", "JSVMP", "VMP"],
       "strategy": "源码级插桩：识别 dispatcher 循环并采集 hot_keys/hot_methods，以运行时证据定位签名路径",
       "file": "universal-vmp-source-instrumentation.md",
+      "kind": "template",
       "verifiedAt": "2026-04-17"
     },
     {
@@ -39,6 +40,7 @@
       "signals": ["custom MD5", "modified MD5", "eval", "obfuscation", "non-standard digest", "vm sandbox"],
       "strategy": "B vm 沙箱执行：提取最小算法闭包，在 vm.createContext 中补齐必要依赖并直接调用原始算法",
       "file": "vm-sandbox-custom-algo.md",
+      "kind": "template",
       "verifiedAt": "2026-07-11"
     },
     {
