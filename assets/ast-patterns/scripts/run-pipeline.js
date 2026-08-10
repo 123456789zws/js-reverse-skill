@@ -93,6 +93,7 @@ function main() {
     if (outcome.status !== "ok") {
       report.status = outcome.status;
       report.failedStep = step.id;
+      process.exitCode = 1;
       break;
     }
     currentPath = nextPath;

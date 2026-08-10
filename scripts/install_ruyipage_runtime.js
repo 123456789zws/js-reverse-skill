@@ -6,7 +6,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 function parseArgs(argv) {
-  const args = { python: 'python', installDir: '', install: false, installPackage: false, json: false, markdown: false };
+  const args = { python: 'python', installDir: '', install: false, installPackage: false, json: false, markdown: false, help: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     const nextVal = (fb) => (i + 1 < argv.length && typeof argv[i + 1] === 'string' && !argv[i + 1].startsWith('-')) ? argv[++i] : fb;
@@ -181,6 +181,7 @@ try {
   const result = args.help ? { help: usage() } : main();
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(renderMarkdown(result));
+  if (!result.help && !result.success) process.exitCode = 1;
 } catch (err) {
   console.error(err.message || String(err));
   console.error(usage());
