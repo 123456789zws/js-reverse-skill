@@ -372,7 +372,7 @@ async function capture(args, plan) {
           everSeen = true;
         } else if (everSeen) {
           result.exitedEarly = true;
-          logger.info('检测到浏览器已关闭，提前结束采集（已用时 %ss）', Math.round((Date.now() - startedAt) / 1000));
+          console.log(`[capture] 检测到浏览器已关闭，提前结束采集（已用时 ${Math.round((Date.now() - startedAt) / 1000)}s）`);
           break;
         }
       }

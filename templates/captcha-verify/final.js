@@ -165,12 +165,15 @@ async function runOnce(config, cookieStr) {
   const jar = new CookieJar();
   session.defaults({ jar });
 
-  const loadResult = await loadChallenge(session, config);
-  const answer = await solveCaptcha(session, config, loadResult);
-  const credential = await verifyChain(session, config, loadResult, answer);
-  const bizResult = await callBusinessApi(session, config, credential);
-
-  return { answer, credential, bizResult };
+  try {
+    const loadResult = await loadChallenge(session, config);
+    const answer = await solveCaptcha(session, config, loadResult);
+    const credential = await verifyChain(session, config, loadResult, answer);
+    const bizResult = await callBusinessApi(session, config, credential);
+    return { answer, credential, bizResult };
+  } finally {
+    if (session.close) session.close();
+  }
 }
 
 async function main() {
@@ -186,10 +189,14 @@ async function main() {
 
   if (args['sign-only']) {
     const session = await createRequestSession();
-    const loadResult = await loadChallenge(session, config);
-    const answer = await solveCaptcha(session, config, loadResult);
-    const encrypted = verifier.encryptVerifyParam(answer, loadResult);
-    console.log(JSON.stringify({ load: loadResult, answer, encrypted }, null, 2));
+    try {
+      const loadResult = await loadChallenge(session, config);
+      const answer = await solveCaptcha(session, config, loadResult);
+      const encrypted = verifier.encryptVerifyParam(answer, loadResult);
+      console.log(JSON.stringify({ load: loadResult, answer, encrypted }, null, 2));
+    } finally {
+      if (session.close) session.close();
+    }
     return;
   }
 

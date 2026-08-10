@@ -72,6 +72,32 @@ def load_config() -> dict:
             cfg = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         pass
+    defaults = {
+        "target": {
+            "page_url": "<目标页>",
+            "load_api": "<load/register 接口>",
+            "verify_api": "<verify 接口>",
+            "business_api": "<业务接口>",
+        },
+        "captcha": {
+            "provider": "geetest",
+            "captcha_type": "slider",
+            "gt_or_captcha_id": "<厂商标识>",
+        },
+        "solver": {
+            "mode": "ddddocr",
+            "platform": "",
+            "api_key": "",
+        },
+        "verify_count": 5,
+    }
+    # 浅合并顶层键，嵌套 dict 用 defaults 兜底
+    for key, val in defaults.items():
+        if key not in cfg:
+            cfg[key] = val
+        elif isinstance(val, dict) and isinstance(cfg[key], dict):
+            for sub_key, sub_val in val.items():
+                cfg[key].setdefault(sub_key, sub_val)
     return cfg
 
 
