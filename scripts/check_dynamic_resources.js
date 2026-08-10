@@ -133,7 +133,7 @@ function inspect(caseDir, args) {
   const problems = [];
   const warnings = [];
   const manifestPath = args.manifest ? path.resolve(args.manifest) : path.join(caseDir, 'notes', 'resource-manifest.json');
-  const resultDir = path.join(caseDir, 'result');
+  const resultDir = path.join(caseDir, '..', 'result');
   const snapshotsDir = path.join(caseDir, 'js', 'snapshots');
 
   const report = {

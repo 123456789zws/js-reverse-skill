@@ -241,8 +241,8 @@ function compareTargetRecords(browser, nodeAudit, problems) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || '.');
-  const root = path.resolve(args.dir || path.join(caseDir, 'result'));
+  const caseDir = path.resolve(args.caseDir || 'case');
+  const root = path.resolve(args.dir || path.join(caseDir, '..', 'result'));
   const matrixPath = path.resolve(args.matrix || path.join(caseDir, 'notes', 'object-shape-audit.md'));
   const browserPath = path.resolve(args.browserBaseline || path.join(caseDir, 'fixtures', 'browser-object-shape-baseline.json'));
   const nodeAuditPath = path.resolve(args.nodeAudit || path.join(caseDir, 'tmp', 'node-object-shape-audit.json'));

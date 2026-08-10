@@ -94,7 +94,7 @@ function evidenceFiles(caseDir) {
 }
 
 function scanCaseEvidence(caseDir) {
-  const resultDir = path.join(caseDir, 'result');
+  const resultDir = path.join(caseDir, '..', 'result');
   let hasBrowserEnv = false;
   let hasNetworkImpl = false;
   let networkEvidence = false;
@@ -236,7 +236,7 @@ function runJson(scriptDir, script, args) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || '.');
+  const caseDir = path.resolve(args.caseDir || 'case');
   const scriptDir = __dirname;
   const signals = scanCaseEvidence(caseDir);
   const trace = hasTraceEvidence(caseDir);
