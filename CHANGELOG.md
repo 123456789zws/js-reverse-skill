@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.4 - 2026-08-11
+
+### 修复
+- **phase-flow.md 版本号写死漏网**：2.3.3 修复 experience-rules.md 两处写死「SKILL.md 2.2.2」时，漏掉 `references/workflow/phase-flow.md:5` 的「SKILL.md 4.0」。改为「SKILL.md 状态机」与 experience-rules.md 一致，落实「references 文件不写死版本号」原则。
+- **第12节路由表漏指向**：2.3.2 修 experience-rules.md 漏指向时确立「references/ 下文件必须在第12节路由表有对应指向」原则，但仍有 19 个有实质内容且有明确触发条件的文件未指向（env/5、quality/8、network/4、hooks/2、workflow/3、tooling/1）。补齐后路由表覆盖全部 66 个 references 文件，AI 不再因「文件在但路由表没指」而漏读。captcha/ 下 12 个细分文件维持间接覆盖（"再按厂商、题型、轨迹或验证失败路由到具体文档"）。
+
+---
+
 ## 2.3.3 - 2026-08-11
 
 ### 修复

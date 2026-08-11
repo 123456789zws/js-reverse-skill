@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.3
+version: 2.3.4
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -311,19 +311,22 @@ node scripts/check_final_artifact.js --case-dir <project-root> --production --ma
 
 | 当前需要 | 首选 reference |
 |---|---|
-| 任务分流、阶段安排、常见坑、经验法则 | `references/workflow/decision-tree.md`、`phase-flow.md`、`common-pitfalls.md`、`experience-rules.md` |
-| 案例搜索与版本复用 | `cases/index.json`、`scripts/search_cases.js`，命中后才读对应 case |
+| 任务分流、阶段安排、常见坑、经验法则、场景速查、信息收集 | `references/workflow/decision-tree.md`、`phase-flow.md`、`scenario-quickref.md`、`common-pitfalls.md`、`experience-rules.md`、`references/quality/intake-template.md` |
+| 案例搜索与版本复用、SDK 升级适配 | `cases/index.json`、`scripts/search_cases.js`，命中后才读对应 case；`references/workflow/version-adaptation.md` |
 | 加密入口和算法识别 | `references/crypto/crypto-entry.md`、`crypto-patterns.md`、`algorithm-families.md` |
 | 混淆与 AST | `references/deobfuscation/obfuscation-identify.md`、`assets/ast-patterns/` |
-| 浏览器环境与对象模型 | `references/env/env-object-model.md`、`env-debug-loop.md`、`env-detect-bypass.md` |
+| 浏览器环境、对象模型、真实性保护与 native 缺口 | `references/env/env-object-model.md`、`env-debug-loop.md`、`env-detect-bypass.md`、`env-native-protection.md`、`native-capability-gap.md`、`object-shape-private-state.md`、`runtime-frameworks.md`、`webapi-env-detection-matrix.md` |
 | iframe、Worker 或移动 H5 | `references/env/env-iframe.md`、`mobile-h5-env.md`、`references/workflow/worker-signing.md` |
 | WASM | `references/env/env-wasm.md`，遇到 import、memory 或 streaming 再读 `env-wasm-advanced.md` |
-| TLS、Cookie、Session、动态资源 | `references/network/tls-validation.md`、`session-chain.md`、`cookie-generation.md`、`dynamic-resource.md` |
+| TLS、Cookie、Session、动态资源、协议分析、WebSocket | `references/network/tls-validation.md`、`session-chain.md`、`cookie-generation.md`、`dynamic-resource.md`、`protocol-analysis.md`、`websocket-signing.md` |
 | XHR/fetch 语义或会话桥接 | `references/network/xhr-fetch-semantics-audit.md`、`xhr-fetch-session-bridge.md` |
+| IP 风控与静默失败诊断 | `references/network/ip-risk-control.md`、`node-leakage.md` |
 | 指纹一致性和信任判断 | `references/fingerprint/fingerprint-baseline-consistency.md`、`trust-matrix.md`、`fingerprint-value-replay.md` |
+| 高强度检测排查与 trace 一致性 | `references/quality/high-strength-detection.md`、`trace-api-coverage.md`、`trace-runtime-conformance.md` |
+| 反调试对抗与 Hook 模板 | `references/hooks/anti-debug.md`、`hook-templates.md` |
 | 验证码 | 先读 `references/captcha/captcha-overview.md`，再按厂商、题型、轨迹或验证失败路由到具体文档 |
-| 交付、验证和清理 | `references/quality/delivery-templates.md`、`validation.md`、`cleanup.md`、`final-summary.md` |
-| 调试与工具获取 | `references/debug/debug-playbook.md`、`references/tooling/ruyi-tooling.md` |
+| 交付、验证、清理与代码规范 | `references/quality/delivery-templates.md`、`validation.md`、`cleanup.md`、`final-summary.md`、`code-style.md`、`code-change-memory.md`、`stage-reports.md`、`trusted-input.md` |
+| 调试、取证流程与工具获取 | `references/debug/debug-playbook.md`、`references/workflow/trace-flow.md`、`references/tooling/ruyi-tooling.md`、`browser-acquisition.md` |
 
 目录、脚本和模板的具体参数以当前文件和实际脚本 `--help` 输出为准。若 reference 与本文件冲突，以本文件的状态机、真实 API 验证规则和纯协议红线为准。
 

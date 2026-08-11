@@ -2,7 +2,7 @@
 
 > **触发条件**：执行某个状态、不确定具体怎么做时读
 >
-> 本文档是 SKILL.md 4.0 唯一启动状态机 INTENT_CONFIRM → ENV_READY → EVIDENCE_GATE → CASE_LOOKUP → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE 的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
+> 本文档是 SKILL.md 状态机 INTENT_CONFIRM → ENV_READY → EVIDENCE_GATE → CASE_LOOKUP → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE 的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
 
 ## INTENT_CONFIRM、ENV_READY 与 EVIDENCE_GATE
 
