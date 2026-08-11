@@ -80,7 +80,7 @@ const MIRROR_CANDIDATES = [
 
 // 镜像连通性测试路径候选：优先用最新 release asset，旧版作后备（历史 release 可能被作者清理）
 const MIRROR_TEST_PATHS = [
-  'https://github.com/LoseNine/ruyipage/releases/download/v1.2.57/firefox-155.0a1.en-US.win64-20260801.zip',
+  'https://github.com/LoseNine/ruyipage/releases/download/v1.2.58/firefox-155.0a1.en-US.win64-20260803.zip',
   'https://github.com/LoseNine/ruyipage/releases/download/151-ruyi/firefox-151.0a1.en-US.win64.zip',
 ];
 
