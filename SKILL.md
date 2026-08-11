@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.1
+version: 2.3.2
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -293,6 +293,12 @@ node scripts/check_code_quality.js --case-dir <project-root> --markdown
 
 `check_final_artifact.js` 默认检查这两个文档是否存在，失败必须修复后重跑。仅当用户明确要求不生成时，传 `--no-require-final-summary` 或 `--no-require-experience` 豁免，并在输出中记录原因。
 
+用户要求"生产级交付"时追加 `--production` 模式，校验最终总结的 9 个生产级附加章节（NativeProtect / 指纹基线 / API 调用回放 / 高强度检测矩阵 / Session 请求链 / 加密参数生成与样本复用检查 / 代码质量与中文注释 / 清理结果 / 阶段报告索引）。默认只跑默认门禁，生产级交付场景才追加：
+
+```powershell
+node scripts/check_final_artifact.js --case-dir <project-root> --production --markdown
+```
+
 失败必须修复后重跑。清理 `case/tmp/` 中的调试脚本、临时下载和秘密材料；保留可复核的最小证据、脱敏样本和必要 fixture。不要创建无意义的测试文件或重复文档。
 
 轻量路径交付（经 `EXTERNAL_LOOKUP` 未做 trace 取证即通过真实验证）必须在 `最终项目总结.md` 标注：算法来源 URL、验证日期、未做 trace 取证声明。这样后续失效时能快速定位是社区方案过时还是本次实现问题。
@@ -305,7 +311,7 @@ node scripts/check_code_quality.js --case-dir <project-root> --markdown
 
 | 当前需要 | 首选 reference |
 |---|---|
-| 任务分流、阶段安排、常见坑 | `references/workflow/decision-tree.md`、`phase-flow.md`、`common-pitfalls.md` |
+| 任务分流、阶段安排、常见坑、经验法则 | `references/workflow/decision-tree.md`、`phase-flow.md`、`common-pitfalls.md`、`experience-rules.md` |
 | 案例搜索与版本复用 | `cases/index.json`、`scripts/search_cases.js`，命中后才读对应 case |
 | 加密入口和算法识别 | `references/crypto/crypto-entry.md`、`crypto-patterns.md`、`algorithm-families.md` |
 | 混淆与 AST | `references/deobfuscation/obfuscation-identify.md`、`assets/ast-patterns/` |

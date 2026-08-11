@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.2 - 2026-08-11
+
+### 修复
+- **经验法则路由丢失**：`references/workflow/experience-rules.md` 文件一直在，但 2.2.0 重构后第 12 节路由表未指向它，AI 不知道有此文件可读。第 12 节「任务分流、阶段安排、常见坑」行追加 `experience-rules.md`。
+- **生产级交付门禁说明丢失**：`check_final_artifact.js --production` 模式一直在（校验 9 个生产级附加章节），但 2.2.0 重构后第 11 节未说明此模式。第 11 节恢复 `--production` 说明及命令。
+
+---
+
 ## 2.3.1 - 2026-08-11
 
 ### 修复
