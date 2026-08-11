@@ -1,8 +1,12 @@
 ---
 name: js-reverse-skill
-version: 2.2.3
+version: 2.3.0
 description: >
-  网页端 JavaScript 请求参数逆向与纯协议还原。分析网页签名、Cookie/Token、设备指纹、混淆、WASM、JSVMP、验证码 verify 或 Session/TLS 请求链时触发，覆盖桌面网页、移动 H5 与内置浏览器，交付 Node.js/Python 实现。不用于 App、小程序、桌面程序及 Native 逆向；JSVMP 默认黑盒执行或最小环境复现。
+  网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
+  cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
+  obfuscator.io、JSVMP 黑盒补环境、WASM 加密、TLS 指纹模拟、Session 请求链、验证码 verify、
+  反爬风控对抗等场景。覆盖桌面网页、移动 H5 与内置浏览器，交付 Node.js/Python 实现。
+  不用于 App、小程序、桌面程序及 Native 逆向；JSVMP 默认黑盒执行或最小环境复现。
 argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 ---
 
@@ -62,11 +66,18 @@ EVIDENCE_GATE
   └─ 两步均缺失 → FORENSIC_CAPTURE
 STEP2_ONLY → CASE_LOOKUP
 FORENSIC_CAPTURE → TRACE_CAPTURE → CASE_LOOKUP
-CASE_LOOKUP → IDENTIFY → TRACE_ANALYZE → IMPLEMENT
+CASE_LOOKUP
+  ├─ 本地命中且时效校验通过 → IDENTIFY
+  └─ 本地未命中 → EXTERNAL_LOOKUP
+EXTERNAL_LOOKUP
+  ├─ 搜到方案且算法可读 → IMPLEMENT（方案作为假设）
+  └─ 搜不到 / 算法黑盒 → FORENSIC_CAPTURE
+IDENTIFY → TRACE_ANALYZE → IMPLEMENT
 IMPLEMENT → REAL_VERIFY
 REAL_VERIFY
   ├─ 默认真实验证通过 → DELIVER
-  ├─ 验证失败 → DIAGNOSE → IMPLEMENT
+  ├─ 验证失败 + 已有 trace → DIAGNOSE → IMPLEMENT
+  ├─ 验证失败 + 无 trace（轻量路径）→ FORENSIC_CAPTURE
   └─ 用户明确 sign-only → SIGN_ONLY_DELIVER
 DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 ```
@@ -145,11 +156,23 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 
 用户已提供 NDJSON 时，导入并生成摘要，不重复采集。取证结果只进入 `case/`，原始 JS 放入 `case/js/original/`，临时材料放入 `case/tmp/`。
 
-### 4.4 状态记录
+### 4.4 EXTERNAL_LOOKUP：网络方案搜索
+
+`CASE_LOOKUP` 本地未命中时，搜索网络已有方案作为假设来源。这是信息收集层，不替代本次证据。
+
+搜索目标：目标域名 + 参数名 + "逆向/签名/加密"等关键词，优先开源仓库和技术博客。
+
+判定规则：
+- 算法逻辑可读（开源代码或可读伪代码，非黑盒库调用）→ 方案作为假设进入 `IMPLEMENT`
+- 算法黑盒、来源不可信或搜不到 → 进入 `FORENSIC_CAPTURE` 完整取证
+
+网络方案的性质是未验证假设。`IMPLEMENT` 后必须走 `REAL_VERIFY`，验证失败时若当前为轻量路径（无 trace），强制升级到 `FORENSIC_CAPTURE`，不回 `EXTERNAL_LOOKUP` 继续试方案——方案失败说明过时或不适用，继续试是浪费。
+
+### 4.5 状态记录
 
 每次状态转换都在当前会话中记录：当前状态、进入依据、已完成证据、下一状态和阻塞项。续接时以最新阶段报告、环境快照和磁盘产出共同判断，不凭对话记忆直接跳转。
 
-状态失败时停留在当前节点：范围缺失回到 `INTENT_CONFIRM`，环境异常回到 `ENV_READY`，证据不足回到 `EVIDENCE_GATE`，验证失败进入 `DIAGNOSE`。不得为了推进而把失败标记为通过。
+状态失败时停留在当前节点：范围缺失回到 `INTENT_CONFIRM`，环境异常回到 `ENV_READY`，证据不足回到 `EVIDENCE_GATE`，验证失败按已有 trace 与无 trace 两条路径处理（见状态机）。不得为了推进而把失败标记为通过。
 
 ## 5. CASE_LOOKUP：案例按需搜索
 
@@ -167,7 +190,7 @@ node scripts/search_cases.js <关键词...> --json
 2. 有 sha256 或资源清单时，内容是否一致。
 3. 参数名称、长度、写入位置和请求链是否一致。
 
-三项全一致才可复用算法细节；否则案例降级为方法论参考。未命中时直接走标准流程，新的经验只写入当前任务 `result/`，不修改 skill 仓库的 `cases/`。
+三项全一致才可复用算法细节；否则案例降级为方法论参考。未命中时进入 `EXTERNAL_LOOKUP` 搜索网络方案，新的经验只写入当前任务 `result/`，不修改 skill 仓库的 `cases/`。
 
 ## 6. 范围与环境复核
 
@@ -264,6 +287,8 @@ node scripts/check_code_quality.js --case-dir <project-root> --markdown
 ```
 
 失败必须修复后重跑。清理 `case/tmp/` 中的调试脚本、临时下载和秘密材料；保留可复核的最小证据、脱敏样本和必要 fixture。不要创建无意义的测试文件或重复文档。
+
+轻量路径交付（经 `EXTERNAL_LOOKUP` 未做 trace 取证即通过真实验证）必须在 `最终项目总结.md` 标注：算法来源 URL、验证日期、未做 trace 取证声明。这样后续失效时能快速定位是社区方案过时还是本次实现问题。
 
 卡住时按顺序处理：重新查看本次证据、运行 trace 覆盖检查、比较请求字段、定位中间值、缩小环境、再升级沙箱或 TLS 路径。最后输出卡点、已证实事实、缺失证据和下一步输入，不用浏览器自动化代替协议实现。
 
