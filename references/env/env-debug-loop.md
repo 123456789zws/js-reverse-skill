@@ -80,7 +80,7 @@
 2. 如果尚未导入，先执行：
 
    ```bash
-   node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --markdown
+   node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown
    ```
 
 3. 先阅读 `case/notes/ruyitrace-summary.md`，再按需过滤原始 NDJSON。

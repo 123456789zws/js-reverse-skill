@@ -1,7 +1,7 @@
 # 信息收集模板
 
 > **输入方式**：
-> - 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实存在，门禁通过后从包中提取信息，跳过 FORENSIC_CAPTURE ruyipage 抓包
+> - 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实存在，门禁通过后从包中提取信息，跳过 FORENSIC_CAPTURE ruyipage 抓包
 > - 用户只提供 URL + 参数名 → FORENSIC_CAPTURE ruyipage 自动抓包获取其余信息；**URL 不是取证材料，不能作为跳过 trace 的证据**
 >
 > 本模板用于用户主动补充信息或 skill 抓包后确认信息时使用。
@@ -25,7 +25,7 @@
 
 > ⚠️ **URL ≠ 证据**：目标页 URL、接口 URL、JS 文件 URL 都只是"目标地址"，不是取证材料。仅提供 URL 时必须走完整两步取证（ruyipage 网络取证 + RuyiTrace 日志采集），禁止以"用户提供了证据"为由跳过 trace。
 >
-> 所有"用户已提供材料"的判定，必须先用 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径,逗号分隔> --markdown` 验证文件真实存在，并以脚本输出的可跳过步骤为准。
+> 所有"用户已提供材料"的判定，必须先用 `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <材料路径,逗号分隔> --markdown` 验证文件真实存在，并以脚本输出的可跳过步骤为准。
 
 从包中直接提取：目标 API、请求方法、参数位置、成功请求样本、响应特征、JS 文件 URL。跳过 FORENSIC_CAPTURE 抓包，但仍需下载 JS 文件识别反爬类型。
 
@@ -110,6 +110,6 @@ skill 根据 FORENSIC_CAPTURE 抓包结果 + JS 文件特征自动判断：
 
 ## 阻断项（以下情况必须暂停）
 
-- 未确认授权：不得尝试绕过登录、验证码、MFA
+- 需要登录态：抓包遇到登录/验证码/MFA 时暂停，要求用户手动登录或补充请求包，不绕过登录验证
 - 未确认目标参数：skill 列出可疑参数后用户未确认，不得只盯单一参数进入补环境
 - 工具不可用：选了 RuyiTrace 但未安装，暂停让用户安装或降级

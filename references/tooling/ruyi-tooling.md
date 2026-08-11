@@ -363,7 +363,7 @@ node scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir <project
 该命令内部调用 `import_ruyitrace_log.js`：把日志复制到 `case/ruyi-trace/logs/`、生成 `notes/ruyitrace-summary.md`、检查长字段截断风险。如需调整截断阈值，直接使用导入脚本：
 
 ```bash
-node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
+node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --truncation-threshold 3900 --markdown
 ```
 
 高级手动启动方式仅在用户理解环境变量时使用：
@@ -396,7 +396,7 @@ RuyiTrace NDJSON 适合作为高保真环境访问日志，但长字符串字段
 - 导入 NDJSON 时必须运行带截断检测的脚本，默认阈值为 3900：
 
 ```bash
-node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir case --truncation-threshold 3900 --markdown
+node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --truncation-threshold 3900 --markdown
 ```
 
 - 任何字符串字段长度达到或接近阈值时，统一标记：

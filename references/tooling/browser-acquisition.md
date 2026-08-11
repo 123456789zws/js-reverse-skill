@@ -27,7 +27,7 @@
 | ruyiPage + RuyiTrace | ruyiPage 做 Firefox/BiDi 自动化取证，RuyiTrace 采集内核层 NDJSON 环境日志 | 默认推荐，高风控、需要补环境日志时首选 |
 | 用户手动取证 | 用户提供 cURL、HAR、JS 文件、调用栈截图、RuyiTrace 日志（**必须是真实存在的文件，URL 不算材料**） | 用户不允许自动化或需要真实登录态时 |
 
-> ⚠️ **URL ≠ 证据**：仅提供目标 URL / 接口 URL / JS URL 不构成任何取证材料，仍须走完整两步取证。用户手动提供材料时，先用 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证文件真实存在，并以门禁输出的可跳过步骤为准（cURL/HAR/JS 只能跳过 Step 1；Step 2 RuyiTrace 日志采集需 NDJSON 才能跳过）。
+> ⚠️ **URL ≠ 证据**：仅提供目标 URL / 接口 URL / JS URL 不构成任何取证材料，仍须走完整两步取证。用户手动提供材料时，先用 `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <材料路径> --markdown` 验证文件真实存在，并以门禁输出的可跳过步骤为准（cURL/HAR/JS 只能跳过 Step 1；Step 2 RuyiTrace 日志采集需 NDJSON 才能跳过）。
 
 用户未选择前，不要启动 ruyiPage、RuyiTrace、Playwright 或 Puppeteer；同样禁止使用 chrome-devtools 类 MCP、agent-browser / browser 类 skill、系统 Chrome / Firefox / Edge 打开目标站，或用 requests / curl 直接抓取目标站 JS——这些不属于任何合法取证模式（见 SKILL.md 红线 3 取证禁用清单）。
 

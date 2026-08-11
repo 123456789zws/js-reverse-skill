@@ -2,12 +2,12 @@
 
 > **触发条件**：执行某个状态、不确定具体怎么做时读
 >
-> 本文档是 SKILL.md 状态机 INTENT_CONFIRM → ENV_READY → EVIDENCE_GATE → CASE_LOOKUP → IDENTIFY → TRACE_ANALYZE → IMPLEMENT → REAL_VERIFY → DELIVER → CLEANUP → DONE 的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
+> 本文档是 SKILL.md 状态机（含 FORENSIC_CAPTURE、TRACE_CAPTURE、STEP2_ONLY、EXTERNAL_LOOKUP、DIAGNOSE、SIGN_ONLY_DELIVER 等分支状态）的展开。所有 case 统一走 ruyipage 网络取证（Step 1）+ RuyiTrace 日志采集（Step 2）两步。
 
 ## INTENT_CONFIRM、ENV_READY 与 EVIDENCE_GATE
 
 ### 0.1 任务理解
-- 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <case> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实性，门禁通过后从包中提取信息，跳过 FORENSIC_CAPTURE ruyipage 抓包，直接进入参数识别（**仍必须完成 TRACE_CAPTURE RuyiTrace 日志采集，除非用户提供了 NDJSON**）
+- 用户提供 cURL/HAR/JS 文件 → 先运行 `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <材料路径> --markdown` 验证材料真实性，门禁通过后从包中提取信息，跳过 FORENSIC_CAPTURE ruyipage 抓包，直接进入参数识别（**仍必须完成 TRACE_CAPTURE RuyiTrace 日志采集，除非用户提供了 NDJSON**）
 - 用户只提供 URL + 参数名（无任何取证文件）→ 走完整 FORENSIC_CAPTURE ruyipage 抓包 + TRACE_CAPTURE RuyiTrace 日志采集；**URL 不是证据，禁止以"用户提供了证据"跳过 trace**
 - 两种情况下都需下载目标 JS 文件用于识别反爬类型
 

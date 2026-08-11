@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2.3.5 - 2026-08-11
+
+### 修复
+- **B 组脚本 --case-dir 参数错误（8 处）**：2.2.1 统一 A/B 组脚本语义时只改了触发问题的 trace-flow.md，同类错误在 7 个文件 8 处遗留。check_evidence.js（5 处）和 import_ruyitrace_log.js（3 处）的 `--case-dir` 应传 `<project-root>`，原文误填 `<case>`/`case` 会被解析成 `case/case/...` 路径错误。涉及 phase-flow.md、decision-tree.md、intake-template.md、browser-acquisition.md、env-debug-loop.md、ruyi-tooling.md。
+- **旧授权阻断项残留（2 处）**：2.2.3 清理"未确认授权"阻断项时只清了 phase-flow.md，intake-template.md:113 和 decision-tree.md:25 两处残留，与第 1 节「默认已授权」冲突。改为「需要登录态：暂停要求用户手动登录或补充请求包」，去掉"授权"措辞。
+- **validation.md 取证模式必填（3 处）**：测试 1/2/4 把"取证模式"列为用户必填字段，与状态机 EVIDENCE_GATE 自动判定冲突（且与同文件测试 7 矛盾）。去掉"取证模式"必填要求。
+- **decision-tree 阻塞点 #1 旧模型残留**：阻塞点 #1「未确认取证模式」与状态机不符（INTENT_CONFIRM 不含取证模式选择，由 EVIDENCE_GATE 自动判定）。改为「未确认目标范围」。
+- **phase-flow 状态机链不全**：2.3.4 只改了版本号写死，未补全跳过的 6 个分支状态（FORENSIC_CAPTURE、TRACE_CAPTURE、STEP2_ONLY、EXTERNAL_LOOKUP、DIAGNOSE、SIGN_ONLY_DELIVER）。改为提"含分支状态"的表述，不重复 SKILL.md 完整状态机图。
+
+### 待后续处理（P2）
+- 术语「环境伪装」vs「环境复现」分裂：涉及 cases/index.json 机器检索字段，全量替换风险高，需单独评估。
+- 3 处内容冗余重复（截断保护/反爬识别/路径矩阵）：需合并大段内容，可能丢失细节，需谨慎设计。
+
+---
+
 ## 2.3.4 - 2026-08-11
 
 ### 修复
