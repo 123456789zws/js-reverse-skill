@@ -40,6 +40,8 @@ skill 根据 FORENSIC_CAPTURE 抓包结果 + JS 文件特征自动判断：
 - 响应码 412 循环 → 签名型补环境
 - JS 文件含 _0x 前缀 → 纯混淆（AST 反混淆后判断）
 
+详细识别标准见 `references/workflow/decision-tree.md`「反爬类型识别」。
+
 ### TLS 指纹客户端（自动选择，用户可覆盖）
 
 - 纯算无 TLS 检测：标准 fetch/requests

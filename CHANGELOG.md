@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2.3.6 - 2026-08-11
+
+### 优化
+- **术语统一**：路径 D 名称「环境复现」（SKILL.md:240、common-pitfalls.md:155）改为「环境伪装」，与 cases/index.json 机器检索字段及 references 全仓 40+ 处一致。保留「最小环境复现」固定搭配（泛指复现环境的动作，非路径 D 名称）。
+- **路径矩阵去冗余**：phase-flow.md 4.2 解法模式表与 decision-tree.md 模式选择矩阵近乎逐字重复，改为交叉引用 decision-tree.md，减少维护负担。
+- **反爬识别加交叉引用**：phase-flow.md 1.2、intake-template.md 反爬类型识别简表末尾补「详细识别标准见 decision-tree.md」，避免三处简表各自演进漂移。
+- **截断保护加同步提示**：trace-flow.md 与 ruyi-tooling.md 的「RuyiTrace 长字段截断保护」段近乎逐字重复，仿 native-protect.js 双副本模式各加同步提示，提醒修改任一处需同步另一处。
+
+---
+
 ## 2.3.5 - 2026-08-11
 
 ### 修复

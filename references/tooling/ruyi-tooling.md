@@ -389,6 +389,8 @@ set MOZ_DISABLE_LAUNCHER_PROCESS=1
 
 ## RuyiTrace 长字段截断保护
 
+> 本段与 `references/workflow/trace-flow.md` 同名段保持同步，修改任一处需同步另一处。
+
 RuyiTrace NDJSON 适合作为高保真环境访问日志，但长字符串字段可能因工具显示或记录限制被截断。典型风险是某个加密参数、长 token、长 Cookie、请求 body、dataURL 或大型对象序列化值真实长度为数万字符，但日志中只保留约 4000 字符。
 
 硬性规则：

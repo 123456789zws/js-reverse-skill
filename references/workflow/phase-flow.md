@@ -78,6 +78,8 @@ case 根目录只允许两个子目录：
 - JS 含 `_0x` 前缀/obfuscator.io → 纯混淆 → AST 反混淆后判断
 - JS <50KB + 标准 md5/aes 特征 → 纯算还原
 
+详细识别标准与动作见 `references/workflow/decision-tree.md`「反爬类型识别」。
+
 ### 1.3 加密参数识别
 对比多次请求，区分：
 | 参数类型 | 特征 | 处理方式 |
@@ -189,12 +191,7 @@ RuyiTrace NDJSON 狙击式采集:
 
 ### 4.2 解法模式（基于日志证据选择）
 
-| 模式 | 适用场景 | 模板 |
-|---|---|---|
-| A 纯算法还原 | 日志显示算法可完整提取 | `templates/node-request/` 或 `templates/python-request/` |
-| B vm 沙箱执行 | 日志显示服务端返回混淆 JS 生成 Cookie/Token | `templates/vm-sandbox/` |
-| C WASM 加载 | 日志显示加密逻辑在 WebAssembly 中 | `templates/wasm-loader/` |
-| D 环境伪装 | 日志显示 JSVMP 深度绑定环境指纹 | 见 `references/env/`（默认纯 vm，按需升级 sdenv） |
+模式选择矩阵（A 纯算 / B vm 沙箱 / C WASM / D 环境伪装及对应模板）详见 `references/workflow/decision-tree.md`「模式选择矩阵」，此处不重复。
 
 ### 4.3 补环境子流程（路径 D）
 基于 RuyiTrace NDJSON 证据补环境，详见 `references/env/` 目录下文档。

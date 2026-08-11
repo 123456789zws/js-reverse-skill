@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.5
+version: 2.3.6
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -237,7 +237,7 @@ node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown
 A. 纯算法：Node `crypto`、Python `hashlib`/成熟密码库和原始序列化规则。
 B. 最小 JS 沙箱：提取算法闭包，在隔离上下文中提供已证实需要的对象和函数。
 C. WASM：复现加载、内存、导入和导出调用，固定输入输出契约。
-D. 环境复现：仅补 trace 证明必要的 Web API、对象形状、Realm、时间、随机数和指纹行为。
+D. 环境伪装：仅补 trace 证明必要的 Web API、对象形状、Realm、时间、随机数和指纹行为。
 E. TLS/Session：对齐客户端指纹、连接复用、Cookie 顺序、重定向和动态资源预热。
 
 优先 Node 或 Python 中更容易保持协议一致的一侧。中间值必须可单独验证；时间、随机数、UA、指纹和会话状态必须有明确来源；静态配置外置，秘密从环境变量或用户运行时输入读取。
