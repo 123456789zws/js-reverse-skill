@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.0
+version: 2.3.1
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -286,6 +286,13 @@ node scripts/check_final_artifact.js --case-dir <project-root> --markdown
 node scripts/check_code_quality.js --case-dir <project-root> --markdown
 ```
 
+`最终项目总结.md` 与 `经验沉淀-<站点>.md` 是解题必需文档，不生成 = 任务未完成：
+
+- `最终项目总结.md`：模板见 `references/quality/final-summary.md`，默认 8 章
+- `经验沉淀-<站点>.md`：按 `cases/_template.md` 的 Part 2 格式，详见 `references/workflow/phase-flow.md`；写到 `result/`，不写 skill 的 `cases/`
+
+`check_final_artifact.js` 默认检查这两个文档是否存在，失败必须修复后重跑。仅当用户明确要求不生成时，传 `--no-require-final-summary` 或 `--no-require-experience` 豁免，并在输出中记录原因。
+
 失败必须修复后重跑。清理 `case/tmp/` 中的调试脚本、临时下载和秘密材料；保留可复核的最小证据、脱敏样本和必要 fixture。不要创建无意义的测试文件或重复文档。
 
 轻量路径交付（经 `EXTERNAL_LOOKUP` 未做 trace 取证即通过真实验证）必须在 `最终项目总结.md` 标注：算法来源 URL、验证日期、未做 trace 取证声明。这样后续失效时能快速定位是社区方案过时还是本次实现问题。
@@ -322,5 +329,6 @@ node scripts/check_code_quality.js --case-dir <project-root> --markdown
 - 请求链、动态字段和实现路径有本次证据支持。
 - 交付入口不依赖浏览器、不硬编码关键动态秘密。
 - 默认模式已完成不少于 5 次真实 API 请求并确认正确业务数据；或明确标记为 sign-only 且未冒充真实验证通过。
+- `最终项目总结.md` 与 `经验沉淀-<站点>.md` 已生成（或用户明确豁免）。
 - 交付检查和代码质量检查通过。
 - 临时文件已清理，产出内容可被普通开发者和其他 AI 直接理解。
