@@ -1,6 +1,6 @@
 # 经验法则详解（高级手动取证参考）
 
-> 本文件收集手动取证和高级调试场景下的经验法则，作为 RuyiTrace NDJSON 自动采集的补充。默认流程以 SKILL.md 2.2.2 状态机为准，使用统一脚本取证（`forensic_ruyipage.py` + `capture_ruyitrace_log.js`）；以下内容仅在自动采集不足、需要手动介入时参考。文中涉及的 ruyipage 交互式 API（`instrumentation`、`search_code`、`evaluate_js` 等）属于高级手动取证手段，不是默认路线。
+> 本文件收集手动取证和高级调试场景下的经验法则，作为 RuyiTrace NDJSON 自动采集的补充。默认流程以 SKILL.md 状态机为准，使用统一脚本取证（`forensic_ruyipage.py` + `capture_ruyitrace_log.js`）；以下内容仅在自动采集不足、需要手动介入时参考。文中涉及的 ruyipage 交互式 API（`instrumentation`、`search_code`、`evaluate_js` 等）属于高级手动取证手段，不是默认路线。
 
 ## 一、Hook 安装与入口确认
 
@@ -25,7 +25,7 @@ case 文件的价值随实战次数指数级增长：第一次分析某站点写
 绝大多数"想放弃"是踩了已知反模式。降级梯度必须逐级走：`instrumentation(mode="ast")` → 失败 → `mode="regex"` 覆盖率不足 → `hook_jsvmp_interpreter(mode="transparent")` 日志太少 → `mode="proxy"` 破坏签名 → 路径 D（jsdom 环境伪装）→ 也失败 → 向用户说明。每级至少尝试一次并记录失败原因。**示例**：AST 插桩失败常因严格 CSP，v0.6.0 的 `csp_bypass=True` 可自动绕过。回查 common-pitfalls.md 往往 10 分钟解决卡了 2 小时的问题，不要跳过这一步。
 
 ### 7. 命中案例后必须精读踩坑记录并转成检查项
-命中经验库后不能直接套用，必须按 SKILL.md 2.2.2 状态机正常走完整流程。IMPLEMENT 编码前逐条回查踩坑记录，将每条记录写成可核对的实现约束和验证项。**示例**：case 记录"该站点 cacheOpts 是新版 SDK 必传项，缺少会导致业务路径未注册、拦截器不触发"，则初始化代码必须传入 cacheOpts，并在验证清单中检查业务路径已注册（旧版只需 `bdms.paths`）。**反例**：只看 case 的算法部分就动手，漏了踩坑记录里的"预热请求注入动态密钥"，跳过 `/api2` 预热导致签名缺密钥。命中后第一步是通读 case 全文，把每条 pitfall 转成 checklist。
+命中经验库后不能直接套用，必须按 SKILL.md 状态机正常走完整流程。IMPLEMENT 编码前逐条回查踩坑记录，将每条记录写成可核对的实现约束和验证项。**示例**：case 记录"该站点 cacheOpts 是新版 SDK 必传项，缺少会导致业务路径未注册、拦截器不触发"，则初始化代码必须传入 cacheOpts，并在验证清单中检查业务路径已注册（旧版只需 `bdms.paths`）。**反例**：只看 case 的算法部分就动手，漏了踩坑记录里的"预热请求注入动态密钥"，跳过 `/api2` 预热导致签名缺密钥。命中后第一步是通读 case 全文，把每条 pitfall 转成 checklist。
 
 ## 三、JSVMP 路径选择
 
