@@ -100,6 +100,7 @@ function runCheckExternalTools(projectRoot, toolsBase, extraArgs) {
   const spawnArgs = [script, '--json'];
   if (extraArgs?.ruyitraceHome) spawnArgs.push('--ruyitrace-home', extraArgs.ruyitraceHome);
   if (extraArgs?.ruyitraceExe) spawnArgs.push('--ruyitrace-exe', extraArgs.ruyitraceExe);
+  if (toolsBase) spawnArgs.push('--project-dir', toolsBase);
   const ret = spawnSync(process.execPath, spawnArgs, {
     encoding: 'utf8',
     timeout: 60000,

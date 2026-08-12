@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.13
+version: 2.3.14
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -29,7 +29,7 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 确认: 用户确认范围后才继续推进
 
 ═══ GATE-2 环境自检（续接模式可跳过）═══
-运行: node scripts/check_external_tools.js --markdown
+运行: node scripts/check_external_tools.js --markdown --project-dir <project-root>
        node scripts/precheck_runtime.js
 判定: Node.js + ruyipage + ruyipage 定制 Firefox + RuyiTrace + trace Firefox 五项全过
 未过: 按 nextRequiredInput 计划安装（scripts/install_all.js），用户确认后才继续
@@ -164,7 +164,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 
 ```powershell
 node scripts/check_session_resume.js --case-dir <project-root> --markdown
-node scripts/check_external_tools.js --markdown
+node scripts/check_external_tools.js --markdown --project-dir <project-root>
 node scripts/precheck_runtime.js
 ```
 

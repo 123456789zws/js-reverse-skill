@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.14 - 2026-08-12
+
+### 修复
+- **安装模式下 `check_external_tools.js` 检测不到 RuyiTrace（2.3.8 修复盲区）**：实战 AI 按 GATE-2 命令模板 `cd skill安装目录 && node scripts/check_external_tools.js` 运行，`process.cwd()`=skill 安装目录（无 tools/，gitignore 不随分发）；`normalizeTraceHome` 两个候选 `cwd/tools` 与 `findProjectRoot()/tools` 撞车——skill 安装目录有 SKILL.md 导致 `findProjectRoot()` 第一段 `__dirname` 命中并 return，两个候选都指向 skill 安装目录下不存在的 `tools/`，RuyiTrace 无兜底直接失败（4/5）。2.3.8 的"cwd 优先"假设 cwd=用户工程目录（tools/ 所在），但 AI 实际 cd 到 skill 安装目录，假设不成立。修复：`check_external_tools.js` 新增 `--project-dir` 参数，`normalizeTraceHome` / `getDefaultRuyiBrowsersDirs` 候选最前插 `--project-dir/tools`；`check_session_resume.js` 把已算出的 `projectRootOfCase` 作为 `--project-dir` 透传给子进程（与 spawn cwd 双保险）；SKILL.md GATE-2 两处命令模板加 `--project-dir <project-root>`。候选顺序统一为 `--project-dir/tools → cwd/tools → findProjectRoot()/tools → 环境变量 → where`，符合"先用户工程目录 → 再 skill 安装路径"。
+- **测试盲区复盘**：2.3.8 / 683cb83 测试通过是因为用"cwd=有 tools/ 的目录"或开发版脚本（`findProjectRoot()` 靠 `__dirname` 永远指向开发仓库，有 tools/），未覆盖"安装版脚本 + AI cd 到 skill 安装目录"这条实战路径。本次用临时目录模拟安装环境（假 SKILL.md + 无 tools/）验证：不传参 RuyiTrace 未检测到（复现实战），传 `--project-dir` 检出。后续环境检测类改动须用"安装版脚本 + AI 真实 cd"组合测试。
+
+---
+
 ## 2.3.13 - 2026-08-12
 
 ### 修复

@@ -14,6 +14,7 @@ function parseArgs(argv) {
     ruyitraceExe: '',
     ruyiPageInstallDir: '',
     ruyiPageBrowserPath: '',
+    projectDir: '',
     json: false,
     markdown: false,
     quick: false,
@@ -26,6 +27,7 @@ function parseArgs(argv) {
     else if (a === '--ruyitrace-exe') args.ruyitraceExe = nextVal('');
     else if (a === '--ruyipage-install-dir') args.ruyiPageInstallDir = nextVal('');
     else if (a === '--ruyipage-browser-path') args.ruyiPageBrowserPath = nextVal('');
+    else if (a === '--project-dir') args.projectDir = nextVal('');
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--quick') args.quick = true;
@@ -46,6 +48,7 @@ function usage() {
 说明：检测 ruyiPage Python 包、ruyiPage 定制 Firefox runtime、是否误用系统 Firefox fallback、RuyiTrace 目录结构。
 同时顺带对比 GitHub 最新 release：发现新版只提示、不自动更新；网络失败或限流时静默跳过，不影响检测结果。
 注意：选择 ruyiPage 时，只有“ruyiPage 包可用 + 定制 Firefox runtime 验证通过”才视为可用；普通系统 Firefox fallback 不视为通过。
+--project-dir <dir>：用户工程目录（tools/ 所在）。安装模式下 skill 安装目录无 tools/（gitignore 不随分发），需靠此定位；未传时回退 cwd/tools + skill 根/tools。
 --quick：快速模式，只检测 Node.js 版本是否满足要求，不执行子命令、不扫描目录、不检测 ruyipage/ruyitrace。`;
 }
 
@@ -185,11 +188,12 @@ function detectRuyiPagePackage(explicitPython) {
   };
 }
 
-function getDefaultRuyiBrowsersDirs(explicitInstallDir) {
+function getDefaultRuyiBrowsersDirs(explicitInstallDir, projectDir) {
   const dirs = [];
   if (explicitInstallDir) dirs.push(path.resolve(explicitInstallDir));
+  if (projectDir) dirs.push(path.resolve(projectDir, 'tools', 'ruyipage-browsers'));
   if (process.env.RUYIPAGE_BROWSERS_PATH) dirs.push(path.resolve(process.env.RUYIPAGE_BROWSERS_PATH));
-  // 默认安装目录优先 cwd（安装模式下用户工作目录），skill 项目根兜底（开发模式下两者相同）
+  // 默认安装目录优先 cwd（安装模式下用户工作目录），skill 根兜底（开发模式下两者相同）
   dirs.push(path.join(process.cwd(), 'tools', 'ruyipage-browsers'));
   dirs.push(path.join(findProjectRoot(), 'tools', 'ruyipage-browsers'));
   if (process.platform === 'win32') {
@@ -416,7 +420,7 @@ function detectRuyiPage(args) {
     checks.push(verifyRuyiRuntimeCandidate('环境变量 RUYIPAGE_BROWSER_PATH', process.env.RUYIPAGE_BROWSER_PATH));
   }
 
-  for (const dir of getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir)) {
+  for (const dir of getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir, args.projectDir)) {
     for (const exe of scanInstallDir(dir)) {
       checks.push(verifyRuyiRuntimeCandidate(`managed runtime 扫描：${dir}`, exe));
     }
@@ -488,7 +492,7 @@ function detectRuyiPage(args) {
     recommendedForAntiDetectionProbe: pkg.packageInstalled && managedRuntimeVerified && !!pkg.requestsAvailable,
     conclusion: '',
     runtimeChecks: dedupedChecks,
-    scannedInstallDirs: getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir),
+    scannedInstallDirs: getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir, args.projectDir),
   };
 
   if (!pkg.packageInstalled && !managedRuntimeVerified) result.conclusion = '不可使用：未检测到 ruyiPage 包，也未检测到定制 Firefox runtime。';
@@ -512,11 +516,12 @@ function normalizeTraceHome(args) {
   if (args.ruyitraceExe) return path.dirname(path.resolve(args.ruyitraceExe));
   if (process.env.RUYI_TRACE_HOME) return path.resolve(process.env.RUYI_TRACE_HOME);
   if (process.env.RUYITRACE_HOME) return path.resolve(process.env.RUYITRACE_HOME);
-  // 默认安装目录优先 cwd（安装模式下用户工作目录），skill 项目根兜底（开发模式下两者相同）
+  // 优先 --project-dir（安装模式下用户工程目录，tools/ 所在），其次 cwd，最后 skill 根兜底（开发模式下三者相同）
   const toolsDirs = [
+    args.projectDir ? path.resolve(args.projectDir, 'tools') : null,
     path.join(process.cwd(), 'tools'),
     path.join(findProjectRoot(), 'tools'),
-  ];
+  ].filter(Boolean);
   // 优先带版本号的 RuyiTrace-* 目录（新版 2.5+，Electron 壳 + resources/kernel 内核），
   // 按版本号降序取最新；无版本目录 tools/RuyiTrace 兜底（旧版 1.x 结构或归一目录）
   let candidates = [];
