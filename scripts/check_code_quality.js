@@ -466,6 +466,7 @@ function inspectFile(root, file, args) {
 }
 
 function check(args) {
+  const caseDirMode = !args.file && !args.dir;
   const root = args.file
     ? path.resolve(path.dirname(args.file))
     : args.dir
@@ -474,7 +475,28 @@ function check(args) {
   const files = args.file ? [path.resolve(args.file)] : walk(root).filter(p => isCodeFile(p) && !shouldSkipFile(root, p));
   const problems = [];
   const warnings = [];
-  if (!files.length) problems.push(`未找到可检查的最终代码文件：${root}`);
+  if (!files.length) {
+    // --case-dir 模式且 result/ 不存在：这是"不适用"而非代码质量失败
+    // （如对 skill 源码仓库执行，或用户项目尚未生成 result/）
+    if (caseDirMode && !exists(root)) {
+      return {
+        root,
+        clean: true,
+        notApplicable: true,
+        notApplicableReason: `--case-dir 模式的检查目标是 <project-root>/result，但该目录不存在：${root}。这不是代码质量失败：若目标是 skill 源码仓库或任意目录，请改用 --dir <目录> / --file <文件> 检查；若是用户项目，请先生成 result/ 最终代码再检查。`,
+        filesChecked: 0,
+        limits: {
+          maxLineLength: args.maxLineLength,
+          maxFileLines: args.maxFileLines,
+          maxFunctionLines: args.maxFunctionLines,
+        },
+        problems,
+        warnings,
+        fileResults: [],
+      };
+    }
+    problems.push(`未找到可检查的最终代码文件：${root}`);
+  }
   const fileResults = files.map(f => inspectFile(root, f, args));
   for (const r of fileResults) {
     for (const p of r.problems) problems.push(`${r.file}: ${p}`);
@@ -499,6 +521,9 @@ function check(args) {
 }
 
 function renderMarkdown(result) {
+  if (result.notApplicable) {
+    return ['# 补环境代码质量检查', '', `检查范围：${result.root}`, '', `> ${result.notApplicableReason}`, ''].join('\n') + '\n';
+  }
   const lines = [
     '# 补环境代码质量检查结果',
     '',
@@ -541,7 +566,7 @@ if (require.main === module) {
     const result = check(args);
     if (args.json) console.log(JSON.stringify(result, null, 2));
     if (args.markdown) process.stdout.write(renderMarkdown(result));
-    process.exit(result.clean ? 0 : 1);
+    process.exit(result.notApplicable || result.clean ? 0 : 1);
   } catch (err) {
     console.error(err.message || String(err));
     console.error(usage());
