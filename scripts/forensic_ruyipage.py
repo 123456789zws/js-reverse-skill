@@ -26,6 +26,7 @@ ruyiPage 通用取证脚本
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import logging
@@ -273,6 +274,23 @@ def _safe_body(body: Any) -> bytes:
     return json.dumps(body, ensure_ascii=False).encode("utf-8", "replace")
 
 
+def _body_to_text(body: bytes, headers: Optional[dict]) -> Tuple[str, bool, int]:
+    """body 落盘为可读文本；二进制（octet-stream 或 UTF-8 严格解码失败）落 base64 并标记。
+
+    返回 (text, is_binary, original_len)。is_binary=True 时 text 为 base64 编码，
+    调用方应另存原始字节字段；is_binary=False 时 text 为 UTF-8 字符串。
+    """
+    if not body:
+        return "", False, 0
+    ct = ((headers or {}).get("content-type", "") or "").lower()
+    if "application/octet-stream" in ct:
+        return base64.b64encode(body).decode("ascii"), True, len(body)
+    try:
+        return body.decode("utf-8"), False, len(body)
+    except UnicodeDecodeError:
+        return base64.b64encode(body).decode("ascii"), True, len(body)
+
+
 def sanitize_filename(url: str) -> str:
     base = url.split("?")[0].split("#")[0].rstrip("/").split("/")[-1]
     base = re.sub(r"[^A-Za-z0-9._-]", "_", base) or "script"
@@ -390,15 +408,27 @@ def _classify_packets(steps, args, substrings, regexes):
             })
         if is_target:
             body = _safe_body(d.get("response_body"))
-            if len(body) > args.max_body_bytes:
-                d["response_body"] = body[:args.max_body_bytes].decode("utf-8", "replace") + (
-                    f"\n...[truncated, total {len(body)} bytes]"
-                )
+            total = len(body)
+            truncated = total > args.max_body_bytes
+            if truncated:
+                body = body[: args.max_body_bytes]
+            text, is_bin, _ = _body_to_text(body, d.get("response_headers"))
+            d["response_body"] = text
+            if is_bin:
+                d["response_body_binary"] = True
+                d["response_body_bytes"] = total
+            if truncated:
                 d["response_body_truncated"] = True
-            else:
-                d["response_body"] = body.decode("utf-8", "replace") if body else ""
+                d["response_body"] += f"\n...[truncated, total {total} bytes]"
             rb = _safe_body(d.get("request_body"))
-            d["request_body"] = rb.decode("utf-8", "replace") if rb else ""
+            if rb:
+                rtext, rbin, rlen = _body_to_text(rb, d.get("request_headers"))
+                d["request_body"] = rtext
+                if rbin:
+                    d["request_body_binary"] = True
+                    d["request_body_bytes"] = rlen
+            else:
+                d["request_body"] = ""
             target_hits.append(d)
     return records_meta, js_records, target_hits, js_dir
 
