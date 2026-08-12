@@ -1,11 +1,25 @@
 # CHANGELOG
 
+## 2.3.9 - 2026-08-12
+
+### 修复
+- **references 过时「红线 N」编号引用（2.2.0 重构遗留）**：2.2.0 把「五条红线」改为「第3节纯协议红线」（无编号 bullet）后，references 仍有两处引用旧编号，2.3.5 全量同步旧概念时漏网。修复：`references/tooling/browser-acquisition.md:32`「红线 3 取证禁用清单」→「第3节纯协议红线与第4.3节 FORENSIC_CAPTURE」；`references/captcha/captcha-overview.md:29`「红线 4」→「第3节纯协议红线」。`cases/` 历史资产按规则不改（且自带完整说明）。
+
+### 背景
+门禁与红线审计发现：门禁（GATE-0~3）与红线主体完整、无缺漏，约束力已恢复到重构前水平且更精确；唯一问题是 2.2.0 重构后「红线 N」编号引用未全量同步（属杂乱非缺漏）。本次按 working memory「重构后 references 同步原则」全仓 grep 修复，符合「不能只改触发问题的那一个」原则。
+
+---
+
 ## 2.3.8 - 2026-08-12
 
 ### 修复
 - **安装模式下工具检测失效（findProjectRoot fallback 死代码）**：`findProjectRoot()` 第一段用 `__dirname` 向上找 SKILL.md，skill 安装目录里必然有 SKILL.md → 第一段必然 return，第二段 cwd fallback 永远走不到。后果：用户在独立文件夹（非 skill 项目根）建 `tools/` 装工具，跑安装版 skill 的脚本检测不到——项目根永远是 skill 安装目录，不是 cwd。安装版 skill 目录又没有 `tools/`（gitignore 不随安装分发），所以 `scannedInstallDirs` 指向不存在的路径。
 - **工具定位优先 cwd/tools/**：`check_external_tools.js` 的 `getDefaultRuyiBrowsersDirs()` 和 `normalizeTraceHome()`、`capture_ruyitrace_log.js` 的 `normalizeTraceHome()`，候选路径列表在 `findProjectRoot()/tools/` 之前插入 `cwd/tools/`。开发模式下 cwd = skill 项目根，两者相同（`unique()` 去重）；安装模式下 cwd = 用户工作目录，优先扫到。
 - **install_all.js 默认安装目录改 cwd**：`PROJECT_ROOT` 从 `findProjectRoot()` 改为 `process.cwd()`，默认装到 `cwd/tools/`。删除不再使用的 `findProjectRoot()` 函数。安装模式下不再污染 skill 安装目录。
+
+### 优化
+- **新增执行主线 TODO 指令（SKILL.md 第4节状态机图后）**：激活 skill 后把状态机主干建成可勾选 TODO 暴露给用户，每完成一项勾一项；明确分支判定以状态机为准、分支跳出=重做对应项不新建子项。解决 AI 加载 skill 后不主动建可见清单、用户看着没章法的问题。仅 +1 段引用，不碰状态机/门禁/节结构。
+- **补 bump SKILL.md version 2.3.7→2.3.8**：d1110bf 提交了 2.3.8 的 CHANGELOG 与脚本改动，但漏 bump front-matter version 字段，本次一并补齐。
 
 ### 背景
 用户反馈"在独立文件夹的 tools 路径安装了工具，在那个文件夹跑检测不到"。根因是 `findProjectRoot()` 的设计假设「脚本和 tools/ 在同一个项目根下」，安装模式下这个假设破了——skill 安装目录有 SKILL.md 但无 tools/，用户工作目录有 tools/ 但无 SKILL.md。本次改动把"找 tools/"和"找 SKILL.md"解耦：工具定位优先 cwd，`findProjectRoot()` 语义不变（继续用于读模板/references/case 结构）。

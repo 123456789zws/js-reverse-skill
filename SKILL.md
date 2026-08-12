@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.8
+version: 2.3.9
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -115,6 +115,10 @@ REAL_VERIFY
   └─ 用户明确 sign-only → SIGN_ONLY_DELIVER
 DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 ```
+
+> **执行主线 TODO**：激活本 skill 后，把状态机主干建成可勾选 TODO 暴露给用户，每完成一项勾一项：
+> `INTENT_CONFIRM → ENV_READY → EVIDENCE_GATE → 取证(FORENSIC_CAPTURE/TRACE_CAPTURE) → 定位(IDENTIFY) → 分析(TRACE_ANALYZE) → 实现(IMPLEMENT) → 验证(REAL_VERIFY) → 交付(DELIVER) → 清理(CLEANUP)`
+> 分支判定以本节状态机为准；分支跳出主干时回到对应项重做，不新建子项（如 REAL_VERIFY 失败 → 回「实现」重做；EXTERNAL_LOOKUP 失败 → 回「取证」重做）。
 
 ### 4.1 INTENT_CONFIRM 与 ENV_READY
 
