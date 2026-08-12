@@ -146,9 +146,9 @@ function renderMarkdown(result) {
   }
   lines.push('', '## 下一步');
   if (!result.node.nodeTlsAvailable && !result.pythonTlsAvailable) {
-    lines.push('- 未检测到可用 TLS 指纹兼容客户端；如果本 case 需要最终发送真实请求，需在前置阶段询问用户安装 CycleTLS / impers / curl_cffi / cyCronet，或改为只输出本地 sign 结果。');
+    lines.push('- 未检测到可用 TLS 指纹兼容客户端：按交付语言自动安装默认客户端（Node curl-cffi-node / Python curl_cffi，执行前先输出一行宣布安装内容）；确无可用客户端才报告阻塞或改为只输出本地 sign 结果；不要求用户选择。');
   } else {
-    lines.push('- 在任务确认阶段选择一个最终请求客户端，并限制为少量授权验证请求；最终项目中只保留所选客户端的 Session 请求逻辑。');
+    lines.push('- REAL_VERIFY 阶段自动选用已安装客户端（探测顺序：Node curl-cffi-node → impers → Python curl_cffi / cffi_curl），不要求用户选择；有业务副作用的写请求执行前先输出一行宣布（目标、方法、次数、影响）。最终项目中只保留所选客户端的 Session 请求逻辑。');
   }
   return lines.join('\n') + '\n';
 }

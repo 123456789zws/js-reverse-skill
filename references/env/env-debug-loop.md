@@ -40,7 +40,7 @@
 - 已经定位或初步定位加密入口。
 - 相关 JS 文件已经保存到本地，或确认可以获取。
 - 已经整理 `source → entry → builder → writer` 四层链路，至少确认 writer。
-- 如用户选择 ruyiPage + RuyiTrace，已导入 NDJSON 日志并生成 `notes/ruyitrace-summary.md`；如果尚未导入，应先暂停要求用户提供或采集日志，除非用户明确确认无法提供。
+- 取证来源为 ruyiPage + RuyiTrace 时，已导入 NDJSON 日志并生成 `notes/ruyitrace-summary.md`；尚未导入时按默认自动 trace 采集（`capture_ruyitrace_log.js`）并导入，自动失败或需登录/验证码/复杂交互时转手动由用户提供日志；用户明确确认无法提供时才降级。
 - 已经检查 Node 泄露阻断，不把 `process/Buffer/require/module/global` 暴露给目标 JS。
 - 已经在补环境初始化阶段启用 JS 层 NativeProtect 保护，或记录用户明确豁免原因。
 - 用户未明确要求关闭真实性保护；默认会对新增 WebAPI 执行属性描述符、访问器、原型链、函数 / 访问器 / 实例对象 toString 保护。

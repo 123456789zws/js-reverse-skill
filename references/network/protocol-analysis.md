@@ -79,7 +79,7 @@
 
 TLS 指纹问题的完整解决方案见 `network/tls-validation.md`。核心原则：
 
-- 前置阶段必须选择 TLS 指纹兼容客户端（CycleTLS / impers / curl-cffi / cyCronet），不要等失败后才切换。
+- 前置阶段自动探测并选用 TLS 指纹兼容客户端（Node curl-cffi-node → impers → Python curl_cffi / cffi_curl），不要等失败后才切换，不要求用户选择。
 - 最终请求必须使用 Session 模式，复用同一 Cookie jar、UA、TLS 指纹。
 - 取证 baseline 是 Firefox 时，curl_cffi 必须按 JA3 / JA4 / Akamai 指纹对齐，不能只改 UA。
 

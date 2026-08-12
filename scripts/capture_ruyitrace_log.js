@@ -384,9 +384,9 @@ function renderMarkdown(obj) {
     lines.push('', '## Dry-run 结果');
     lines.push('- 未启动浏览器，未创建日志文件。');
     if (trace.installed) {
-      lines.push('- RuyiTrace 检测通过：自动 trace 可用；用户也可选择手动 trace（--input 指定日志）。');
+      lines.push('- RuyiTrace 检测通过：自动 trace 可用；用户已提供日志时可改用手动 trace（--input 指定日志），不询问用户选择采集方式。');
     } else {
-      lines.push('- RuyiTrace 检测未通过，不能进入自动 trace；可让用户安装 / 提供 RuyiTrace 路径，或改用手动 trace（用户 trace 后 --input 指定日志），或明确确认降级为仅 ruyiPage。');
+      lines.push('- RuyiTrace 检测未通过，不能进入自动 trace：按 GATE-1 自动安装（install_all.js --yes，执行前先宣布缺失组件、安装目标 <project-root>/tools/ 与预计规模）；自动安装失败后才可让用户安装 / 提供 RuyiTrace 路径，或改用手动 trace（用户 trace 后 --input 指定日志），或明确确认降级为仅 ruyiPage。');
     }
     return lines.join('\n') + '\n';
   }

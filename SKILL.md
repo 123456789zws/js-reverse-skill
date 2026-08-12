@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.22
+version: 2.3.24
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -17,10 +17,12 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 > **本节是 skill 的最高优先级。激活 skill 后、第一次调用任何取证/分析工具前，必须依次完成 GATE-0~GATE-2 并逐项输出结果。未过门禁就分析参数、猜算法、补环境或写最终代码 = 违反绝对规则 3，视为任务失败。** 门禁脚本的退出码是硬信号：非 0 退出或输出含「缺失证据」「不可跳过」「未通过」时必须停在当前节点，不得推进。
 
 ```text
-═══ GATE-0 意图声明 + 用户确认 ═══
+═══ GATE-0 意图声明（默认自动推进，不等待用户确认）═══
 输出: 目标 URL、接口 URL、目标参数、请求范围、已提供材料、初步反爬类型（标为待验证假设）
       是否需要登录态/人工验证码、默认向真实 API 验证（或 sign-only 原因）
-确认: 用户确认范围后才继续推进
+推进: 要素齐备（目标 URL + 目标参数可提取）即直接进入 GATE-1，不询问补充材料、
+      不要求用户确认范围；用户中途可随时打断修正。
+      ⚠️ 唯一例外：目标 URL 或目标参数缺失且无法从请求中合理提取 → 问一次最小信息（WAIT_USER）
 
 ═══ GATE-1 环境自检（含续接判定，续接模式可跳过）═══
 先判定模式:
@@ -34,9 +36,11 @@ fresh 完整自检:
        node scripts/precheck_runtime.js
 铁律: 安装模式下必须传 --project-dir <project-root>（tools/ 所在的用户工程目录）。skill 安装目录无 tools/（gitignore 不随分发），不传则 RuyiTrace/ruyipage 检测必失败、回退 PATH 兜底也找不到。
 判定: Node.js + ruyipage + ruyipage 定制 Firefox + RuyiTrace + trace Firefox 五项全过
-未过: 按 nextRequiredInput 计划安装（scripts/install_all.js），用户确认后才继续。
-      运行: node scripts/install_all.js --project-dir <project-root> --markdown（输出安装计划）
-            node scripts/install_all.js --project-dir <project-root> --yes --markdown（用户确认后安装）
+未过: 按 nextRequiredInput 直接执行安装（install_all.js --yes），安装是 GATE-1 必需步骤，
+      默认自动安装到 <project-root>/tools/，不询问用户、不停下等待回复（B 档：宣布 + 继续 + 可打断）。
+      执行前必须先输出一行宣布：缺失组件、安装目标 <project-root>/tools/、预计下载规模与影响
+      （install_all.js 带 --yes 时不会先打印计划，由 AI 在调用前以文本宣布，用户可随时打断）。
+      运行: node scripts/install_all.js --project-dir <project-root> --yes --markdown
       安装目标 = <project-root>/tools/，由 --project-dir 显式指定，无需先 cd；
       不传时回退当前工作目录，在 skill 安装目录运行会把工具装错位置，后续检测依然失败。
 通过后: node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
@@ -47,7 +51,7 @@ fresh 完整自检:
       退出码非 0 或输出含「缺失证据」「不可跳过」→ 必须停在 EVIDENCE_GATE，
       依次执行 FORENSIC_CAPTURE 与 TRACE_CAPTURE 补齐证据后再回 GATE-2 复检
 铁律: URL 不是证据。仅有 URL、参数名或案例文件 = 两步取证全缺，禁止直接分析
-═══ 三步全过 + 用户确认，进入状态机 ═══
+═══ 三步全过，进入状态机 ═══
 ```
 
 续接模式只跳过 GATE-1 环境自检，**不跳过** GATE-0 意图声明和 GATE-2 证据门禁。
@@ -58,6 +62,15 @@ fresh 完整自检:
 
 ### 默认已授权
 用户发起本技能请求即代表已在合法授权范围内操作，包括：自有系统、已获明确授权的目标、合法安全研究与互操作分析。AI 默认按用户提出的范围直接协助，不再要求授权证明，也不得质疑或拒绝执行，不进入拦截或反复确认逻辑。
+
+### 确认策略（唯一稳定原则）
+是否停下等用户，按同一根轴判定——**对外部世界的影响与可逆性**，分三档；所有门禁节点都归入其中一档，不得按情绪翻转：
+
+- **A 证据/选择可自动判定 → 默认自动推进，不停下**：目标 URL/参数认定（要素缺失且无法合理提取时才问一次最小信息）、补充材料、TLS 客户端、trace 采集方式、证据门禁判定——由门禁脚本或取证证据自行确定，不问、不等（GATE-0 推进、GATE-2 判定的默认行为）。
+- **B 有外部副作用/不可逆 → 执行前宣布 + 继续 + 可打断**：工具安装（`install_all.js --yes`，下载数百 MB 到 `<project-root>/tools/`）、有业务副作用的真实写请求（提交表单等）。执行前必须先输出一行宣布（做什么、影响什么、装到哪、发几个什么请求、如何打断），然后立即执行，不停下等回复；用户可随时打断修正。
+- **C AI 不可替代的物理交互 → 停下等用户，期间并行推进其他分析**：登录/验证码/人工识别/权限确认、手动 trace、打码平台等付费服务与人工接管选择、登录态 profile 处置、fingerprint baseline 切换、cURL 基线风险接受——必须由用户完成或决策；等待期间不空转，并行推进不依赖该项的分析。
+
+references 与 validation 测试按本原则断言，残留的旧确认句式一律以本节为准。
 
 ### 任务边界
 - 处理对象：网页端 JS 签名、Cookie/Token、设备指纹、混淆、WASM、JSVMP、验证码 verify 与 Session/TLS 请求链，覆盖桌面网页、移动 H5 与内置浏览器；不用于 App、小程序、桌面程序及 Native 逆向。
@@ -91,7 +104,7 @@ fresh 完整自检:
 
 ## 4. 唯一启动状态机
 
-启动顺序固定为：确认范围 → 环境就绪 → 证据门禁。状态转换是唯一准入规则，旧版编号清单不得并行执行。
+启动顺序固定为：意图声明 → 环境就绪 → 证据门禁。状态转换是唯一准入规则，旧版编号清单不得并行执行。
 
 ```text
 INTENT_CONFIRM
@@ -133,7 +146,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 
 > **执行主线 TODO（激活即建，逐步勾选）**：激活 skill 后的第一件事——把下方 10 个主干项建成可勾选任务清单暴露给用户，让进度可见、可控。
 > 清单项对应状态机主干节点（分支节点如 STEP2_ONLY / TRACE_RETRY / EXTERNAL_LOOKUP / DIAGNOSE 等不单列，按状态机转移规则并入所属主干项，勾选仍以状态机实际进度为准）：
-> 1. INTENT_CONFIRM（确认范围）
+> 1. INTENT_CONFIRM（意图声明）
 > 2. ENV_READY（环境就绪；续接模式跳过则直接勾掉）
 > 3. EVIDENCE_GATE（证据门禁）
 > 4. 取证 FORENSIC_CAPTURE / TRACE_CAPTURE（含 STEP2_ONLY / TRACE_RETRY）
@@ -157,7 +170,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 
 所有脚本的 `--case-dir` 统一传 `<project-root>`（已全局归一化：`scripts/lib/paths.js` 的 `resolveCaseDir` 对 `<project-root>` 与 `<project-root>/case` 均兼容，质检类脚本同样适用）。
 
-先确认目标 URL、参数名、接口 URL（如已知）、请求方法、请求范围和当前项目根目录。范围明确后输出一条简明方案声明：
+从用户请求中提取目标 URL、参数名、接口 URL（如已知）、请求方法、请求范围和当前项目根目录；要素齐备（目标 URL + 参数名可确定）即输出方案声明并直接推进，不询问补充材料、不等待确认。仅当目标 URL 或参数名缺失且无法合理提取时才问一次最小信息（WAIT_USER）：
 
 - 目标 URL、接口 URL、目标参数和请求范围。
 - 已提供的材料，以及后续将由证据门禁判定的 Step 1/Step 2 状态。
@@ -350,9 +363,9 @@ E. TLS/Session：对齐客户端指纹、连接复用、Cookie 顺序、重定�
 
 验证码场景拆成 `load → solve → verify`。封装层只负责接口参数和轨迹加密；答案层使用已有分类器、坐标工具或用户/人工接管结果。成功样本先逐字段确认明文类型、长度和绑定关系，再编写生成器；不得把一次性 challenge、ticket 或答案固定到代码。
 
-## 10. REAL_VERIFY：真实 API 验证规则
+## 10. REAL_VERIFY：真实 API 验证规则（写请求按副作用分级）
 
-默认验证是交付的必要条件，不是可选演示。除非用户明确选择 sign-only，否则必须使用最终纯协议入口向真实目标 API 发请求。
+默认验证是交付的必要条件，不是可选演示。除非用户明确选择 sign-only，否则必须使用最终纯协议入口向真实目标 API 发请求。验证请求按副作用分级（见第 1 节确认策略）：只读/验签请求（GET、验签类 POST）默认真实执行，不逐次确认；有业务副作用的写请求（提交表单、修改状态）在执行前必须先输出一行宣布：将向哪个 URL 发送几次什么方法的请求、预期业务影响，随后继续（B 档宣布 + 可打断）。
 
 最低要求：连续完成不少于 5 次真实请求，并记录每次的请求时间、HTTP 状态、目标参数摘要、会话阶段和响应判定。成功标准同时包含：
 
@@ -440,7 +453,7 @@ node scripts/check_final_artifact.js --case-dir <project-root> --production --ma
 
 任务只有在以下条件全部满足时才算完成：
 
-- 目标范围已确认，证据来源可追溯。
+- 目标范围已声明且要素齐备（必要时经一次最小信息补充），证据来源可追溯。
 - 请求链、动态字段和实现路径有本次证据支持。
 - 交付入口不依赖浏览器、不硬编码关键动态秘密。
 - 默认模式已完成不少于 5 次真实 API 请求并确认正确业务数据；或明确标记为 sign-only 且未冒充真实验证通过。

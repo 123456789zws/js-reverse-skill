@@ -89,7 +89,7 @@ function inspect(args) {
     installRepo: 'https://github.com/lwjjike/xbsReverseSkill',
     expectedFolder: 'web-verify-patcher',
     instructions: [
-      '自动安装前先让用户确认安装目录；克隆仓库后必须检查是否存在 web-verify-patcher/ 目录。',
+      '自动安装前先输出一行宣布（安装目标 $HOME/.codex/skills/web-verify-patcher，Windows 为 %USERPROFILE%\\.codex\\skills\\web-verify-patcher），随后执行安装，不要求用户确认；克隆仓库后必须检查是否存在 web-verify-patcher/ 目录。',
       '如果仓库当前分支没有 web-verify-patcher/，不得假装安装成功，要求用户提供正确分支、正确仓库、压缩包或本地目录。',
       '自行安装时，将 web-verify-patcher 文件夹放到 $HOME/.codex/skills/web-verify-patcher；Windows 可使用 %USERPROFILE%\\.codex\\skills\\web-verify-patcher。',
       '如当前环境使用 Claude CLI，也可同步放到 $HOME/.claude/skills/web-verify-patcher。安装后重启或刷新对应 CLI 再检测。',

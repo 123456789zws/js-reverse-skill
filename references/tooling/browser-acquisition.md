@@ -80,10 +80,10 @@
 
 ## 验证码接口取证门禁
 
-信息完整并确认任务后、任何取证动作前，先确认目标是否为验证码 / 风控验证 / challenge / WAF 接口。若是，验证码场景参考 web-verify-patcher skill，并让用户确认取证方式（AI 自动完成最小必要交互，或用户自己在取证浏览器中触发到验证）：
+信息完整后、任何取证动作前，先判定目标是否为验证码 / 风控验证 / challenge / WAF 接口。若是，验证码场景参考 web-verify-patcher skill，**默认由 AI 用已确认取证工具完成最小必要交互和取证，不询问取证方式**：
 
-1. 用户提供从触发到验证的完整流程，AI 使用已确认取证工具自动完成最小必要交互和取证。
-2. 用户自己在取证浏览器中完成触发到验证，AI 只负责提前开启网络捕获、Hook、截图或 Trace，并等待用户回复“已经完成触发到验证流程”。
+1. 默认：用户提供从触发到验证的完整流程，AI 使用已确认取证工具自动完成最小必要交互和取证。
+2. 仅当流程需要登录、验证码答案、人工识别或权限确认（AI 无法替代的物理交互）时：用户自己在取证浏览器中完成触发到验证，AI 提前开启网络捕获、Hook、截图或 Trace，并等待用户回复“已经完成触发到验证流程”。
 
 验证码场景不得只打开页面首屏就宣称取证完成；必须覆盖触发、展示、交互、点击验证 / 提交、verify 接口返回和结果回调。需要登录、验证码答案、MFA、账号授权或人工判断时暂停，让用户手动完成，不要尝试绕过。
 
@@ -103,14 +103,14 @@ node scripts/check_external_tools.js --python python --ruyipage-install-dir <ruy
 node scripts/check_external_tools.js --python python --ruyipage-browser-path <firefox.exe> --project-dir <project-root> --markdown
 ```
 
-如用户选择 ruyiPage / RuyiTrace，立即检测工具是否已安装；未检测到时要求用户确认是否已安装并提供路径，或确认是否需要安装 / 下载。
+如取证来源需要 ruyiPage / RuyiTrace，立即检测工具是否已安装；未检测到时按 GATE-1 安装计划自动安装（`install_all.js --yes`，执行前先宣布缺失组件与安装目标）并复检；安装失败时才询问用户提供路径或手动安装。
 
-如果用户选择的是 **ruyiPage + RuyiTrace**，但仅检测到 ruyiPage、未检测到可用 RuyiTrace，不得直接建议“仅使用 ruyiPage”，也不得静默降级。必须暂停并让用户选择：
+如果取证来源需要 **ruyiPage + RuyiTrace**，但仅检测到 ruyiPage、未检测到可用 RuyiTrace，不得直接建议“仅使用 ruyiPage”，也不得静默降级。按 GATE-1 先执行自动安装（`install_all.js --yes`，执行前先宣布缺失组件与安装目标）并复检；自动安装失败后，才暂停让用户选择：
 
 - 安装 / 提供 RuyiTrace 路径，并等待安装完成与检测通过。
 - 明确降级为“仅 ruyiPage”，后续不再假设存在 RuyiTrace NDJSON。
 
-只有用户明确确认降级后，才可以进入仅 ruyiPage 取证；否则应保持 ruyiPage + RuyiTrace 模式，并先完成 RuyiTrace 安装 / 路径确认。RuyiTrace 检测通过后，采集方式先让用户选择：自动 trace（运行 `scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --import-after --markdown` 自动捕获）或手动 trace（用户用 RuyiTrace GUI 采集后提供 NDJSON，用 `scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown` 导入）；不要替用户默认采集方式，也不要在用户选择前启动 trace 采集。
+只有用户明确确认降级后，才可以进入仅 ruyiPage 取证；否则应保持 ruyiPage + RuyiTrace 模式，并先完成 RuyiTrace 安装 / 路径确认。RuyiTrace 检测通过后，采集方式**默认自动 trace**（运行 `scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --target-signal <信号> --import-after --markdown` 自动捕获）；自动失败、需登录/验证码/复杂交互或用户已提供日志时转手动 trace（用户用 RuyiTrace GUI 采集后提供 NDJSON，用 `scripts/capture_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown` 导入）。不询问用户选择采集方式。
 
 ### ruyiPage 定制 Firefox 强制校验
 
@@ -120,7 +120,7 @@ ruyiPage 的价值在于使用 Firefox + WebDriver BiDi，并配合其 managed r
 - `requests` 可导入，或用户已提供 `smart_fingerprint(manual_geo=...)` 所需地理信息；不要在智能指纹失败时静默降级。
 - `scripts/check_external_tools.js` 输出“定制 Firefox runtime 是否通过验证：是”。
 - 如果默认解析路径不是定制 Firefox，但检测到了已验证 runtime，启动示例必须显式 `set_browser_path("<verified-ruyipage-managed-firefox>")`。
-- 如果只检测到系统 Firefox fallback，判定为不合格，不启动 ruyiPage；先询问用户是否已经安装定制 Firefox。
+- 如果只检测到系统 Firefox fallback，判定为不合格，不启动 ruyiPage；先按 GATE-1 自动安装定制 Firefox 并复检；仍失败才询问用户是否已经安装定制 Firefox。
 
 选择 ruyiPage 后，从第一次打开目标页开始就必须使用 ruyiPage 启动硬约束：
 
@@ -141,10 +141,9 @@ ruyiPage 的价值在于使用 Firefox + WebDriver BiDi，并配合其 managed r
 ```markdown
 当前没有检测到 ruyiPage 定制 Firefox runtime，或 ruyiPage 可能会退回系统 Firefox。系统 Firefox 不视为通过。
 
-请确认：
-1. 你是否已经提前安装好 ruyiPage 定制 Firefox？
-2. 如果已经安装，请提供 ruyiPage browsers 安装目录或定制 Firefox 可执行文件路径。
-3. 如果没有安装，请提供希望安装到的目录；我会先输出安装计划，确认后再安装。
+我将按 GATE-1 自动安装 ruyiPage 定制 Firefox runtime 到 <project-root>/tools/（执行前先宣布安装计划与规模）。只有自动安装失败时，才需要你提供：
+1. 已安装的 ruyiPage browsers 安装目录或定制 Firefox 可执行文件路径；或
+2. 希望安装到的自定义目录。
 ```
 
 
@@ -186,7 +185,7 @@ ruyiPage 的价值在于使用 Firefox + WebDriver BiDi，并配合其 managed r
 - 是否允许保存临时 Profile：
 - 是否需要任务结束后删除登录态 Profile：
 
-请确认以上信息是否正确。确认后我再继续。
+以上为当前意图声明与既有信息摘要；取证来源由 EVIDENCE_GATE 自动判定，缺失项按门禁补采处理。无异议我直接推进 GATE-1 环境自检与 GATE-2 证据门禁，不停下等待确认（要素缺失时才会问一次最小信息）。
 ```
 
 ## Cookie 过期与登录的区别

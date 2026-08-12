@@ -33,7 +33,7 @@
 
 如果取证来源需要 RuyiTrace 但尚无日志，采集方式默认自动 trace（`scripts/capture_ruyitrace_log.js` 自动启动随 RuyiTrace 提供的 trace Firefox 捕获 NDJSON 并导入摘要），自动失败、需登录验证等复杂交互或用户指定日志时转手动 trace（用户用 RuyiTrace 采集完成后提供 NDJSON，用 `scripts/capture_ruyitrace_log.js --input <日志>` 直接导入）；用户已提供 NDJSON 时直接导入，不重复采集。用户明确确认无法提供 NDJSON 后，才降级为 ruyiPage 网络证据 + Node trace 流程。
 
-如果取证来源需要 RuyiTrace 但检测到 RuyiTrace 未安装或目录不完整，不得自动改成“仅 ruyiPage”，也不要只建议“仅使用 ruyiPage”。必须先引导用户安装 / 提供 RuyiTrace 路径，或让用户明确确认降级；用户选择安装时，需要等待用户安装完成并再次验证通过后才继续任何依赖 NDJSON 的流程。
+如果取证来源需要 RuyiTrace 但检测到 RuyiTrace 未安装或目录不完整，按 GATE-1 安装计划自动安装（`install_all.js --yes`）并复检；安装失败或用户明确拒绝时才询问用户提供 RuyiTrace 路径或明确确认降级。不得自动改成“仅 ruyiPage”绕过，也不要只建议“仅使用 ruyiPage”。
 
 ## 取证来源由 EVIDENCE_GATE 自动判定
 
@@ -44,21 +44,21 @@
 - 两步均缺 → 依次执行 `forensic_ruyipage.py`（Step 1）与 `capture_ruyitrace_log.js`（Step 2），工具是固定路线，不需要用户逐个选择。
 - 仅 URL 不是材料，不跳过任何取证步骤。
 
-只有以下场景才需要用户介入确认（均来自 SKILL.md 状态机与决策树阻塞点）：
+只有以下场景才需要特殊处理（均来自 SKILL.md 状态机与决策树阻塞点）：
 
-1. 检测到 ruyiPage / RuyiTrace 未安装或目录不完整（GATE-1 未过）→ 按 `install_all.js` 安装计划，用户确认后安装。
-2. 取证需要 RuyiTrace 但未安装 → 在“安装 / 提供路径”与“明确降级”之间由用户选择（见下节）。
+1. 检测到 ruyiPage / RuyiTrace 未安装或目录不完整（GATE-1 未过）→ 直接执行 `install_all.js --yes` 自动安装（GATE-1 必需步骤，不询问用户）。
+2. 取证需要 RuyiTrace 但未安装 → 按 GATE-1 自动安装（`install_all.js --yes`，执行前先宣布安装目标与规模）；自动安装失败时才由用户在「提供路径 / 手动安装」与「明确降级」之间选择。
 3. RuyiTrace 自动采集失败、需登录/验证码/复杂交互 → 转手动 trace，让用户用 RuyiTrace GUI 采集。
 4. 用户明确表示不提供自动化或需要真实登录态 → 用户手动材料来源，跳过对应取证步骤（先过 `check_evidence.js` 门禁，仅 URL 不触发）。
 
-用户未提供任何材料且门禁判定需取证时，直接按上述来源执行，不要先问“用哪个工具”。用户选择后，后续所有浏览器取证动作必须沿用该来源，不能临时 fallback 到普通 Playwright、Puppeteer 或系统 Firefox。
+取证来源由 EVIDENCE_GATE 判定后，后续所有浏览器取证动作必须沿用该来源（证据完整性），不能临时 fallback 到普通 Playwright、Puppeteer 或系统 Firefox。
 
 ## 验证码场景的 RuyiTrace 覆盖
 
 如果目标是验证码 / 风控验证 / challenge / WAF 接口，RuyiTrace 自动捕获或手动捕获都必须覆盖完整链路：触发验证码、验证码组件初始化、用户交互事件、加密参数生成、verify / validate / challenge 接口发起、结果回调。
 
 - 用户提供完整流程时，自动捕获脚本应按该流程执行；若流程需要人工识别、登录、验证码答案或权限交互，暂停让用户完成。
-- 用户选择自己完成流程时，先启动 RuyiTrace 记录，再让用户操作；只有用户回复“已经完成触发到验证流程”后，才停止记录并导入 NDJSON。
+- 流程需要登录、验证码答案、人工识别或权限确认（AI 无法替代的物理交互）时，先启动 RuyiTrace 记录，再让用户操作；只有用户回复“已经完成触发到验证流程”后，才停止记录并导入 NDJSON。
 - 如果 `notes/ruyitrace-summary.md` 只覆盖页面加载、没有交互事件或 verify 接口附近调用栈，应要求重新采集，不得直接进入补环境。
 
 ## 本机工具检测
@@ -105,38 +105,33 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <ve
 
 当取证需要 RuyiTrace（GATE-2 判定需补 Step 2，或用户已提供 NDJSON 来源），检测脚本返回 RuyiTrace 未安装、`RuyiTrace.exe` 不存在、定制内核目录缺失（新版 `resources/kernel/` 或旧版 `firefox/`），或 `RUYI_DOMTRACE.txt` 缺失时，按以下强制流程处理：
 
-1. **不要自动降级**：不得静默降级为“仅 ruyiPage 网络取证”，也不得继续进入需要 RuyiTrace NDJSON 的补环境分析。
-2. **暂停并提示用户选择**：必须让用户在“安装 / 提供 RuyiTrace 路径”和“明确降级为仅 ruyiPage 网络取证”之间选择。
-3. **用户选择安装 / 提供路径时**：
-   - 若已安装但未检测到，要求用户提供 `RuyiTrace.exe` 路径或所在目录。
-   - 若未安装，要求用户提供下载 / 安装目录。
-   - 先用 `download_ruyi_tool.js --tool ruyitrace --dest <download-dir> --dry-run --markdown` 输出下载计划。
-   - 用户确认后才下载；下载后提示用户解压 / 安装。
-   - 等用户确认 `RuyiTrace.exe` 可打开、定制内核目录（`resources/kernel/` 或 `firefox/`）存在、日志目录可选择后，再重新运行检测。
-4. **用户选择降级时**：
-   - 记录“RuyiTrace 已由用户确认降级：后续仅 ruyiPage 网络取证 + Hook / Node trace”。
-   - 后续不得再假设存在 NDJSON。
-   - 补环境阶段使用 ruyiPage 网络证据、Hook / 断点证据、Node trace / Proxy trace 作为替代来源，并在输出中标明缺少 RuyiTrace 高保真日志。
+1. **先自动安装（B 档宣布 + 继续 + 可打断）**：执行前先输出一行宣布（缺失组件、安装目标 `<project-root>/tools/`、预计下载规模），随后 `node scripts/install_all.js --project-dir <project-root> --yes --markdown` 自动安装并复检；不询问用户选择。
+2. **不要自动降级**：安装与复检完成前，不得静默降级为“仅 ruyiPage 网络取证”，也不得继续进入需要 RuyiTrace NDJSON 的补环境分析。
+3. **自动安装失败后，才由用户在「安装 / 提供 RuyiTrace 路径」与「明确降级为仅 ruyiPage 网络取证」之间选择**：
+   - 用户选择安装 / 提供路径时：
+     - 若已安装但未检测到，要求用户提供 `RuyiTrace.exe` 路径或所在目录。
+     - 若未安装，要求用户提供下载 / 安装目录。
+     - 先用 `download_ruyi_tool.js --tool ruyitrace --dest <download-dir> --dry-run --markdown` 输出下载计划。
+     - 用户确认后才下载；下载后提示用户解压 / 安装。
+     - 等用户确认 `RuyiTrace.exe` 可打开、定制内核目录（`resources/kernel/` 或 `firefox/`）存在、日志目录可选择后，再重新运行检测。
+   - 用户选择降级时：
+     - 记录“RuyiTrace 已由用户确认降级：后续仅 ruyiPage 网络取证 + Hook / Node trace”。
+     - 后续不得再假设存在 NDJSON。
+     - 补环境阶段使用 ruyiPage 网络证据、Hook / 断点证据、Node trace / Proxy trace 作为替代来源，并在输出中标明缺少 RuyiTrace 高保真日志。
 
 提示模板：
 
 ```markdown
-你选择的是 ruyiPage + RuyiTrace，但当前未检测到可用的 RuyiTrace。该模式需要 RuyiTrace NDJSON 作为补环境优先证据源。
-
-请选择：
-1. 安装 / 提供 RuyiTrace 路径：我会先输出下载 / 安装计划，并等待你确认安装完成后再继续。
-2. 明确降级为“仅 ruyiPage”：后续不采集 RuyiTrace NDJSON，补环境将使用 ruyiPage 网络证据 + Hook / Node trace 作为替代。
-
-在你确认前，我不会自动降级，也不会继续需要 RuyiTrace 日志的流程。
+你选择的是 ruyiPage + RuyiTrace，但当前未检测到可用的 RuyiTrace。该模式需要 RuyiTrace NDJSON 作为补环境优先证据源。我将按 GATE-1 安装计划自动安装（`install_all.js --yes`，安装到 <project-root>/tools/）；只有自动安装失败时，才需要你提供 RuyiTrace 路径或明确确认降级为“仅 ruyiPage”（后续补环境使用 ruyiPage 网络证据 + Hook / Node trace 作为替代）。
 ```
 
 ## 未安装时的安装流程
 
-检测到缺失组件时，优先使用一键安装脚本：
+检测到缺失组件时，优先使用一键安装脚本——**默认路径：执行前先输出一行宣布（缺失组件、安装目标与预计规模），随后直接 `install_all.js --yes` 自动安装（B 档宣布 + 继续 + 可打断）**。以下分项手动流程仅在自动安装失败、或用户需要指定已有安装路径时才使用：
 
 ```bash
 node scripts/install_all.js --project-dir <project-root> --markdown          # 输出安装计划
-node scripts/install_all.js --project-dir <project-root> --yes --markdown    # 用户确认后自动安装到 <项目根>/tools/
+node scripts/install_all.js --project-dir <project-root> --yes --markdown    # 默认自动安装到 <项目根>/tools/（不询问）
 ```
 
 默认安装到 `<项目根>/tools/`：
@@ -147,16 +142,15 @@ install_all.js 内部按需执行：`pip install ruyiPage requests` → `python 
 
 如需单独安装或自定义目录，使用下方分项流程。
 
-### ruyiPage
+#### ruyiPage（仅自动安装失败后使用）
 
-先询问用户：
+手动安装时确认安装意向，然后直接让用户选择准备状态或安装目录：
 
 ```markdown
-未检测到 ruyiPage 定制 Firefox runtime，或当前 ruyiPage 可能会退回系统 Firefox。请确认：
+自动安装未成功。请选择准备状态：
 
-1. 你是否已经提前安装好 ruyiPage 定制 Firefox？
-2. 如果已经安装，请提供 ruyiPage browsers 安装目录，或提供定制 Firefox 的可执行文件路径。
-3. 如果没有安装，请提供希望安装到的目录。我会先输出安装计划；你确认后再执行安装。
+1. 你已经提前安装好 ruyiPage 定制 Firefox → 请提供 ruyiPage browsers 安装目录，或定制 Firefox 可执行文件路径。
+2. 未安装 → 按下方命令自行安装到指定目录（或提供希望安装到的目录，我先输出 dry-run 计划再执行）。
 ```
 
 推荐让用户自行在 Python 环境中安装：
@@ -175,7 +169,7 @@ python -m ruyipage path --install-dir <ruyipage-browsers-dir>
 python -m pip install "ruyiPage[async]" --upgrade
 ```
 
-也可以使用随包安装脚本输出计划或在用户确认后安装：
+也可以使用随包安装脚本输出计划或直接安装（自动安装路径，执行前先宣布）：
 
 ```bash
 node scripts/install_ruyipage_runtime.js --python python --install-dir <ruyipage-browsers-dir> --markdown
@@ -186,9 +180,9 @@ node scripts/install_ruyipage_runtime.js --python python --install-dir <ruyipage
 
 ### RuyiTrace
 
-RuyiTrace 是桌面工具。安装原则：
+RuyiTrace 是桌面工具。安装原则（默认自动安装 `install_all.js --yes`；仅自动安装失败后走下方手动流程）：
 
-1. 先让用户提供下载目录。
+1. 先向用户确认下载目录。
 2. 仅在用户确认后下载 Release 资产。
 3. 下载完成后提示用户解压 / 安装，并保持 `RuyiTrace.exe` 与 `firefox/` 子目录在同一目录。
 4. 等用户确认 `RuyiTrace.exe` 可以打开且“定制内核”状态正常后，再继续。
@@ -311,13 +305,10 @@ new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: 3, clien
 
 ## RuyiTrace 日志采集流程
 
-取证来源需要 RuyiTrace 时，采集方式默认自动 trace（`capture_ruyitrace_log.js` 自动启动 trace Firefox），自动失败、需登录/验证/复杂交互或用户指定日志时转手动 trace（二选一，选定后沿用；切换需再次确认）：
+取证来源需要 RuyiTrace 时，采集方式**默认自动 trace**（`capture_ruyitrace_log.js` 自动启动 trace Firefox），自动失败、需登录/验证/复杂交互或用户已提供日志时转手动 trace（用户提供 NDJSON 后直接导入，不重复采集）。**不询问用户选择采集方式**：
 
-```markdown
-RuyiTrace 日志采集方式请选择：
-1. 手动 trace：你用 RuyiTrace.exe 自己采集，完成后把 NDJSON 日志路径告诉我，我直接导入生成摘要（适合需要登录 / 验证码 / 复杂交互的 case）。
-2. 自动 trace：我用 capture_ruyitrace_log.js 自动启动随 RuyiTrace 提供的 trace Firefox 捕获 NDJSON（需要 RuyiTrace 完整安装）。
-```
+- 默认自动 trace：用 capture_ruyitrace_log.js 自动启动随 RuyiTrace 提供的 trace Firefox 捕获 NDJSON（需要 RuyiTrace 完整安装）。
+- 转手动 trace：需要登录 / 验证码 / 复杂交互或用户已提供日志时，用户用 RuyiTrace.exe 自行采集，把 NDJSON 日志路径交给 AI 直接导入生成摘要。
 
 ### 方式一：自动 trace
 
@@ -330,7 +321,7 @@ node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <projec
 
 执行要求：
 
-1. 自动创建或使用 `case/ruyi-trace/logs/` 作为日志目录，使用 `case/tmp/ruyitrace-profile/` 或用户确认的临时 Profile。
+1. 自动创建或使用 `case/ruyi-trace/logs/` 作为日志目录，使用 `case/tmp/ruyitrace-profile/` 或临时 Profile。
 2. 使用 RuyiTrace 随包 trace Firefox，而不是普通系统 Firefox、普通 Playwright、Puppeteer 或 ruyiPage 的 Firefox runtime。
 3. 设置 `MOZ_DOM_TRACE=1`、`MOZ_DOM_TRACE_FILE=<case trace file>`、`MOZ_DOM_TRACE_LIMIT=<limit>` 和 `MOZ_DISABLE_LAUNCHER_PROCESS=1`。
 4. 打开目标页面后触发最少量必要业务动作；如果需要登录、验证码、MFA、设备验证或权限确认，暂停让用户在该 trace Firefox 中手动完成，再继续采集。
@@ -347,7 +338,7 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-
 
 ### 方式二：手动 trace（用户指定日志）
 
-适用场景：用户选择手动 trace；或自动 trace 启动失败 / trace Firefox 无法写日志 / 需登录验证等复杂交互 / 日志未覆盖目标参数生成路径时转手动。
+适用场景：自动 trace 启动失败 / trace Firefox 无法写日志 / 需登录验证等复杂交互 / 日志未覆盖目标参数生成路径时转手动（不询问用户选择采集方式）。
 
 手动流程：
 

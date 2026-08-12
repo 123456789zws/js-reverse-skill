@@ -1,6 +1,6 @@
 # 最终请求验证与 TLS 指纹兼容
 
-本文件在新 case 需要最终发送真实请求、交付 `final.js` / `final.py`，或用户提到 CycleTLS、impers、curl-cffi-node、curl_cffi、cffi_curl、cyCronet 时读取。TLS 指纹兼容客户端的选择应从前置阶段开始确认，不要等普通 `fetch` / `requests` 失败后才临时切换；最终请求一律使用 Session 模式。
+本文件在新 case 需要最终发送真实请求、交付 `final.js` / `final.py`，或用户提到 CycleTLS、impers、curl-cffi-node、curl_cffi、cffi_curl、cyCronet 时读取。TLS 指纹兼容客户端从前置阶段开始自动探测（Node curl-cffi-node → impers → Python curl_cffi / cffi_curl），不要等普通 `fetch` / `requests` 失败后才临时切换，也不要求用户选择；最终请求一律使用 Session 模式。
 
 ## 使用边界
 
@@ -9,15 +9,15 @@
 - TLS 指纹兼容只解决普通 HTTP 客户端与浏览器在 TLS ClientHello、ALPN、HTTP/2、JA3/JA4、Cronet / curl-impersonate 网络栈上的差异；不能替代登录态、验证码、一次性 token、设备校验或业务授权。
 - 最终真实请求必须写入一体化 `final.js` 或 `final.py`，由 Node.js / Python TLS 指纹兼容 Session 客户端直接发起；不得生成加密参数后再使用 ruyiPage、Playwright、Puppeteer、Selenium 或其他浏览器自动化验证。
 
-## 前置阶段必须选择客户端
+## 前置阶段自动探测客户端
 
-在信息完整性检查和任务确认时，加入以下字段：
+在 GATE-0 意图声明时，加入以下字段：
 
 ```markdown
 - 最终请求 TLS 指纹兼容客户端：Node.js CycleTLS / Node.js impers / Node.js curl-cffi / curl-cffi-node / Python curl_cffi / Python cffi_curl / Python cyCronet / 不发真实请求
 - 最终请求 Session 模式：一律启用 / 不发真实请求
 - 是否已安装：是 / 否 / 待检测
-- 若未安装：安装该客户端 / 改选其他客户端 / 不发真实请求
+- 若未安装：自动安装优先客户端（默认）/ 按交付语言降级说明 / 不发真实请求
 ```
 
 选择后立即检测：
@@ -27,7 +27,7 @@ node scripts/check_tls_clients.js --markdown
 node scripts/check_tls_clients.js --python python --markdown
 ```
 
-如果用户选择的库未安装，不要默认退回普通 `fetch` / `requests` 发真实请求。应让用户确认安装、改选其他已安装客户端，或选择"不发真实请求，只输出本地 sign / 参数"。
+如果当前可用的 TLS 指纹兼容库未安装，不要默认退回普通 `fetch` / `requests` 发真实请求。默认自动安装优先客户端（Node curl-cffi-node / Python curl_cffi）；安装失败时才报告阻塞或按交付语言降级说明，不要求用户选择。
 
 ## 工具选择
 
@@ -44,7 +44,7 @@ node scripts/check_tls_clients.js --python python --markdown
 
 ## 安装提示
 
-只在用户确认后安装；不要在未确认时自动安装依赖。环境配置流程参见 `workflow/phase-flow.md` 的 nextRequiredInput 模式。
+默认自动安装优先客户端（Node curl-cffi-node / Python curl_cffi），不要求用户选择；执行前先输出一行宣布安装内容（B 档宣布 + 可打断）。环境配置流程参见 `workflow/phase-flow.md` 的 nextRequiredInput 模式。
 
 ```bash
 # Node.js

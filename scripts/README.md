@@ -23,7 +23,7 @@
 | `search_cases.js` | 按关键词、域名、技术信号或策略检索 `cases/index.json` | `node scripts/search_cases.js --domain jd.com --signal h5st` |
 | `init_env_case.js` | 初始化 case / result 目录结构并写入模板，支持 `--force` 覆盖 | `node scripts/init_env_case.js --case-dir demo --target app.js --entry makeSign --param sign --api <API_URL>` |
 | `clean_case.js` | 清理 case 内测试、临时、缓存文件和空目录 | `node scripts/clean_case.js --case-dir <project-root> --dry-run --markdown` |
-| `check_intake.js` | 校验任务说明中的 URL、API、参数名、样本等目标字段 | `node scripts/check_intake.js --input task.md --markdown` |
+| `check_intake.js` | 校验任务说明中的目标字段（必填仅目标 URL + 参数名，其余由门禁补采/自动探测补齐，不阻塞推进） | `node scripts/check_intake.js --input task.md --markdown` |
 | `write_markdown_utf8.js` | 以 UTF-8 写入 Markdown，避免 Windows 编码问题 | `node scripts/write_markdown_utf8.js --input 草稿.md --out 最终项目总结.md --markdown` |
 | `write_stage_report.js` | 以 UTF-8 写入中文命名阶段报告 | `node scripts/write_stage_report.js --case-dir <project-root> --stage 需求信息确认 --markdown` |
 | `check_stage_reports.js` | 检查阶段报告中文文件名、UTF-8、必要阶段及动态字段 | `node scripts/check_stage_reports.js --case-dir <project-root> --require-stage 需求信息确认 --markdown` |

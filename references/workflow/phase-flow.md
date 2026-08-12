@@ -16,10 +16,10 @@
 - **必填**：取证证据门禁结果（`check_evidence.js` 输出：Step 1 / Step 2 证据是否具备、可跳过哪些步骤）
 - **用户提供时**：目标 API、请求方法、参数位置、成功请求样本、响应特征
 - **自动获取时**（FORENSIC_CAPTURE ruyipage 抓包填充）：上述字段
-- **可选确认**：TLS 客户端、登录态
+- **登录态属 C 档由用户处理；TLS 客户端自动探测，不要求用户选择**
 
 强制阻断项：
-- 未确认目标参数：skill 列出可疑参数后用户未确认，不得只盯单一参数进入补环境
+- 目标参数未列全：IDENTIFY 从证据列全候选作为假设继续，不要求用户确认；不得只盯单一参数进入补环境
 - 抓包遇到登录/交互/验证码：暂停要求用户补充请求包
 - **证据门禁不通过**（仅 URL / 声称材料不存在）：不得跳过取证，必须走完整两步取证
 
@@ -41,7 +41,7 @@ node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot 
 
 ```powershell
 node scripts/install_all.js --project-dir <project-root> --markdown       # 输出安装计划
-node scripts/install_all.js --project-dir <project-root> --yes --markdown # 用户确认后自动安装到 <项目根>/tools/
+node scripts/install_all.js --project-dir <project-root> --yes --markdown # 默认自动安装到 <项目根>/tools/（不询问）
 ```
 默认安装目录（= --project-dir 指定的用户工程根，未传时回退当前工作目录）：
 - ruyiPage 定制 Firefox runtime：`<项目根>/tools/ruyipage-browsers/`

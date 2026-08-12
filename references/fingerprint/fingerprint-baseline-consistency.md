@@ -54,7 +54,7 @@
 
 ## 采样与 diff 流程
 
-1. 用户确认取证模式后，先准备本 case 专用 profile / userdir / fingerprint cache 目录。
+1. 取证来源经 EVIDENCE_GATE 自动判定后，先准备本 case 专用 profile / userdir / fingerprint cache 目录。
 2. 第一次成功打开目标页并完成基础自检后，采集 baseline，写入 `case/notes/fingerprint-baseline.json`。
 3. 后续每次浏览器取证前读取 baseline；工具启动参数、profile、代理、locale、timezone、viewport 必须与 baseline 一致。
 4. 多工具采样或重新启动浏览器后，先对比 baseline：

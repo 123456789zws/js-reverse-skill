@@ -72,7 +72,7 @@ python scripts/forensic_ruyipage.py --url <目标页> --case-dir <project-root> 
 
 ## RuyiTrace 日志采集流程
 
-用户选择 RuyiTrace 后，默认自动 trace（脚本自动启动 trace Firefox 捕获）；用户已提供 NDJSON 时直接导入，不重复采集。自动 trace 失败、需要登录/验证/权限交互时转手动 trace。
+取证来源需要 RuyiTrace 时，默认自动 trace（脚本自动启动 trace Firefox 捕获，不询问用户选择采集方式）；用户已提供 NDJSON 时直接导入，不重复采集。自动 trace 失败、需要登录/验证/权限交互时转手动 trace。
 
 ### 方式一：自动 trace
 
@@ -85,7 +85,7 @@ node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <projec
 
 执行要求：
 
-1. 自动创建或使用 `case/ruyi-trace/logs/` 作为日志目录，使用 `case/tmp/ruyitrace-profile/` 或用户确认的临时 Profile。
+1. 自动创建或使用 `case/ruyi-trace/logs/` 作为日志目录，使用 `case/tmp/ruyitrace-profile/` 或临时 Profile。
 2. 使用 RuyiTrace 随包 trace Firefox，而不是普通系统 Firefox、普通 Playwright 或 ruyiPage 的 Firefox runtime。
 3. 设置 `MOZ_DOM_TRACE=1`、`MOZ_DOM_TRACE_FILE=<case trace file>`、`MOZ_DOM_TRACE_LIMIT=<limit>` 和 `MOZ_DISABLE_LAUNCHER_PROCESS=1`。
 4. 打开目标页面后触发最少量必要业务动作；如果需要登录、验证码、MFA、设备验证或权限确认，暂停让用户在该 trace Firefox 中手动完成，再继续采集。
@@ -129,7 +129,7 @@ node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-
 
 ### 方式二：手动 trace（用户指定日志）
 
-适用场景：用户选择手动 trace；或自动 trace 启动失败 / trace Firefox 无法写日志 / 需登录验证等复杂交互时转手动。质量不足（日志生成了但未覆盖目标参数生成路径）的处理见上方「Trace 质量判定与重试」TRACE_RETRY 第 3 步。
+适用场景：自动 trace 启动失败 / trace Firefox 无法写日志 / 需登录验证等复杂交互时转手动（不询问用户选择采集方式）；用户已提供 NDJSON 时直接导入。质量不足（日志生成了但未覆盖目标参数生成路径）的处理见上方「Trace 质量判定与重试」TRACE_RETRY 第 3 步。
 
 手动流程：
 
@@ -330,5 +330,5 @@ JS 引擎 trace（补环境）
 如果目标是验证码 / 风控验证 / challenge / WAF 接口，RuyiTrace 自动捕获或手动捕获都必须覆盖完整链路：触发验证码、验证码组件初始化、用户交互事件、加密参数生成、verify / validate / challenge 接口发起、结果回调。
 
 - 用户提供完整流程时，自动捕获脚本应按该流程执行；若流程需要人工识别、登录、验证码答案或权限交互，暂停让用户完成。
-- 用户选择自己完成流程时，先启动 RuyiTrace 记录，再让用户操作；只有用户回复"已经完成触发到验证流程"后，才停止记录并导入 NDJSON。
+- 流程需要登录、验证码答案、人工识别或权限确认（AI 无法替代的物理交互）时，先启动 RuyiTrace 记录，再让用户操作；只有用户回复"已经完成触发到验证流程"后，才停止记录并导入 NDJSON。
 - 如果 `notes/ruyitrace-summary.md` 只覆盖页面加载、没有交互事件或 verify 接口附近调用栈，属于重度质量不足，按上方「Trace 质量判定与重试」TRACE_RETRY 流程重新采集，不得直接进入补环境。

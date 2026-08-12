@@ -29,8 +29,8 @@ function usage() {
   node scripts/install_ruyipage_runtime.js --python python --install-dir <ruyipage-browsers-dir> --install --markdown
   node scripts/install_ruyipage_runtime.js --python python --install-dir <ruyipage-browsers-dir> --install-package --install --markdown
 
-说明：默认只输出安装计划，不执行下载 / 安装。只有用户明确确认并提供安装目录后，才添加 --install。
-注意：--install-package 会修改当前 Python 环境，必须先获得用户确认。`;
+ 说明：默认只输出安装计划，不执行下载 / 安装。直接安装（--install）时，执行前先输出一行宣布安装内容与目标目录（B 档宣布 + 可打断），随后执行，不要求用户确认；自动安装失败后由用户提供安装目录时，按用户指定目录执行。
+ 注意：--install-package 会修改当前 Python 环境，执行前同样先宣布（B 档）。`;
 }
 
 function run(cmd, args, timeout = 120000) {
@@ -110,7 +110,7 @@ function main() {
   };
 
   if (!args.install) {
-    result.steps.push('当前为安装计划，不执行下载或安装。请用户确认后再添加 --install。');
+    result.steps.push('当前为安装计划，不执行下载或安装。需要直接安装时，执行前先输出一行宣布安装内容与目标目录（B 档）后添加 --install；自动安装失败后的手动路径按用户提供的安装目录执行。');
     result.success = true;
     return result;
   }

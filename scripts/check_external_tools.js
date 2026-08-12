@@ -675,21 +675,21 @@ function withNextSteps(result) {
   }
   const rp = result.ruyiPage;
   if (!rp.packageInstalled) {
-    next.push('如果选择 ruyiPage，请先确认当前 Python 环境是否应安装 ruyiPage；未安装时需用户确认后执行 python -m pip install ruyiPage requests --upgrade。');
+    next.push('ruyiPage Python 包未安装：按 GATE-1 自动安装——执行前先宣布安装内容与目标，随后运行 node scripts/install_all.js --project-dir <project-root> --yes --markdown（含 pip install ruyiPage requests），不询问用户选择。');
   }
   if (rp.smartFingerprintDependencyMissing) {
     next.push('如果选择 ruyiPage 做高保真取证，请安装 Python requests 依赖，或在 smart_fingerprint 中显式提供 manual_geo；否则默认地理位置 / 时区 / 指纹一致性初始化可能失败。');
   }
   if (rp.packageInstalled && rp.packageVersionOk === false) {
-    next.push(`当前 ruyiPage 包版本 ${rp.version || '未知'} 低于 skill 取证脚本 API 依据的最低版本 ${rp.minVersion}；建议用户确认后执行 python -m pip install "ruyiPage>=${rp.minVersion}" requests --upgrade 升级后再取证。`);
+    next.push(`当前 ruyiPage 包版本 ${rp.version || '未知'} 低于 skill 取证脚本 API 依据的最低版本 ${rp.minVersion}，将导致取证脚本不兼容：按 GATE-1 自动升级（执行前先宣布），install_all.js --yes 会 pip 升级 ruyiPage 至最新，不询问用户选择。`);
   }
   if (!rp.managedRuntimeVerified) {
-    next.push('未检测到 ruyiPage 定制 Firefox runtime。请先询问用户是否已经提前安装：已安装则提供 install-dir 或 firefox 可执行文件路径；未安装则提供安装目录，并在用户确认后安装。');
+    next.push('未检测到 ruyiPage 定制 Firefox runtime：按 GATE-1 自动安装——执行前先宣布缺失组件、安装目标 <project-root>/tools/ 与预计规模，随后运行 node scripts/install_all.js --project-dir <project-root> --yes --markdown 自动下载并解压；自动安装失败后才询问用户是否已提前安装（提供 install-dir 或 firefox 可执行文件路径）或提供安装目录。');
   }
   if (rp.defaultIsSystemFirefoxFallback || rp.explicitBrowserPathNotVerified) {
     next.push('检测到可能的系统 Firefox fallback 或未验证 Firefox 路径：这不视为 ruyiPage 绕检测方案通过，必须改用 ruyiPage managed runtime / release 含 ruyi 标识的定制 Firefox。');
   }
-  if (!result.ruyiTrace.installed) next.push('如果本 case 选择 ruyiPage + RuyiTrace，当前 RuyiTrace 未通过检测时不得自动降级为仅 ruyiPage；请让用户选择安装 / 提供 RuyiTrace.exe 所在目录 / 传 --project-dir <用户工程目录>（tools/ 所在；安装模式下 skill 安装目录无 tools/），或明确确认降级为仅 ruyiPage。用户选择安装时，需等待 RuyiTrace.exe 可打开且 firefox/RUYI_DOMTRACE.txt 存在后再继续。');
+  if (!result.ruyiTrace.installed) next.push('如果本 case 取证需要 ruyiPage + RuyiTrace，当前 RuyiTrace 未通过检测时不得自动降级为仅 ruyiPage；按 GATE-1 自动安装——执行前先宣布缺失组件、安装目标 <project-root>/tools/ 与预计规模，随后运行 node scripts/install_all.js --project-dir <project-root> --yes --markdown 自动下载 RuyiTrace.zip 并解压；自动安装失败后才由用户选择安装 / 提供 RuyiTrace.exe 所在目录，或明确确认降级为仅 ruyiPage。用户选择安装时，需等待 RuyiTrace.exe 可打开且 firefox/RUYI_DOMTRACE.txt 存在后再继续。');
   if (result.ruyiTrace.installed && !result.ruyiTrace.kernelVerified) next.push('RuyiTrace 已安装但定制 trace 内核未验证（需要 firefox/firefox(.exe) 和 firefox/RUYI_DOMTRACE.txt）；请确认 RuyiTrace 定制 Firefox 是否完整安装。');
   result.nextRequiredInput = next;
   return result;
@@ -752,7 +752,7 @@ function renderMarkdown(result) {
   if (result.ruyiTrace.marker) lines.push(`- 定制内核标志：${result.ruyiTrace.markerExists ? '存在' : '不存在'} - ${result.ruyiTrace.marker}`);
   if (result.ruyiTrace.reason) lines.push(`- 原因：${result.ruyiTrace.reason}`);
   if (result.ruyiTrace.installed) {
-    lines.push('- 采集方式：RuyiTrace 已检测通过，采集方式由用户选择——自动 trace（`capture_ruyitrace_log.js --url ...`）或手动 trace（用户采集后 `capture_ruyitrace_log.js --input <日志>` 导入）。');
+    lines.push('- 采集方式：RuyiTrace 已检测通过，采集方式默认自动 trace（`capture_ruyitrace_log.js --url ...`），自动失败、需登录/验证/权限交互或用户已提供日志时转手动 trace（`capture_ruyitrace_log.js --input <日志>` 导入）；不询问用户选择。');
     lines.push('- 自动 trace 示例：`node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --target-signal handshake --import-after --markdown`');
   }
 
@@ -769,7 +769,7 @@ function renderMarkdown(result) {
   }
 
   if (result.nextRequiredInput.length) {
-    lines.push('', '## 下一步需要用户确认');
+    lines.push('', '## 下一步');
     for (const item of result.nextRequiredInput) lines.push(`- ${item}`);
   }
   return lines.join('\n') + '\n';

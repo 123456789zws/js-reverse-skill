@@ -224,7 +224,7 @@ function renderIntakeReport(stage, data) {
   lines.push(`- 阻塞原因：${safeString(data.blockers)}`);
   lines.push(`- 需要用户确认：${safeString(data.needUserConfirm || data.confirmation)}`);
   lines.push('', '## 4. 下一步计划', '');
-  const next = data.nextSteps || ['校验请求样本完整性', '列出所有可疑加密参数并等待用户确认', '确认取证工具和 TLS 请求客户端可用性'];
+  const next = data.nextSteps || ['校验请求样本完整性', '按证据列出全部可疑加密参数候选并定位', '按 GATE-1 检测/安装取证工具与 TLS 客户端（默认自动，执行前宣布）'];
   lines.push(...numberedLines(next));
   return lines.join('\n') + '\n';
 }

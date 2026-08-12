@@ -122,13 +122,13 @@ function initCase(args) {
 
 - [ ] 请求样本已确认
 - [ ] 已列出请求样本中的全部可疑加密参数
-- [ ] 用户已确认本次要分析哪些加密参数
+- [ ] 已按证据定位本次要分析的加密参数（候选列出后不等待用户确认）
 - [ ] 加密参数已在请求中确认
 - [ ] 已输出 source / entry / builder / writer 四层链路
 - [ ] 目标 JS 文件已保存
 - [ ] 加密入口已定位
-- [ ] 浏览器取证模式已由用户选择：ruyiPage + RuyiTrace / ruyiPage / 手动取证 / AI 自行决定
-- [ ] 如选择 RuyiTrace，NDJSON 日志已导入或确认不需要
+- [ ] 取证来源已由 EVIDENCE_GATE 判定（ruyipage 网络取证 / RuyiTrace 日志采集 / 用户手动材料）
+- [ ] 取证需要 RuyiTrace 时 NDJSON 已自动采集导入，或按交互场景转手动导入
 - [ ] Node 泄露阻断已检查
 - [ ] 补环境初始化阶段已启用 NativeProtect 保护，并记录保护方式或豁免原因
 - [ ] 默认启用 toString / 属性描述符 / 原型链 / 访问器 / 实例对象保护；如用户明确要求关闭，已记录原因

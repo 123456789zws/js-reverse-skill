@@ -173,13 +173,7 @@ function analyze(text) {
 
   const required = [
     ['targetSiteUrl', '目标网站/页面 URL'],
-    ['apiUrl', '目标接口 API URL'],
-    ['method', '请求方法'],
     ['encryptedParam', '目标加密参数名'],
-    ['paramLocation', '参数出现位置 Query/Header/Body/Cookie'],
-    ['requestSample', '成功请求样本（优先 Copy as cURL 或 HAR）'],
-    ['acquisitionMode', '取证模式（ruyiPage + RuyiTrace / 仅 ruyiPage / 用户手动取证 / AI 自行决定）'],
-    ['tlsClientStrategy', '最终请求 TLS 指纹兼容客户端（Node.js CycleTLS / Node.js impers / Node.js curl-cffi / Python curl_cffi / Python cffi_curl / Python cyCronet / 不发真实请求）'],
   ];
   const missing = required.filter(([key]) => !fields[key]).map(([, label]) => label);
   const complete = missing.length === 0;
@@ -206,13 +200,13 @@ function renderMarkdown(result) {
   lines.push(`- 最终请求 TLS 指纹兼容客户端：${f.tlsClientStrategy || '未提供'}`);
   lines.push('');
   if (!result.complete) {
-    lines.push('## 当前缺少的必要信息');
+    lines.push('## 当前缺少的必要要素');
     for (const item of result.missing) lines.push(`- [ ] ${item}`);
     lines.push('');
-    lines.push('请先补充以上必要信息；补齐前不要进入逆向分析或补环境代码阶段。');
+    lines.push('目标 URL 或参数名缺失且无法从请求中合理提取时，问一次最小信息（WAIT_USER）；其余字段（API、方法、参数位置、样本、取证来源、TLS 客户端）仅供判断参考，由 GATE-1 检测 / 取证补采 / 自动探测补齐，不阻塞推进、不要求用户确认。');
   } else {
     lines.push('## 下一步');
-    lines.push('请先把以上关键信息、取证模式和最终请求 TLS 指纹兼容客户端整理给用户确认；用户确认后再校验请求样本、加密参数和 JS 文件可获取性。后续所有浏览器取证动作必须沿用用户确认的取证模式；最终真实请求只能使用用户确认的 Node.js / Python 请求客户端。');
+    lines.push('要素齐备（目标 URL + 目标参数名可确定）：输出 GATE-0 意图声明后直接进入 GATE-1 环境自检；取证来源由 EVIDENCE_GATE 自动判定，TLS 客户端自动探测（Node curl-cffi-node → impers → Python curl_cffi / cffi_curl），其余缺失项按门禁补采处理。不要求用户确认范围、不询问补充材料。');
   }
   return lines.join('\n') + '\n';
 }

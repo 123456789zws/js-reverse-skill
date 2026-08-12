@@ -24,7 +24,7 @@
 
 ## 推荐定位顺序
 
-1. 从成功请求样本确认 API，并先列出 Query / Header / Body / Cookie 中所有可疑加密参数；让用户确认本次要分析哪些参数。
+1. 从成功请求样本确认 API，并先列出 Query / Header / Body / Cookie 中所有可疑加密参数作为候选假设；由取证与调用栈定位确认本次要分析的参数，不等待用户选择。
 2. 在 DevTools Network 查看 Initiator，先记录请求发起文件和调用栈。
 3. 对 `fetch`、`XMLHttpRequest.open/send/setRequestHeader` 设置断点或 Hook，捕获 `writer`。
 4. 搜索参数名、Header 名、API path、接口封装方法名，寻找 `builder`。
@@ -98,7 +98,7 @@ Hook 模板见 `references/hooks/hook-templates.md`。Hook 只用于授权调试
 
 ## 进入补环境的最低条件
 
-- 已列出所有可疑加密参数，并已由用户确认本次要分析的目标参数。
+- 已列出所有可疑加密参数作为候选假设，并经证据（真实请求 / trace 调用栈）定位确认本次要分析的目标参数。
 - 已确认目标参数在成功请求中存在。
 - 已确认 `writer`，知道参数最终写入哪里。
 - 已定位至少一个可调用或可追踪的 `entry`。
