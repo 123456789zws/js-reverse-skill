@@ -39,11 +39,13 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 function parseArgs(argv) {
-  const args = { caseDir: '', writeSnapshot: false, json: false, markdown: false, help: false };
+  const args = { caseDir: '', ruyitraceHome: '', ruyitraceExe: '', writeSnapshot: false, json: false, markdown: false, help: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     const nextVal = (fb) => (i + 1 < argv.length && typeof argv[i + 1] === 'string' && !argv[i + 1].startsWith('-')) ? argv[++i] : fb;
     if (a === '--case-dir') args.caseDir = nextVal('');
+    else if (a === '--ruyitrace-home') args.ruyitraceHome = nextVal('');
+    else if (a === '--ruyitrace-exe') args.ruyitraceExe = nextVal('');
     else if (a === '--write-snapshot') args.writeSnapshot = true;
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
@@ -63,7 +65,8 @@ function usage() {
 说明：判定新会话是否可跳过 ENV_READY 五项环境检测。
 --case-dir 指项目根（其下应有 case/ 和 result/ 两个平级子目录）；兼容直接传 case 目录。
 --write-snapshot：仅在五项环境检测全部通过时写入/更新 case/notes/env-snapshot.json；失败退出非零且不写文件。
-不带 --write-snapshot 时只做判定，不写文件。`;
+不带 --write-snapshot 时只做判定，不写文件。
+--ruyitrace-home / --ruyitrace-exe：透传给 check_external_tools.js（安装模式下 tools/ 在用户工程目录而非 skill 根，靠此定位 RuyiTrace）。`;
 }
 
 function exists(p) { try { return !!p && fs.existsSync(p); } catch { return false; } }
@@ -92,13 +95,16 @@ function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); } catch { return null; }
 }
 
-function runCheckExternalTools(projectRoot) {
+function runCheckExternalTools(projectRoot, toolsBase, extraArgs) {
   const script = path.join(projectRoot, 'scripts', 'check_external_tools.js');
-  const ret = spawnSync(process.execPath, [script, '--json'], {
+  const spawnArgs = [script, '--json'];
+  if (extraArgs?.ruyitraceHome) spawnArgs.push('--ruyitrace-home', extraArgs.ruyitraceHome);
+  if (extraArgs?.ruyitraceExe) spawnArgs.push('--ruyitrace-exe', extraArgs.ruyitraceExe);
+  const ret = spawnSync(process.execPath, spawnArgs, {
     encoding: 'utf8',
     timeout: 60000,
     windowsHide: true,
-    cwd: projectRoot,
+    cwd: toolsBase,
   });
   if (ret.status !== 0) {
     return { ok: false, error: ret.stderr || ret.stdout || ret.error?.message || 'check_external_tools.js 退出非零' };
@@ -253,6 +259,7 @@ function main() {
   }
   const projectRoot = findProjectRoot();
   const caseDir = resolveCaseDir(args.caseDir);
+  const projectRootOfCase = (path.basename(caseDir) === 'case') ? path.dirname(caseDir) : caseDir;
   const notesDir = path.join(caseDir, 'notes');
   const snapshotPath = path.join(notesDir, 'env-snapshot.json');
   const snapshotExists = exists(snapshotPath);
@@ -260,7 +267,7 @@ function main() {
 
   // 写快照模式
   if (args.writeSnapshot) {
-    const detectRet = runCheckExternalTools(projectRoot);
+    const detectRet = runCheckExternalTools(projectRoot, projectRootOfCase, args);
     if (!detectRet.ok) {
       console.error(`无法生成快照：${detectRet.error}`);
       process.exit(2);
@@ -304,7 +311,7 @@ function main() {
     process.exit(0);
   }
 
-  const detectRet = runCheckExternalTools(projectRoot);
+  const detectRet = runCheckExternalTools(projectRoot, projectRootOfCase, args);
   if (!detectRet.ok) {
     const out = { mode: 'fresh', caseDir, snapshotPath, snapshotExists: true, detectError: detectRet.error };
     if (args.json) console.log(JSON.stringify(out, null, 2));
