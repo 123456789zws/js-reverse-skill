@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 // 当前 case 目录与其真实路径（供删除时的越界校验使用）
 let CASE_DIR = '';
@@ -396,7 +397,7 @@ function pruneEmptyDirs(caseDir, args, actions) {
 
 function cleanup(args) {
   if (!args.caseDir) throw new Error('必须提供 --case-dir');
-  const caseDir = path.resolve(args.caseDir);
+  const caseDir = paths.resolveCaseDir(args.caseDir);
   if (!exists(caseDir)) throw new Error(`case 目录不存在：${caseDir}`);
   const caseStat = stat(caseDir);
   if (!caseStat || !caseStat.isDirectory()) throw new Error(`case 路径不是目录：${caseDir}`);

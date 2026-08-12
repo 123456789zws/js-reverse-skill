@@ -59,10 +59,10 @@ case/阶段报告/11-Bug修复与回归测试报告.md
 优先使用脚本生成或写入，避免编码问题：
 
 ```bash
-node scripts/write_stage_report.js --case-dir case --stage 需求信息确认 --data case/notes/需求信息.json --markdown
-node scripts/write_stage_report.js --case-dir case --stage 请求样本与可疑参数确认 --input case/tmp/可疑参数草稿.md --markdown
-node scripts/write_stage_report.js --case-dir case --stage 验证与清理记录 --append --input case/tmp/清理结果.md --markdown
-node scripts/write_stage_report.js --case-dir case --stage WebAPI补齐阶段报告 --index 08 --data case/notes/阶段进展.json --markdown
+node scripts/write_stage_report.js --case-dir <project-root> --stage 需求信息确认 --data case/notes/需求信息.json --markdown
+node scripts/write_stage_report.js --case-dir <project-root> --stage 请求样本与可疑参数确认 --input case/tmp/可疑参数草稿.md --markdown
+node scripts/write_stage_report.js --case-dir <project-root> --stage 验证与清理记录 --append --input case/tmp/清理结果.md --markdown
+node scripts/write_stage_report.js --case-dir <project-root> --stage WebAPI补齐阶段报告 --index 08 --data case/notes/阶段进展.json --markdown
 ```
 
 写入任意中文命名 Markdown 时使用：
@@ -74,9 +74,9 @@ node scripts/write_markdown_utf8.js --input case/tmp/总结草稿.md --out resul
 检查阶段报告：
 
 ```bash
-node scripts/check_stage_reports.js --case-dir case --require-stage 需求信息确认 --markdown
-node scripts/check_stage_reports.js --case-dir case --require-stage 需求信息确认 --require-stage 请求样本与可疑参数确认 --json
-node scripts/check_stage_reports.js --case-dir case --require-stage WebAPI补齐阶段报告 --require-dynamic-fields --require-capability-report --markdown
+node scripts/check_stage_reports.js --case-dir <project-root> --require-stage 需求信息确认 --markdown
+node scripts/check_stage_reports.js --case-dir <project-root> --require-stage 需求信息确认 --require-stage 请求样本与可疑参数确认 --json
+node scripts/check_stage_reports.js --case-dir <project-root> --require-stage WebAPI补齐阶段报告 --require-dynamic-fields --require-capability-report --markdown
 ```
 
 ## 阶段 1：需求信息确认报告内容

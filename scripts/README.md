@@ -22,11 +22,11 @@
 |------|------|---------|
 | `search_cases.js` | 按关键词、域名、技术信号或策略检索 `cases/index.json` | `node scripts/search_cases.js --domain jd.com --signal h5st` |
 | `init_env_case.js` | 初始化 case / result 目录结构并写入模板，支持 `--force` 覆盖 | `node scripts/init_env_case.js --case-dir demo --target app.js --entry makeSign --param sign --api <API_URL>` |
-| `clean_case.js` | 清理 case 内测试、临时、缓存文件和空目录 | `node scripts/clean_case.js --case-dir case --dry-run --markdown` |
+| `clean_case.js` | 清理 case 内测试、临时、缓存文件和空目录 | `node scripts/clean_case.js --case-dir <project-root> --dry-run --markdown` |
 | `check_intake.js` | 校验任务说明中的 URL、API、参数名、样本等目标字段 | `node scripts/check_intake.js --input task.md --markdown` |
 | `write_markdown_utf8.js` | 以 UTF-8 写入 Markdown，避免 Windows 编码问题 | `node scripts/write_markdown_utf8.js --input 草稿.md --out 最终项目总结.md --markdown` |
-| `write_stage_report.js` | 以 UTF-8 写入中文命名阶段报告 | `node scripts/write_stage_report.js --case-dir case --stage 需求信息确认 --markdown` |
-| `check_stage_reports.js` | 检查阶段报告中文文件名、UTF-8、必要阶段及动态字段 | `node scripts/check_stage_reports.js --case-dir case --require-stage 需求信息确认 --markdown` |
+| `write_stage_report.js` | 以 UTF-8 写入中文命名阶段报告 | `node scripts/write_stage_report.js --case-dir <project-root> --stage 需求信息确认 --markdown` |
+| `check_stage_reports.js` | 检查阶段报告中文文件名、UTF-8、必要阶段及动态字段 | `node scripts/check_stage_reports.js --case-dir <project-root> --require-stage 需求信息确认 --markdown` |
 
 ## 网络取证与日志采集（4 个）
 
@@ -45,22 +45,22 @@
 |------|------|---------|
 | `analyze_trace.js` | 解析 trace JSONL，按模块归类环境访问并标注优先级 | `node scripts/analyze_trace.js --trace case/tmp/env-trace.jsonl --summary case/tmp/missing-env.json --markdown` |
 | `analyze_trace_complexity.js` | 评估补环境复杂度、风险点与实现优先级 | `node scripts/analyze_trace_complexity.js --trace case/ruyi-trace/logs/trace.ndjson --markdown` |
-| `build_trace_runtime_contract.js` | 从原始 Trace 生成逐 API、Realm、receiver 与行为观测组成的运行时契约 | `node scripts/build_trace_runtime_contract.js --case-dir case --markdown` |
+| `build_trace_runtime_contract.js` | 从原始 Trace 生成逐 API、Realm、receiver 与行为观测组成的运行时契约 | `node scripts/build_trace_runtime_contract.js --case-dir <project-root> --markdown` |
 | `run_with_trace.js` | 在隔离 vm 探测上下文运行目标脚本并输出环境访问日志 | `node scripts/run_with_trace.js --target case/js/original/app.js --entry window.makeSign --fixture case/fixtures/sample.fixture.json` |
-| `run_trace_runtime_audit.js` | 在强制 no-send 模式下运行项目审计入口并生成 Node runtime audit | `node scripts/run_trace_runtime_audit.js --case-dir case --entry result/final.js --markdown` |
-| `check_trace_runtime_conformance.js` | 比较 Trace 运行时契约与 Node audit，阻断关键行为不一致 | `node scripts/check_trace_runtime_conformance.js --case-dir case --markdown` |
+| `run_trace_runtime_audit.js` | 在强制 no-send 模式下运行项目审计入口并生成 Node runtime audit | `node scripts/run_trace_runtime_audit.js --case-dir <project-root> --entry result/final.js --markdown` |
+| `check_trace_runtime_conformance.js` | 比较 Trace 运行时契约与 Node audit，阻断关键行为不一致 | `node scripts/check_trace_runtime_conformance.js --case-dir <project-root> --markdown` |
 | `check_trace_api_coverage.js` | 检查 Trace API inventory、环境覆盖矩阵与运行时闭环状态 | `node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown` |
 
 ## 补环境与网络语义检查（7 个）
 
 | 脚本 | 功能 | 典型用法 |
 |------|------|---------|
-| `check_env_realism.js` | 检查原型链、描述符、toString 保护、document.all 与指纹值回放等真实性要求 | `node scripts/check_env_realism.js --case-dir case --markdown` |
-| `check_object_shape_audit.js` | 检查浏览器对象私有状态泄露，并对比对象形状 baseline 与 Node audit | `node scripts/check_object_shape_audit.js --case-dir case --require --markdown` |
-| `check_webapi_env_detection_matrix.js` | 检查 WebAPI 行为矩阵、浏览器 baseline 与 Node audit 的行为差异闭环 | `node scripts/check_webapi_env_detection_matrix.js --case-dir case --require --markdown` |
-| `check_xhr_fetch_semantics.js` | 对比浏览器与 Node 的 XHR、fetch、导航请求/响应、Header、Session 和生命周期语义 | `node scripts/check_xhr_fetch_semantics.js --case-dir case --require --require-no-send --markdown` |
-| `check_xhr_fetch_session_bridge.js` | 检查 XHR / fetch / sendBeacon 是否通过同一 TLS 指纹兼容 Session 发起真实请求 | `node scripts/check_xhr_fetch_session_bridge.js --case-dir case --require-live --markdown` |
-| `check_environment_closure.js` | 汇总执行 Trace-runtime、WebAPI、对象形状与网络语义闭环检查 | `node scripts/check_environment_closure.js --case-dir case --before-real-request --markdown` |
+| `check_env_realism.js` | 检查原型链、描述符、toString 保护、document.all 与指纹值回放等真实性要求 | `node scripts/check_env_realism.js --case-dir <project-root> --markdown` |
+| `check_object_shape_audit.js` | 检查浏览器对象私有状态泄露，并对比对象形状 baseline 与 Node audit | `node scripts/check_object_shape_audit.js --case-dir <project-root> --require --markdown` |
+| `check_webapi_env_detection_matrix.js` | 检查 WebAPI 行为矩阵、浏览器 baseline 与 Node audit 的行为差异闭环 | `node scripts/check_webapi_env_detection_matrix.js --case-dir <project-root> --require --markdown` |
+| `check_xhr_fetch_semantics.js` | 对比浏览器与 Node 的 XHR、fetch、导航请求/响应、Header、Session 和生命周期语义 | `node scripts/check_xhr_fetch_semantics.js --case-dir <project-root> --require --require-no-send --markdown` |
+| `check_xhr_fetch_session_bridge.js` | 检查 XHR / fetch / sendBeacon 是否通过同一 TLS 指纹兼容 Session 发起真实请求 | `node scripts/check_xhr_fetch_session_bridge.js --case-dir <project-root> --require-live --markdown` |
+| `check_environment_closure.js` | 汇总执行 Trace-runtime、WebAPI、对象形状与网络语义闭环检查 | `node scripts/check_environment_closure.js --case-dir <project-root> --before-real-request --markdown` |
 | `generate_fingerprint_hook.js` | 生成浏览器侧指纹终端 API 采样 Hook，仅用于取证 | `node scripts/generate_fingerprint_hook.js --types canvas,webgl,dom-geometry --out case/hooks/fingerprint-hook.js` |
 
 ## 质量检查与交付门禁（6 个）
@@ -70,8 +70,8 @@
 | `check_code_quality.js` | 检查代码简洁性、模块化、编码与交付代码规则 | `node scripts/check_code_quality.js --case-dir <project-root> --markdown` |
 | `check_final_artifact.js` | 检查交付目录、单一入口、禁用浏览器自动化、总结与经验沉淀等规则 | `node scripts/check_final_artifact.js --case-dir <project-root> --markdown` |
 | `check_fingerprint_fixture.js` | 检查指纹 fixture 对 Canvas、WebGL、Audio、DOM 几何等的覆盖 | `node scripts/check_fingerprint_fixture.js --case-dir <project-root> --markdown` |
-| `check_dynamic_resources.js` | 检查动态资源是否仅作快照，并具备运行时刷新设计 | `node scripts/check_dynamic_resources.js --case-dir case --markdown` |
-| `check_change_memory.js` | 检查代码变更记忆中的修改原因、禁止回退与验证记录 | `node scripts/check_change_memory.js --case-dir case --markdown` |
+| `check_dynamic_resources.js` | 检查动态资源是否仅作快照，并具备运行时刷新设计 | `node scripts/check_dynamic_resources.js --case-dir <project-root> --markdown` |
+| `check_change_memory.js` | 检查代码变更记忆中的修改原因、禁止回退与验证记录 | `node scripts/check_change_memory.js --case-dir <project-root> --markdown` |
 | `compare_fixture.js` | 对比 fixture 样本与实际输出，定位首个偏差点 | `node scripts/compare_fixture.js --fixture sample.fixture.json --actual node-output.json --field sign --markdown` |
 
 ## 安装与下载（3 个）

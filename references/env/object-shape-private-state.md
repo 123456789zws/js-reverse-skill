@@ -97,7 +97,7 @@ case/notes/object-shape-audit.md
 ```
 ## 检查命令
 ```bash
-node scripts/check_object_shape_audit.js --case-dir case --markdown
-node scripts/check_object_shape_audit.js --case-dir case --require --json
+node scripts/check_object_shape_audit.js --case-dir <project-root> --markdown
+node scripts/check_object_shape_audit.js --case-dir <project-root> --require --json
 ```
 检查失败时，下一步只能迁移私有状态到 addon / xbs private API 或 WeakMap、补浏览器 baseline、补 Node audit、修 descriptor / prototype / ownKeys 差异，或进入 native 能力缺口闭环。

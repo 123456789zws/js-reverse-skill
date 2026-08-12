@@ -280,8 +280,8 @@ Promise resolved、Worker 回包出现或 probe 不报错都不能单独视为�
 ## 检查命令
 
 ```bash
-node scripts/check_webapi_env_detection_matrix.js --case-dir case --markdown
-node scripts/check_webapi_env_detection_matrix.js --case-dir case --require --require-writer-branch --json
+node scripts/check_webapi_env_detection_matrix.js --case-dir <project-root> --markdown
+node scripts/check_webapi_env_detection_matrix.js --case-dir <project-root> --require --require-writer-branch --json
 ```
 
 检查失败时，下一步只能补浏览器 baseline、Node audit、矩阵、native 能力缺口或离线 diff；不能继续真实请求验证。

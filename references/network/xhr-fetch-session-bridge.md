@@ -135,10 +135,10 @@ case/tmp/xhr-fetch-semantics-audit.json
 ## 检查命令
 
 ```bash
-node scripts/check_xhr_fetch_session_bridge.js --case-dir case --markdown
-node scripts/check_xhr_fetch_session_bridge.js --case-dir case --require-live --json
-node scripts/check_xhr_fetch_session_bridge.js --case-dir case --tls-client curl_cffi --require-live --markdown
-node scripts/check_xhr_fetch_semantics.js --case-dir case --require --require-no-send --out case/tmp/xhr-fetch-semantics-audit.json --markdown
+node scripts/check_xhr_fetch_session_bridge.js --case-dir <project-root> --markdown
+node scripts/check_xhr_fetch_session_bridge.js --case-dir <project-root> --require-live --json
+node scripts/check_xhr_fetch_session_bridge.js --case-dir <project-root> --tls-client curl_cffi --require-live --markdown
+node scripts/check_xhr_fetch_semantics.js --case-dir <project-root> --require --require-no-send --out case/tmp/xhr-fetch-semantics-audit.json --markdown
 ```
 
 检查失败时，下一步只能补 live session bridge、补 Cookie 同步、修正 XHR/fetch 浏览器语义、改为明确不发真实请求，或记录用户豁免。不得继续真实请求验证或写“TLS 指纹已解决”。

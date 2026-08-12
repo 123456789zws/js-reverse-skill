@@ -94,25 +94,25 @@ case 根目录只允许两个子目录：
 先预览：
 
 ```bash
-node scripts/clean_case.js --case-dir case --dry-run --markdown
+node scripts/clean_case.js --case-dir <project-root> --dry-run --markdown
 ```
 
 清理普通临时文件：
 
 ```bash
-node scripts/clean_case.js --case-dir case --force --markdown
+node scripts/clean_case.js --case-dir <project-root> --force --markdown
 ```
 
 只有用户明确确认后，才删除 Profile：
 
 ```bash
-node scripts/clean_case.js --case-dir case --force --include-profiles --markdown
+node scripts/clean_case.js --case-dir <project-root> --force --include-profiles --markdown
 ```
 
 清理后复查：
 
 ```bash
-node scripts/clean_case.js --case-dir case --dry-run --json
+node scripts/clean_case.js --case-dir <project-root> --dry-run --json
 ```
 
 期望 `remainingTempLike` 为空；如果不为空，说明仍有普通临时 / 缓存 / 中间产物残留，需要继续处理。

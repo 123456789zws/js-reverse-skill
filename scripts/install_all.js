@@ -36,6 +36,7 @@ function usage() {
 默认安装目录（当前工作目录）：
   - ruyiPage runtime：<cwd>/tools/ruyipage-browsers/
   - RuyiTrace：       <cwd>/tools/RuyiTrace/
+请先在项目根目录（tools/ 要安装到的用户工程目录）运行本脚本；在 skill 安装目录运行会装错位置。
 --yes：跳过用户确认，直接安装缺失项。`;
 }
 

@@ -164,8 +164,8 @@ module.exports = { fetchRuntimeResources };
 进入最终交付前运行：
 
 ```bash
-node scripts/check_dynamic_resources.js --case-dir case --markdown
-node scripts/check_dynamic_resources.js --case-dir case --require-runtime-refresh --markdown
+node scripts/check_dynamic_resources.js --case-dir <project-root> --markdown
+node scripts/check_dynamic_resources.js --case-dir <project-root> --require-runtime-refresh --markdown
 ```
 
 检查失败时先修复资源刷新链路，再继续补环境或最终请求。

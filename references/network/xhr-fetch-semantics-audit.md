@@ -123,9 +123,9 @@ Header 数组中的每一项都必须有非空名称和真实值或脱敏摘要�
 ## 检查命令
 
 ```bash
-node scripts/check_xhr_fetch_semantics.js --case-dir case --require --require-no-send --out case/tmp/xhr-fetch-semantics-audit.json --markdown
-node scripts/check_xhr_fetch_session_bridge.js --case-dir case --require-live --tls-client curl_cffi --markdown
-node scripts/check_environment_closure.js --case-dir case --before-real-request --require-live --tls-client curl_cffi --markdown
+node scripts/check_xhr_fetch_semantics.js --case-dir <project-root> --require --require-no-send --out case/tmp/xhr-fetch-semantics-audit.json --markdown
+node scripts/check_xhr_fetch_session_bridge.js --case-dir <project-root> --require-live --tls-client curl_cffi --markdown
+node scripts/check_environment_closure.js --case-dir <project-root> --before-real-request --require-live --tls-client curl_cffi --markdown
 ```
 
 只有 no-send 语义审计和 session bridge 运行时审计同时通过，才允许少量授权真实请求。不得等用户提出“比较请求头和请求体”后才执行本流程。

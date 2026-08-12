@@ -19,7 +19,7 @@ case/notes/trace-runtime-diff.md
 ```
 `trace-runtime-contract.json` 必须由以下命令从原始 Trace 生成：
 ```bash
-node scripts/build_trace_runtime_contract.js --case-dir case --trace case/ruyi-trace/logs/current.ndjson --baseline-id <baselineId> --markdown
+node scripts/build_trace_runtime_contract.js --case-dir <project-root> --trace case/ruyi-trace/logs/current.ndjson --baseline-id <baselineId> --markdown
 ```
 不得手工创建空 contract，也不得只保留 Top 30 API。所有不同的 API、access type、realm、receiver 和 phase 组合都必须进入契约。
 ## 契约维度
@@ -82,8 +82,8 @@ audit-only 模式：
 `timeline` 必须由 runtime 在事件实际发生时追加，且保留严格递增 sequence。只给每个 observation 填写局部 `sequences`、再由审计脚本排序重建，不足以证明交错事件、terminate/close、reload 销毁或 DOM mutation 的真实顺序。
 运行：
 ```bash
-node scripts/run_trace_runtime_audit.js --case-dir case --entry result/final.js --markdown
-node scripts/check_trace_runtime_conformance.js --case-dir case --markdown
+node scripts/run_trace_runtime_audit.js --case-dir <project-root> --entry result/final.js --markdown
+node scripts/check_trace_runtime_conformance.js --case-dir <project-root> --markdown
 ```
 Python 入口使用 `result/final.py`。
 ## 阻断条件

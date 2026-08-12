@@ -33,7 +33,9 @@ fresh 完整自检:
        node scripts/precheck_runtime.js
 铁律: 安装模式下必须传 --project-dir <project-root>（tools/ 所在的用户工程目录）。skill 安装目录无 tools/（gitignore 不随分发），不传则 RuyiTrace/ruyipage 检测必失败、回退 PATH 兜底也找不到。
 判定: Node.js + ruyipage + ruyipage 定制 Firefox + RuyiTrace + trace Firefox 五项全过
-未过: 按 nextRequiredInput 计划安装（scripts/install_all.js），用户确认后才继续
+未过: 按 nextRequiredInput 计划安装（scripts/install_all.js），用户确认后才继续。
+      先 cd 到 <project-root> 再运行 install_all.js——安装目标 = 当前工作目录的 tools/，
+      在 skill 安装目录或其它目录运行会把工具装错位置，后续检测依然失败。
 通过后: node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
 
 ═══ GATE-2 证据门禁（硬阻断）═══
@@ -127,16 +129,16 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 ```
 
 > **执行主线 TODO（激活即建，逐步勾选）**：激活 skill 后的第一件事——把下方 10 个主干项建成可勾选任务清单暴露给用户，让进度可见、可控。
-> 清单项与状态机节点一一对应：
+> 清单项对应状态机主干节点（分支节点如 STEP2_ONLY / TRACE_RETRY / EXTERNAL_LOOKUP / DIAGNOSE 等不单列，按状态机转移规则并入所属主干项，勾选仍以状态机实际进度为准）：
 > 1. INTENT_CONFIRM（确认范围）
 > 2. ENV_READY（环境就绪；续接模式跳过则直接勾掉）
 > 3. EVIDENCE_GATE（证据门禁）
-> 4. 取证 FORENSIC_CAPTURE / TRACE_CAPTURE
-> 5. 定位 IDENTIFY
+> 4. 取证 FORENSIC_CAPTURE / TRACE_CAPTURE（含 STEP2_ONLY / TRACE_RETRY）
+> 5. 定位 IDENTIFY（含 CASE_LOOKUP / EXTERNAL_LOOKUP）
 > 6. 分析 TRACE_ANALYZE
 > 7. 实现 IMPLEMENT
-> 8. 验证 REAL_VERIFY
-> 9. 交付 DELIVER
+> 8. 验证 REAL_VERIFY（含 DIAGNOSE）
+> 9. 交付 DELIVER / SIGN_ONLY_DELIVER
 > 10. 清理 CLEANUP
 > 勾选规则：每进入一个状态就立即把对应项标记为完成；分支回退（如 REAL_VERIFY 失败 → 回「实现」）把该项重新置为进行中，不新建子任务；续接模式跳过 ENV_READY 时直接勾掉第 2 项。
 

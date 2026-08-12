@@ -29,7 +29,7 @@ case/notes/代码变更记忆.md
 不存在时先创建。可以用脚本初始化：
 
 ```bash
-node scripts/check_change_memory.js --case-dir case --init --markdown
+node scripts/check_change_memory.js --case-dir <project-root> --init --markdown
 ```
 
 ## 修改前必须做
@@ -121,13 +121,13 @@ node scripts/compare_fixture.js --fixture case/fixtures/sample.fixture.json --ac
 交付前至少运行：
 
 ```bash
-node scripts/check_change_memory.js --case-dir case --markdown
+node scripts/check_change_memory.js --case-dir <project-root> --markdown
 ```
 
 如果本轮修改过关键源码，还要按文件检查：
 
 ```bash
-node scripts/check_change_memory.js --case-dir case --changed result/src/env/install-env.js --require-entry --markdown
+node scripts/check_change_memory.js --case-dir <project-root> --changed result/src/env/install-env.js --require-entry --markdown
 ```
 
 检查未通过时，不要交付最终结果；先补齐记忆记录或说明用户明确豁免。

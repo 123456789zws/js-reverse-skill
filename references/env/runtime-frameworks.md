@@ -37,7 +37,7 @@ AI 在以下信号出现时自动建议升级框架（需向用户说明原因�
 如果存在 RuyiTrace NDJSON、`run_with_trace.js` 产生的 JSONL、`missing-env.json` 或其他环境访问日志，必须用日志辅助理解复杂度。复杂度评估只用于判断补环境范围、排定 WebAPI 补齐优先级、识别风险和写入阶段报告，不得用于自动选择框架。
 
 ```bash
-node scripts/analyze_trace_complexity.js --case-dir case --markdown
+node scripts/analyze_trace_complexity.js --case-dir <project-root> --markdown
 ```
 
 ## 框架说明

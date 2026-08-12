@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 const STAGES = {
   '需求信息确认': { index: '01', title: '需求信息确认' },
@@ -332,7 +333,7 @@ function main() {
     console.log(usage());
     process.exit(args.help ? 0 : 1);
   }
-  const caseDir = path.resolve(args.caseDir);
+  const caseDir = paths.resolveCaseDir(args.caseDir);
   const stage = normalizeStage(args.stage, args.index);
   const out = path.resolve(args.out || defaultOut(caseDir, stage));
   if (!isInside(out, caseDir)) throw new Error(`阶段报告输出路径越界（必须位于用例目录内）：${out}`);

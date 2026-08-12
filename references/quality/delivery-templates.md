@@ -50,7 +50,7 @@
     ```bash
     node scripts/write_markdown_utf8.js --input case/tmp/最终项目总结草稿.md --out result/最终项目总结.md --require-chinese-name --markdown
     node scripts/check_final_artifact.js --case-dir <project-root> --markdown
-    node scripts/clean_case.js --case-dir case --dry-run --json
+    node scripts/clean_case.js --case-dir <project-root> --dry-run --json
     ```
 
     若检查失败，先修复和清理，再交付。
