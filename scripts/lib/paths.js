@@ -93,6 +93,15 @@ function normalizeTraceHome(args) {
     } catch { /* ignore */ }
   }
   candidates = uniquePaths(candidates);
+  const exeName = process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace';
+  // 优先返回含可执行文件的目录（版本最高优先）：避免残留的不完整/空目录被选中
+  const versionedWithExe = candidates
+    .map((p) => ({ p, v: (/RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(p)) || [])[1] || '' }))
+    .filter((x) => x.v && exists(path.join(x.p, exeName)))
+    .sort((a, b) => compareVersion(b.v, a.v) || 0);
+  if (versionedWithExe.length) return versionedWithExe[0].p;
+  const legacyWithExe = candidates.find((p) => /^RuyiTrace$/i.test(path.basename(p)) && exists(path.join(p, exeName)));
+  if (legacyWithExe) return legacyWithExe;
   const versioned = candidates
     .map((p) => ({ p, v: (/RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(p)) || [])[1] || '' }))
     .filter((x) => x.v)
