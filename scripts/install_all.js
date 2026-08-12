@@ -186,17 +186,25 @@ function downloadAndExtractRuyiTrace(mirror) {
   let parsed = null;
   try { parsed = JSON.parse(ret.stdout.replace(/^\uFEFF/, '')); } catch { /* ignore */ }
   const ok = ret.ok && parsed && parsed.downloaded && parsed.extracted;
+  const exeName = process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace';
   // 解压目录归一：新版资产名带版本号（如 RuyiTrace-2.5.5-win64），统一重命名为 tools/RuyiTrace
-  // 以匹配 check_external_tools.js / 文档约定的默认检测路径；tools/RuyiTrace 已存在时不覆盖
-  if (ok && parsed.extractDir && path.resolve(parsed.extractDir) !== path.resolve(RUYITRACE_DIR) && !exists(RUYITRACE_DIR)) {
+  // 以匹配 check_external_tools.js / 文档约定的默认检测路径；
+  // 只有目标目录缺失或不完整（无 RuyiTrace 可执行文件）才重命名，避免残留空目录挡住新安装
+  if (ok && parsed.extractDir && path.resolve(parsed.extractDir) !== path.resolve(RUYITRACE_DIR) && !exists(path.join(RUYITRACE_DIR, exeName))) {
+    if (exists(RUYITRACE_DIR)) {
+      try { fs.rmSync(RUYITRACE_DIR, { recursive: true, force: true }); } catch { /* 清理失败时保留旧目录 */ }
+    }
     try {
       fs.renameSync(parsed.extractDir, RUYITRACE_DIR);
       parsed.extractDir = RUYITRACE_DIR;
     } catch { /* 重命名失败时保留原目录，由用户手动指定 --ruyitrace-home */ }
   }
+  // 解压结果必须含 RuyiTrace 可执行文件才算成功，避免"下载成功但目录不完整"的误导
+  const targetDir = parsed && parsed.extractDir ? parsed.extractDir : RUYITRACE_DIR;
+  const complete = ok && exists(path.join(targetDir, exeName));
   // 新版 2.5+ 内核在 resources/kernel/，旧版在 firefox/：归一后检测脚本可自动识别任一结构
   return {
-    ok,
+    ok: complete,
     output: (ret.stdout || ret.stderr || ret.error || '').slice(0, 2000),
     extractDir: parsed ? parsed.extractDir : '',
   };
