@@ -66,7 +66,7 @@ function findProjectRoot() {
 function resolveProjectDirFromCaseDir(caseDir) {
   if (!caseDir) return process.cwd();
   const resolved = path.resolve(caseDir);
-  return (path.basename(resolved) === 'case') ? path.dirname(resolved) : resolved;
+  return (path.basename(resolved).toLowerCase() === 'case') ? path.dirname(resolved) : resolved;
 }
 
 // 定位 RuyiTrace home 目录

@@ -204,6 +204,15 @@ function verify(args) {
   return parsed;
 }
 
+// 安装后全量检测结果汇总：全部通过才视为成功
+function computeAllOk(after) {
+  return !!(after && after.node && after.node.ok
+    && after.ruyiPage && after.ruyiPage.packageInstalled
+    && after.ruyiPage.managedRuntimeVerified
+    && after.ruyiTrace && after.ruyiTrace.installed
+    && after.ruyiTrace.kernelVerified);
+}
+
 function renderMarkdown(result) {
   const lines = ['# 一键安装结果', '', `- 工作目录：${PROJECT_ROOT}`, `- 安装目录：${TOOLS_DIR}`, `- Python：${result.python}`, ''];
 
@@ -241,11 +250,7 @@ function renderMarkdown(result) {
     }
   }
 
-  const allOk = result.after && result.after.node && result.after.node.ok
-    && result.after.ruyiPage && result.after.ruyiPage.packageInstalled
-    && result.after.ruyiPage.managedRuntimeVerified
-    && result.after.ruyiTrace && result.after.ruyiTrace.installed
-    && result.after.ruyiTrace.kernelVerified;
+  const allOk = computeAllOk(result.after);
   lines.push('', `## 结果：${allOk ? '全部通过' : '部分未通过，请检查上方日志'}`);
   return lines.join('\n') + '\n';
 }
@@ -301,6 +306,8 @@ function main() {
 
   result.steps = install(before, args, mirror);
   result.after = verify(args);
+  // 真正执行安装后必须按最终检测结果返回非零，避免上层（AI/CI/脚本）误判安装成功
+  process.exitCode = computeAllOk(result.after) ? 0 : 1;
 
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(renderMarkdown(result));
