@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.16 - 2026-08-12
+
+### 修复
+- **AI 实战不传 --project-dir 导致 RuyiTrace 检测仍失败 + 提示不引导**：装版 skill 已是 2.3.15，但 AI 跑 GATE-2 不传 `--project-dir`（SKILL.md 模板写了，AI 没遵守），且 `check_external_tools.js` 的"未检测到 RuyiTrace"提示只写 `--ruyitrace-home` / `RUYI_TRACE_HOME`，没提 `--project-dir`，AI 跟着提示走没想到用它。修复：① `check_external_tools.js` 的 reason + nextRequiredInput 提示加 `--project-dir` 引导（AI 看到提示知道用）；② SKILL.md GATE-2 把 `--project-dir` 从"模板写法"升级为铁律（安装模式下必须传，否则检测必失败）。
+- **AI 自建 fetch_page.js 抓页面（2.2.0 重构把全局硬约束降级为局部节内约束）**：用户实战反馈 AI 自建脚本抓取目标页面，重构前不会。"禁止手写抓取/禁止 requests/curl 下载目标 JS"约束在 2.2.0 重构前是红线3（全局最高优先级，覆盖所有阶段），重构后降到 4.3 FORENSIC_CAPTURE 节内，AI 在意图声明阶段（还没到 FORENSIC_CAPTURE）自建 `fetch_page.js` 认为不违反 4.3。修复：把该约束上移到第 2 节绝对规则第 8 条（全局，覆盖意图声明/取证/分析所有阶段），4.3 节保留指向。本质是"2.2.0 重构把全局硬约束降级成局部节内约束"的回归，与已记 MEMORY 的"2.2.0 重构回归点"同类但此前未发现。
+
+---
+
 ## 2.3.15 - 2026-08-12
 
 ### 重构

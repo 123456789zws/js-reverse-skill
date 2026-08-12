@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.15
+version: 2.3.16
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -31,6 +31,7 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 ═══ GATE-2 环境自检（续接模式可跳过）═══
 运行: node scripts/check_external_tools.js --markdown --project-dir <project-root>
        node scripts/precheck_runtime.js
+铁律: 安装模式下必须传 --project-dir <project-root>（tools/ 所在的用户工程目录）。skill 安装目录无 tools/（gitignore 不随分发），不传则 RuyiTrace/ruyipage 检测必失败、回退 PATH 兜底也找不到。
 判定: Node.js + ruyipage + ruyipage 定制 Firefox + RuyiTrace + trace Firefox 五项全过
 未过: 按 nextRequiredInput 计划安装（scripts/install_all.js），用户确认后才继续
 通过后: node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
@@ -67,6 +68,7 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 5. 最终交付必须能在无浏览器、无显示器、无 X11 的环境中独立运行。
 6. 默认完成真实 API 验证；只有用户明确要求“只输出参数”“不发真实请求”或等价表述时，才允许 sign-only 模式。
 7. 不记录、提交或硬编码用户密钥、完整登录 Cookie、Authorization、验证码答案或其他秘密材料。
+8. 取证只允许三个来源：① ruyipage 定制 Firefox（经 `scripts/forensic_ruyipage.py` 通用脚本）② RuyiTrace（经 `scripts/capture_ruyitrace_log.js`）③ 用户手动提供材料。任何阶段（含意图声明、取证、分析）不得手写 fetch/curl/requests 抓取目标页面或下载目标 JS，不得使用系统 Chrome/Edge/Firefox、Playwright/Puppeteer/Selenium 或浏览器 MCP 取证。JS 合法出处仅 ruyipage 脚本落盘或用户手动提供。
 
 ## 3. 纯协议红线
 
@@ -202,7 +204,7 @@ URL 不是证据。只有脚本确认文件真实存在并可归类时，才允�
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --markdown
 ```
 
-统一脚本负责网络包、目标响应、JS 落盘和指纹基线。不要为单个 case 重写抓包脚本，不要使用系统 Chrome/Edge/Firefox 取证，不要使用 requests、urllib 或 curl 直接下载目标 JS。
+统一脚本负责网络包、目标响应、JS 落盘和指纹基线。取证工具约束见第 2 节绝对规则第 8 条（任何阶段不得手写抓取脚本、不得用 requests/curl 下载目标 JS）。
 
 日志采集使用：
 

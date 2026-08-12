@@ -471,7 +471,7 @@ function detectRuyiTrace(args) {
   if (!home) return {
     installed: false,
     kernelVerified: false,
-    reason: '未检测到 RuyiTrace；如已安装，请提供 --ruyitrace-home 或设置 RUYI_TRACE_HOME',
+    reason: '未检测到 RuyiTrace；如已安装，请提供 --ruyitrace-home、设置 RUYI_TRACE_HOME，或传 --project-dir <用户工程目录>（tools/ 所在；安装模式下 skill 安装目录无 tools/，必须靠此定位）',
   };
   const exeName = process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace';
   const exe = args.ruyitraceExe ? path.resolve(args.ruyitraceExe) : path.join(home, exeName);
@@ -683,7 +683,7 @@ function withNextSteps(result) {
   if (rp.defaultIsSystemFirefoxFallback || rp.explicitBrowserPathNotVerified) {
     next.push('检测到可能的系统 Firefox fallback 或未验证 Firefox 路径：这不视为 ruyiPage 绕检测方案通过，必须改用 ruyiPage managed runtime / release 含 ruyi 标识的定制 Firefox。');
   }
-  if (!result.ruyiTrace.installed) next.push('如果本 case 选择 ruyiPage + RuyiTrace，当前 RuyiTrace 未通过检测时不得自动降级为仅 ruyiPage；请让用户选择安装 / 提供 RuyiTrace.exe 所在目录，或明确确认降级为仅 ruyiPage。用户选择安装时，需等待 RuyiTrace.exe 可打开且 firefox/RUYI_DOMTRACE.txt 存在后再继续。');
+  if (!result.ruyiTrace.installed) next.push('如果本 case 选择 ruyiPage + RuyiTrace，当前 RuyiTrace 未通过检测时不得自动降级为仅 ruyiPage；请让用户选择安装 / 提供 RuyiTrace.exe 所在目录 / 传 --project-dir <用户工程目录>（tools/ 所在；安装模式下 skill 安装目录无 tools/），或明确确认降级为仅 ruyiPage。用户选择安装时，需等待 RuyiTrace.exe 可打开且 firefox/RUYI_DOMTRACE.txt 存在后再继续。');
   if (result.ruyiTrace.installed && !result.ruyiTrace.kernelVerified) next.push('RuyiTrace 已安装但定制 trace 内核未验证（需要 firefox/firefox(.exe) 和 firefox/RUYI_DOMTRACE.txt）；请确认 RuyiTrace 定制 Firefox 是否完整安装。');
   result.nextRequiredInput = next;
   return result;
