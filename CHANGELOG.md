@@ -5,6 +5,7 @@
 ### 修复
 - **AI 实战不传 --project-dir 导致 RuyiTrace 检测仍失败 + 提示不引导**：装版 skill 已是 2.3.15，但 AI 跑 GATE-2 不传 `--project-dir`（SKILL.md 模板写了，AI 没遵守），且 `check_external_tools.js` 的"未检测到 RuyiTrace"提示只写 `--ruyitrace-home` / `RUYI_TRACE_HOME`，没提 `--project-dir`，AI 跟着提示走没想到用它。修复：① `check_external_tools.js` 的 reason + nextRequiredInput 提示加 `--project-dir` 引导（AI 看到提示知道用）；② SKILL.md GATE-2 把 `--project-dir` 从"模板写法"升级为铁律（安装模式下必须传，否则检测必失败）。
 - **AI 自建 fetch_page.js 抓页面（2.2.0 重构把全局硬约束降级为局部节内约束）**：用户实战反馈 AI 自建脚本抓取目标页面，重构前不会。"禁止手写抓取/禁止 requests/curl 下载目标 JS"约束在 2.2.0 重构前是红线3（全局最高优先级，覆盖所有阶段），重构后降到 4.3 FORENSIC_CAPTURE 节内，AI 在意图声明阶段（还没到 FORENSIC_CAPTURE）自建 `fetch_page.js` 认为不违反 4.3。修复：把该约束上移到第 2 节绝对规则第 8 条（全局，覆盖意图声明/取证/分析所有阶段），4.3 节保留指向。本质是"2.2.0 重构把全局硬约束降级成局部节内约束"的回归，与已记 MEMORY 的"2.2.0 重构回归点"同类但此前未发现。
+- **GATE 编号顺序仍与状态机矛盾（2.3.11 修复未彻底）**：2.3.11 把续接单列成 GATE-0 放在意图之前，自称"编号顺序状态机三者统一"，但状态机没有续接节点（续接是 ENV_READY 内部判定），GATE-0 在 GATE-1 意图之前运行环境脚本 check_session_resume.js，AI 实际行为仍是"先测环境后看范围"。且第 0 节（GATE-0 续接在前）与 4.1 节（先意图后环境）顺序相反，AI 读哪边都困惑。修复：合并续接判定进 GATE-1 环境自检（作为第一步：先判模式，resume 跳过完整自检，fresh 全跑），GATE 编号重排为 GATE-0 意图 / GATE-1 环境(含续接) / GATE-2 证据，严格一一对应 INTENT_CONFIRM / ENV_READY / EVIDENCE_GATE。同步第 17 行 GATE-0~3→GATE-0~2、第 48 行澄清句、第 66 行绝对规则 3 的 GATE-3→GATE-2。2.3.12 的 resume 澄清迁移到 GATE-1 内部。
 
 ---
 
