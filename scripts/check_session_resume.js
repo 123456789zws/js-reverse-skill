@@ -37,6 +37,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const paths = require('./lib/paths');
 
 function parseArgs(argv) {
   const args = { caseDir: '', ruyitraceHome: '', ruyitraceExe: '', writeSnapshot: false, json: false, markdown: false, help: false };
@@ -78,17 +79,6 @@ function resolveCaseDir(input) {
   const caseSub = path.join(p, 'case');
   try { if (fs.statSync(caseSub).isDirectory()) return caseSub; } catch {}
   return p;
-}
-
-function findProjectRoot() {
-  let cur = path.dirname(__dirname);
-  for (let i = 0; i < 5; i++) {
-    if (exists(path.join(cur, 'SKILL.md'))) return cur;
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  return process.cwd();
 }
 
 function readJson(file) {
@@ -258,9 +248,9 @@ function main() {
     console.error(usage());
     process.exit(1);
   }
-  const projectRoot = findProjectRoot();
+  const projectRoot = paths.findProjectRoot();
   const caseDir = resolveCaseDir(args.caseDir);
-  const projectRootOfCase = (path.basename(caseDir) === 'case') ? path.dirname(caseDir) : caseDir;
+  const projectRootOfCase = paths.resolveProjectDirFromCaseDir(caseDir);
   const notesDir = path.join(caseDir, 'notes');
   const snapshotPath = path.join(notesDir, 'env-snapshot.json');
   const snapshotExists = exists(snapshotPath);

@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2.3.15 - 2026-08-12
+
+### 重构
+- **抽共享路径模块 `scripts/lib/paths.js` 统一环境检测路径定位**：路径逻辑（findProjectRoot / normalizeTraceHome / getDefaultRuyiBrowsersDirs）原散落在 check_external_tools.js / capture_ruyitrace_log.js / check_session_resume.js 三脚本各自重复实现，且细节不一致（findProjectRoot 三份实现：capture/check_session_resume 直接 return cwd，check_external_tools 有 cwd 向上找10层段），改一处漏一处（2.3.8 漏 check_session_resume、2.3.14 漏 capture）。本次抽 `scripts/lib/paths.js` 共享模块，导出 `findProjectRoot / normalizeTraceHome / getDefaultRuyiBrowsersDirs / resolveProjectDirFromCaseDir`，自包含辅助函数（exists/isDir/whereCommand/compareVersion/uniquePaths）。三脚本 require 接入并删除重复实现：check_external_tools.js 删 findProjectRoot/getDefaultRuyiBrowsersDirs/whereCommand/normalizeTraceHome；capture_ruyitrace_log.js 删 whereCommand/normalizeTraceHome/compareVersion/findProjectRoot；check_session_resume.js 删 findProjectRoot。
+- **capture_ruyitrace_log.js 补 --project-dir + 自动推断（修复 2.3.14 漏改）**：2.3.14 漏改 capture 的 normalizeTraceHome（还是老的 cwd+findProjectRoot 两候选，安装模式下撞车失效）。本次接入共享模块修复，新增 --project-dir 参数；未传时从 --case-dir 自动推断工程根（resolveProjectDirFromCaseDir），AI 传 --case-dir 即可定位 tools/，无需显式 --project-dir。
+- **路径定位逻辑统一**：候选顺序全模块统一为 `显式参数 > 环境变量 > --project-dir/tools > cwd/tools > findProjectRoot/tools > where`；findProjectRoot 行为统一（__dirname 找 SKILL.md 5 层 + cwd 找 10 层 + return cwd）。
+- 验证：临时目录模拟安装环境（假 SKILL.md + 无 tools/），check_external_tools 与 capture 不传 --project-dir 均检测失败（复现实战），传 --project-dir 均检出 RuyiTrace-2.5.5；三脚本开发仓库无回归。
+
+---
+
 ## 2.3.14 - 2026-08-12
 
 ### 修复

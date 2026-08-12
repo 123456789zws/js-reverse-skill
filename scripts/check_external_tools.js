@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const https = require('https');
 const { spawnSync } = require('child_process');
+const paths = require('./lib/paths');
 
 function parseArgs(argv) {
   const args = {
@@ -58,26 +59,6 @@ function exists(p) {
 
 function isDir(p) {
   try { return !!p && fs.statSync(p).isDirectory(); } catch { return false; }
-}
-
-function findProjectRoot() {
-  // 脚本位于 <项目根>/scripts/ 下，优先用 __dirname 向上查找 SKILL.md
-  let cur = path.dirname(__dirname);
-  for (let i = 0; i < 5; i++) {
-    if (exists(path.join(cur, 'SKILL.md'))) return cur;
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  // fallback: 从 cwd 查找
-  cur = process.cwd();
-  for (let i = 0; i < 10; i++) {
-    if (exists(path.join(cur, 'SKILL.md'))) return cur;
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  return process.cwd();
 }
 
 function readJson(file) {
@@ -186,26 +167,6 @@ function detectRuyiPagePackage(explicitPython) {
     reason: '未检测到可 import ruyipage 的 Python 环境',
     checked,
   };
-}
-
-function getDefaultRuyiBrowsersDirs(explicitInstallDir, projectDir) {
-  const dirs = [];
-  if (explicitInstallDir) dirs.push(path.resolve(explicitInstallDir));
-  if (projectDir) dirs.push(path.resolve(projectDir, 'tools', 'ruyipage-browsers'));
-  if (process.env.RUYIPAGE_BROWSERS_PATH) dirs.push(path.resolve(process.env.RUYIPAGE_BROWSERS_PATH));
-  // 默认安装目录优先 cwd（安装模式下用户工作目录），skill 根兜底（开发模式下两者相同）
-  dirs.push(path.join(process.cwd(), 'tools', 'ruyipage-browsers'));
-  dirs.push(path.join(findProjectRoot(), 'tools', 'ruyipage-browsers'));
-  if (process.platform === 'win32') {
-    const base = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    dirs.push(path.join(base, 'ruyipage', 'browsers'));
-  } else if (process.platform === 'darwin') {
-    dirs.push(path.join(os.homedir(), 'Library', 'Caches', 'ruyipage', 'browsers'));
-  } else {
-    const base = process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
-    dirs.push(path.join(base, 'ruyipage', 'browsers'));
-  }
-  return unique(dirs);
 }
 
 function executableName() {
@@ -420,7 +381,7 @@ function detectRuyiPage(args) {
     checks.push(verifyRuyiRuntimeCandidate('环境变量 RUYIPAGE_BROWSER_PATH', process.env.RUYIPAGE_BROWSER_PATH));
   }
 
-  for (const dir of getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir, args.projectDir)) {
+  for (const dir of paths.getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir, args.projectDir)) {
     for (const exe of scanInstallDir(dir)) {
       checks.push(verifyRuyiRuntimeCandidate(`managed runtime 扫描：${dir}`, exe));
     }
@@ -492,7 +453,7 @@ function detectRuyiPage(args) {
     recommendedForAntiDetectionProbe: pkg.packageInstalled && managedRuntimeVerified && !!pkg.requestsAvailable,
     conclusion: '',
     runtimeChecks: dedupedChecks,
-    scannedInstallDirs: getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir, args.projectDir),
+    scannedInstallDirs: paths.getDefaultRuyiBrowsersDirs(args.ruyiPageInstallDir, args.projectDir),
   };
 
   if (!pkg.packageInstalled && !managedRuntimeVerified) result.conclusion = '不可使用：未检测到 ruyiPage 包，也未检测到定制 Firefox runtime。';
@@ -505,50 +466,8 @@ function detectRuyiPage(args) {
   return result;
 }
 
-function whereCommand(name) {
-  const cmd = process.platform === 'win32' ? 'where' : 'which';
-  const ret = run(cmd, [name], 8000);
-  return ret.ok ? ret.stdout.split(/\r?\n/).map(s => s.trim()).filter(Boolean) : [];
-}
-
-function normalizeTraceHome(args) {
-  if (args.ruyitraceHome) return path.resolve(args.ruyitraceHome);
-  if (args.ruyitraceExe) return path.dirname(path.resolve(args.ruyitraceExe));
-  if (process.env.RUYI_TRACE_HOME) return path.resolve(process.env.RUYI_TRACE_HOME);
-  if (process.env.RUYITRACE_HOME) return path.resolve(process.env.RUYITRACE_HOME);
-  // 优先 --project-dir（安装模式下用户工程目录，tools/ 所在），其次 cwd，最后 skill 根兜底（开发模式下三者相同）
-  const toolsDirs = [
-    args.projectDir ? path.resolve(args.projectDir, 'tools') : null,
-    path.join(process.cwd(), 'tools'),
-    path.join(findProjectRoot(), 'tools'),
-  ].filter(Boolean);
-  // 优先带版本号的 RuyiTrace-* 目录（新版 2.5+，Electron 壳 + resources/kernel 内核），
-  // 按版本号降序取最新；无版本目录 tools/RuyiTrace 兜底（旧版 1.x 结构或归一目录）
-  let candidates = [];
-  for (const toolsDir of toolsDirs) {
-    if (!isDir(toolsDir)) continue;
-    try {
-      const found = fs.readdirSync(toolsDir)
-        .filter((n) => /^RuyiTrace/i.test(n) && isDir(path.join(toolsDir, n)))
-        .map((n) => path.join(toolsDir, n));
-      candidates = candidates.concat(found);
-    } catch { /* ignore */ }
-  }
-  candidates = unique(candidates);
-  const versioned = candidates
-    .map((p) => ({ p, v: (/RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(p)) || [])[1] || '' }))
-    .filter((x) => x.v)
-    .sort((a, b) => compareVersion(b.v, a.v) || 0);
-  if (versioned.length) return versioned[0].p;
-  const legacy = candidates.find((p) => /^RuyiTrace$/i.test(path.basename(p)));
-  if (legacy) return legacy;
-  const found = whereCommand(process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace');
-  if (found.length) return path.dirname(found[0]);
-  return '';
-}
-
 function detectRuyiTrace(args) {
-  const home = normalizeTraceHome(args);
+  const home = paths.normalizeTraceHome(args);
   if (!home) return {
     installed: false,
     kernelVerified: false,

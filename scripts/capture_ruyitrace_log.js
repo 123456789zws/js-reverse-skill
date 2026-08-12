@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
+const paths = require('./lib/paths');
 
 function parseArgs(argv) {
   const args = {
@@ -14,6 +15,7 @@ function parseArgs(argv) {
     profileDir: '',
     ruyitraceHome: '',
     ruyitraceExe: '',
+    projectDir: '',
     duration: 60,
     limit: 200000,
     dryRun: false,
@@ -32,6 +34,7 @@ function parseArgs(argv) {
     else if (a === '--profile-dir') args.profileDir = nextVal('');
     else if (a === '--ruyitrace-home') args.ruyitraceHome = nextVal('');
     else if (a === '--ruyitrace-exe') args.ruyitraceExe = nextVal('');
+    else if (a === '--project-dir') args.projectDir = nextVal('');
     else if (a === '--duration') args.duration = Number(nextVal('60'));
     else if (a === '--limit') args.limit = Number(nextVal('200000'));
     else if (a === '--dry-run') args.dryRun = true;
@@ -57,6 +60,7 @@ function usage() {
   node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir . --dry-run --json
 
 说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。
+--project-dir <dir>：用户工程目录（tools/ 所在），未传时从 --case-dir 推断；安装模式下需靠此定位 RuyiTrace。
 --url 与 --input 互斥：--url 为自动捕获（需 RuyiTrace 完整安装）；--input 为手动 trace 后直接导入用户指定的 NDJSON，无需 RuyiTrace 安装检测。`;
 }
 
@@ -77,77 +81,8 @@ function run(cmd, args, timeout = 8000) {
   return { ok: ret.status === 0, stdout: ret.stdout || '', stderr: ret.stderr || '' };
 }
 
-function whereCommand(name) {
-  const cmd = process.platform === 'win32' ? 'where' : 'which';
-  const ret = run(cmd, [name]);
-  return ret.ok ? ret.stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
-}
-
-function normalizeTraceHome(args) {
-  if (args.ruyitraceHome) return path.resolve(args.ruyitraceHome);
-  if (args.ruyitraceExe) return path.dirname(path.resolve(args.ruyitraceExe));
-  if (process.env.RUYI_TRACE_HOME) return path.resolve(process.env.RUYI_TRACE_HOME);
-  if (process.env.RUYITRACE_HOME) return path.resolve(process.env.RUYITRACE_HOME);
-  // 默认安装目录优先 cwd（安装模式下用户工作目录），skill 项目根兜底（开发模式下两者相同）
-  const toolsDirs = [
-    path.join(process.cwd(), 'tools'),
-    path.join(findProjectRoot(), 'tools'),
-  ];
-  // 优先带版本号的 RuyiTrace-* 目录（新版 2.5+，Electron 壳 + resources/kernel 内核），
-  // 按版本号降序取最新；无版本目录 tools/RuyiTrace 兜底
-  let candidates = [];
-  for (const toolsDir of toolsDirs) {
-    if (!isDir(toolsDir)) continue;
-    try {
-      const found = fs.readdirSync(toolsDir)
-        .filter((n) => /^RuyiTrace/i.test(n) && isDir(path.join(toolsDir, n)))
-        .map((n) => path.join(toolsDir, n));
-      candidates = candidates.concat(found);
-    } catch { /* ignore */ }
-  }
-  // 去重（cwd = findProjectRoot 时同一目录会被扫两次）
-  const seen = new Set();
-  candidates = candidates.filter((p) => {
-    const k = process.platform === 'win32' ? p.toLowerCase() : p;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-  const versioned = candidates
-    .map((p) => ({ p, v: (/RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(p)) || [])[1] || '' }))
-    .filter((x) => x.v)
-    .sort((a, b) => compareVersion(b.v, a.v) || 0);
-  if (versioned.length) return versioned[0].p;
-  const legacy = candidates.find((p) => /^RuyiTrace$/i.test(path.basename(p)));
-  if (legacy) return legacy;
-  const found = whereCommand(process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace');
-  return found.length ? path.dirname(found[0]) : '';
-}
-
-function compareVersion(a, b) {
-  const pa = String(a || '').split('.').map((x) => parseInt(x, 10) || 0);
-  const pb = String(b || '').split('.').map((x) => parseInt(x, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
-    const va = pa[i] || 0;
-    const vb = pb[i] || 0;
-    if (va !== vb) return va > vb ? 1 : -1;
-  }
-  return 0;
-}
-
-function findProjectRoot() {
-  let cur = path.dirname(__dirname);
-  for (let i = 0; i < 5; i += 1) {
-    if (exists(path.join(cur, 'SKILL.md'))) return cur;
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  return process.cwd();
-}
-
 function detectRuyiTrace(args) {
-  const home = normalizeTraceHome(args);
+  const home = paths.normalizeTraceHome({ ruyitraceHome: args.ruyitraceHome, ruyitraceExe: args.ruyitraceExe, projectDir: args.projectDir || paths.resolveProjectDirFromCaseDir(args.caseDir) });
   const exeName = process.platform === 'win32' ? 'RuyiTrace.exe' : 'RuyiTrace';
   const exe = args.ruyitraceExe ? path.resolve(args.ruyitraceExe) : (home ? path.join(home, exeName) : '');
   // 兼容两代 RuyiTrace 内核路径：
