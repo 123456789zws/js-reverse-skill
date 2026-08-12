@@ -40,10 +40,10 @@ node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot 
 未通过时：
 
 ```powershell
-node scripts/install_all.js --markdown       # 输出安装计划（先 cd 到 <project-root> 再运行）
-node scripts/install_all.js --yes --markdown # 用户确认后自动安装到 <项目根>/tools/
+node scripts/install_all.js --project-dir <project-root> --markdown       # 输出安装计划
+node scripts/install_all.js --project-dir <project-root> --yes --markdown # 用户确认后自动安装到 <项目根>/tools/
 ```
-默认安装目录（= 运行脚本时的当前工作目录，务必先 `cd <project-root>` 再运行）：
+默认安装目录（= --project-dir 指定的用户工程根，未传时回退当前工作目录）：
 - ruyiPage 定制 Firefox runtime：`<项目根>/tools/ruyipage-browsers/`
 - RuyiTrace 定制 trace 内核：`<项目根>/tools/RuyiTrace/`
 

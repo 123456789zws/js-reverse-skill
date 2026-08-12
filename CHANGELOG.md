@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2.3.19 - 2026-08-12
+
+### 修复
+- **install_all.js 安装失败退出码可被后验 Python 回退绕过（复核 P1）**：安装阶段严格用 `--python` 指定解释器，但后验 `verify()` 调 `check_external_tools.js` 在显式 Python 不可用时回退 `python`/`python3`/`py -3`，本机任一解释器装有 ruyiPage 即判环境完整，而 `computeAllOk` 只看最终环境不看本次安装步骤 → 安装动作失败仍退 0，AI/CI 误判成功。修复：退出码改为 `stepsOk && computeAllOk`（本次安装步骤任一失败即退非零）；新增 `resolvePython`——显式 `--python` 严格使用不回退，未提供时按 `python → python3 → py -3` 自动探测，安装与后验全程同一解释器；`check_external_tools.js` 新增 `--python-args`（如 `--python py --python-args -3`）支持显式解释器带前缀严格探测，不传时行为不变（向后兼容）。端到端验证：显式不存在 Python + 安装步骤全失败 + 后验回退成功，现在正确退 1。
+
+### 优化
+- **新参数同步到主流程文档**：`install_all.js --project-dir`（SKILL.md GATE-1 / phase-flow / ruyi-tooling / scripts-README）、`check_external_tools.js --offline`（SKILL.md GATE-1 检测命令）补齐。安装不再依赖"先 cd"软约束，GATE-1 检测默认离线保证确定性（需版本对比提示时去掉 `--offline`）。
+
+---
+
 ## 2.3.18 - 2026-08-12
 
 ### 修复

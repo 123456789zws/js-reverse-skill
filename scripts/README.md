@@ -78,7 +78,7 @@
 
 | 脚本 | 功能 | 典型用法 |
 |------|------|---------|
-| `install_all.js` | 检测并安装缺失组件到项目 `tools/` | `node scripts/install_all.js --yes --markdown` |
+| `install_all.js` | 检测并安装缺失组件到项目 `tools/` | `node scripts/install_all.js --project-dir <project-root> --yes --markdown` |
 | `install_ruyipage_runtime.js` | 以 dry-run / install 双阶段安装 ruyiPage runtime 到指定目录 | `node scripts/install_ruyipage_runtime.js --python python --install-dir <目录> --install --markdown` |
 | `download_ruyi_tool.js` | 下载 RuyiTrace 或 ruyipage-firefox，支持自动解压 zip | `node scripts/download_ruyi_tool.js --tool ruyitrace --dest <目录> --extract --markdown` |
 

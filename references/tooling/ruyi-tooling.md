@@ -135,8 +135,8 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <ve
 检测到缺失组件时，优先使用一键安装脚本：
 
 ```bash
-node scripts/install_all.js --markdown          # 输出安装计划
-node scripts/install_all.js --yes --markdown    # 用户确认后自动安装
+node scripts/install_all.js --project-dir <project-root> --markdown          # 输出安装计划
+node scripts/install_all.js --project-dir <project-root> --yes --markdown    # 用户确认后自动安装到 <项目根>/tools/
 ```
 
 默认安装到 `<项目根>/tools/`：

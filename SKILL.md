@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.18
+version: 2.3.19
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -29,13 +29,16 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
   resume → 跳过下方完整环境自检，读最新阶段报告续接（GATE-0 意图声明仍需完成）
   fresh  → 走完整环境自检，通过后用 --write-snapshot 写入/更新快照
 fresh 完整自检:
-运行: node scripts/check_external_tools.js --markdown --project-dir <project-root>
+运行: node scripts/check_external_tools.js --markdown --project-dir <project-root> --offline
+      （--offline 跳过 GitHub 更新查询，保证检测确定性、快速；需要版本对比提示时去掉该参数）
        node scripts/precheck_runtime.js
 铁律: 安装模式下必须传 --project-dir <project-root>（tools/ 所在的用户工程目录）。skill 安装目录无 tools/（gitignore 不随分发），不传则 RuyiTrace/ruyipage 检测必失败、回退 PATH 兜底也找不到。
 判定: Node.js + ruyipage + ruyipage 定制 Firefox + RuyiTrace + trace Firefox 五项全过
 未过: 按 nextRequiredInput 计划安装（scripts/install_all.js），用户确认后才继续。
-      先 cd 到 <project-root> 再运行 install_all.js——安装目标 = 当前工作目录的 tools/，
-      在 skill 安装目录或其它目录运行会把工具装错位置，后续检测依然失败。
+      运行: node scripts/install_all.js --project-dir <project-root> --markdown（输出安装计划）
+            node scripts/install_all.js --project-dir <project-root> --yes --markdown（用户确认后安装）
+      安装目标 = <project-root>/tools/，由 --project-dir 显式指定，无需先 cd；
+      不传时回退当前工作目录，在 skill 安装目录运行会把工具装错位置，后续检测依然失败。
 通过后: node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
 
 ═══ GATE-2 证据门禁（硬阻断）═══
