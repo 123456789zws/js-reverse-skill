@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 const STAGE_FILES = {
   '需求信息确认': '01-需求信息确认.md',
@@ -128,7 +129,7 @@ function isDynamicCandidate(name, text) {
   return sectionHits >= 4;
 }
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const stageDir = path.join(caseDir, '阶段报告');
   const reports = listMarkdown(stageDir);
   const problems = [];

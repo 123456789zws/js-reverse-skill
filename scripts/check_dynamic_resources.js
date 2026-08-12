@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 const crypto = require('crypto');
 
 function parseArgs(argv) {
@@ -321,7 +322,7 @@ function main() {
     console.log(usage());
     return;
   }
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const report = inspect(caseDir, args);
   if (args.json) console.log(JSON.stringify(report, null, 2));
   else console.log(toMarkdown(report));

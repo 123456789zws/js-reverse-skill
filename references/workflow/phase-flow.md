@@ -27,7 +27,7 @@
 
 ```powershell
 node scripts/check_session_resume.js --case-dir <project-root> --markdown
-node scripts/check_external_tools.js --markdown
+node scripts/check_external_tools.js --markdown --project-dir <project-root>
 node scripts/precheck_runtime.js
 ```
 

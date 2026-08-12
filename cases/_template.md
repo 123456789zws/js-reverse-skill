@@ -58,7 +58,7 @@
 - 参数位置：Query / Header / Body / Cookie
 
 ## 取证
-- 取证模式：ruyiPage + RuyiTrace / 仅 ruyiPage / 用户手动取证 / AI 自行决定
+- 取证来源：ruyipage 网络取证（forensic_ruyipage.py）/ RuyiTrace 日志采集 / 用户手动提供材料
 - 最终请求 TLS 客户端：Node.js CycleTLS（需手动实现，client.js 未内置）/ impers / curl-cffi / Python curl_cffi / cffi_curl / cyCronet / 不发真实请求
 
 ## 指纹基线
@@ -84,7 +84,7 @@
 ## 交付前检查清单
 
 - [ ] 信息完整性检查通过
-- [ ] 取证模式已确认
+- [ ] 证据门禁已通过（check_evidence.js 输出无缺失证据）
 - [ ] TLS 客户端已确认
 - [ ] 可疑加密参数已确认
 - [ ] source/entry/builder/writer 链路已确认

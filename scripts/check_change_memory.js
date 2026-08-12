@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 const REQUIRED_FIELDS = [
   '修改前逻辑',
@@ -155,7 +156,7 @@ function changedMatched(text, changedFile) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const file = memoryPath(caseDir);
   const problems = [];
   const warnings = [];

@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 function parseArgs(argv) {
   const args = {
@@ -137,7 +138,7 @@ function discoverTraceFiles(args) {
     const resolved = path.resolve(item);
     if (exists(resolved)) files.push(resolved);
   }
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const candidates = [
     path.join(caseDir, 'ruyi-trace', 'logs'),
     path.join(caseDir, 'tmp'),
@@ -228,7 +229,7 @@ function scoreSummary(summary) {
 
 function analyze(args) {
   const files = discoverTraceFiles(args);
-  const root = path.resolve(args.caseDir || 'case');
+  const root = paths.resolveCaseDir(args.caseDir || 'case');
   const summary = {
     files: files.map(file => rel(root, file)),
     totalLines: 0,

@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2.3.17 - 2026-08-12
+
+### 修复
+- **check_evidence.js 缺证据时退出码为 0，与「退出码是硬信号」承诺矛盾（约束流程）**：脚本 `errors` 只在材料格式错误时填充，缺失证据（missing）不进入 errors，导致无证据时退出码 0——SKILL.md 第 0 节/GATE-2 宣称"退出码非 0 必须停"，实际靠输出文本「缺失证据」兜底，退出码信号是假的。修复：退出码改为 `errors.length || missing.length ? 1 : 0`，缺任何一步证据即退 1；usage 说明同步更新为「退出码是硬信号」；自测新增空证据退 1 / 双证据退 0 断言（23 项）。
+- **--case-dir 语义分裂：SKILL.md 4.1「所有脚本统一传 <project-root>」与 12+ 个质检脚本实际期望 case 子目录矛盾**：check_object_shape_audit / check_webapi_env_detection_matrix / check_xhr_fetch_semantics / check_xhr_fetch_session_bridge / check_dynamic_resources / check_change_memory / check_stage_reports / check_trace_runtime_conformance / analyze_trace_complexity / build_trace_runtime_contract / check_environment_closure / run_trace_runtime_audit / check_env_realism 默认 `'case'` 期望 case 子目录，AI 按 SKILL.md 传 project-root 会检查错目录（如检查范围变成 `<project-root>/../result`）。修复：`scripts/lib/paths.js` 新增共享 `resolveCaseDir`（兼容 project-root 与 case 子目录，统一返回 case 目录），13 个脚本接入替换本地 `path.resolve`；SKILL.md 4.1 更新为「所有脚本统一传 <project-root>（已全局归一化）」。实测双传参均正确。
+- **references 中 6 处 `check_external_tools.js` 命令缺 `--project-dir`（GATE-1 铁律未全量同步）**：phase-flow.md / trace-flow.md / ruyi-tooling.md / browser-acquisition.md / validation.md 的检测命令模板未带 `--project-dir <project-root>`，AI 照抄会在安装模式下检测失败（2.3.14 修复点）。修复：6 处命令补全 `--project-dir`。
+- **browser-acquisition.md 残留旧工具与错误命令**：`capture_ruyitrace_log.js --case-dir case` 相对路径传 case 子目录（A 类脚本期望 project-root，会错位），改为 `--case-dir <project-root>` 并去掉多余的 `--ruyitrace-home`（可由 --project-dir 推断）。
+- **captcha 子域残留旧概念**：verification-workflow.md「ruyiPage/Camoufox/CloakBrowser 模式」→ 改为「ruyiPage + RuyiTrace / 用户手动取证」（Camoufox/CloakBrowser 是 2.2.0 已移除工具，违反绝对规则 8 取证白名单）；solver-platform-recipes.md「未确认授权、未选择平台」→ 去掉「未确认授权」（2.3.5 同类残留）。
+- **common-pitfalls.md「红线四条」残留**：当前第 3 节纯协议红线无编号（实为 7 条），改为「第 3 节纯协议红线违反即失败」。
+- **cases/_template.md 与 stage-reports.md 残留「取证模式选择/已确认」字段**：与 EVIDENCE_GATE 自动判定模型冲突（2.3.5 清 validation.md 时漏这两处），改为「取证来源：ruyipage / RuyiTrace / 用户手动材料」与「证据门禁已通过」。
+- **debug-playbook.md `--case-dir <case>/case` 占位符错误**：改为 `--case-dir <project-root>`（无 `<case>` 占位符定义）。
+
+---
+
 ## 2.3.16 - 2026-08-12
 
 ### 修复

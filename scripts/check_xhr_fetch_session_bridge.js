@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 function parseArgs(argv) {
   const args = {
@@ -177,7 +178,7 @@ function isCurlCffiClient(tlsClient) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const root = path.resolve(args.dir || path.join(caseDir, '..', 'result'));
   const files = walk(root).filter(file => stat(file) && stat(file).isFile() && isCodeFile(file) && !shouldSkip(file));
   const problems = [];

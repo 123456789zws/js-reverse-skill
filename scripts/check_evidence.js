@@ -50,7 +50,9 @@ function usage() {
 说明：
 - 取证证据门禁：在 INTENT_CONFIRM 之后、EVIDENCE_GATE 判定"用户已提供证据 / 可跳过取证"时必跑。
 - 判定 Step 1（ruyipage 网络取证）与 Step 2（RuyiTrace 日志采集）的证据是否真实存在，
-  并输出 none / step1-only / step2-only / both 路由；四种路由均为正常结果并退出 0。
+  并输出 none / step1-only / step2-only / both 路由。
+- 退出码是硬信号：任何步骤缺失证据（missing 非空）或材料格式错误（errors 非空）时退出 1；
+  两步证据齐全退出 0。调用方（含 AI）必须按退出码 + 输出文本判定，不能只看输出文本。
 - Step 1 只接受有效 capture 网络记录或用户 HAR / cURL / 原始 HTTP 请求文本；JS、截图和指纹只能作为辅助材料。
 - Step 2 只接受内容可解析、记录非空且关联目标域的 NDJSON；摘要不能替代 NDJSON。
 - URL 不是证据：--url 只记录目标地址，绝不作为跳过任何取证的依据；仅提供 URL → 两步全做。
@@ -591,13 +593,26 @@ function runSelfTest() {
     assert.strictEqual(step2Only.mode, 'step2-only');
 
     const cli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', path.join(root, 'empty'), '--url', targetUrl, '--json'], { encoding: 'utf8' });
-    assert.strictEqual(cli.status, 0);
+    assert.strictEqual(cli.status, 1); // 缺失证据 → 退出码 1（硬信号）
+
+    const bothRoot = path.join(root, 'both');
+    const bothForensic = path.join(bothRoot, 'case', 'forensic');
+    const bothJs = path.join(bothRoot, 'case', 'js', 'original');
+    const bothTrace = path.join(bothRoot, 'case', 'ruyi-trace', 'logs');
+    fs.mkdirSync(bothForensic, { recursive: true });
+    fs.mkdirSync(bothJs, { recursive: true });
+    fs.mkdirSync(bothTrace, { recursive: true });
+    fs.writeFileSync(path.join(bothForensic, 'capture.json'), JSON.stringify([{ url: targetUrl, method: 'POST', request_body: 'x' }]), 'utf8');
+    fs.writeFileSync(path.join(bothJs, sanitizedJsName(scriptUrl)), 'window.answer = 42;\n', 'utf8');
+    fs.writeFileSync(path.join(bothTrace, 'trace.ndjson'), `${JSON.stringify({ api: 'fetch', url: targetUrl })}\n`, 'utf8');
+    const bothCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', bothRoot, '--url', targetUrl, '--json'], { encoding: 'utf8' });
+    assert.strictEqual(bothCli.status, 0); // 两步证据齐全 → 退出码 0
 
     const brokenHar = path.join(root, 'broken.har');
     fs.writeFileSync(brokenHar, '{broken', 'utf8');
     const brokenCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', path.join(root, 'empty'), '--inputs', brokenHar, '--json'], { encoding: 'utf8' });
     assert.strictEqual(brokenCli.status, 1);
-    return { clean: true, tests: 22 };
+    return { clean: true, tests: 23 };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -615,7 +630,7 @@ if (require.main === module) {
     const result = check(args);
     if (args.json) console.log(JSON.stringify(result, null, 2));
     if (args.markdown) process.stdout.write(renderMarkdown(result));
-    process.exit(result.errors.length ? 1 : 0);
+    process.exit(result.errors.length || result.missing.length ? 1 : 0);
   } catch (err) {
     console.error(err.stack || err.message || String(err));
     console.error(usage());

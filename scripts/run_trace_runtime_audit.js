@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 const { spawnSync } = require('child_process');
 const { contractHash } = require('./check_trace_runtime_conformance');
 
@@ -150,7 +151,7 @@ function normalizeTimeline(raw, observations) {
 }
 
 function runAudit(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const resultDir = path.join(caseDir, '..', 'result');
   const entry = path.resolve(args.entry || path.join(resultDir, 'final.js'));
   const contractPath = path.resolve(args.contract || path.join(caseDir, 'notes', 'trace-runtime-contract.json'));

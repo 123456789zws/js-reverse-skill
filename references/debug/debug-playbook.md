@@ -298,7 +298,7 @@
 | 纯计算预检 | `precheck_runtime.js` | 六类纯计算能力检查 |
 | 代码质量 | `check_code_quality.js` | 检查代码可读性、中文注释、模块拆分 |
 | 指纹真实性 | `check_fingerprint_fixture.js` | 检查指纹 fixture 覆盖（Canvas/WebGL/Audio/DOM 几何） |
-| 补环境真实性 | `check_env_realism.js` + 手动复核（属性描述符/原型链/toString 保护/document.all） | `node scripts/check_env_realism.js --case-dir <case>/case --markdown` |
+| 补环境真实性 | `check_env_realism.js` + 手动复核（属性描述符/原型链/toString 保护/document.all） | `node scripts/check_env_realism.js --case-dir <project-root> --markdown` |
 | 最终产物 | `check_final_artifact.js` | 检查最终交付结构、入口唯一性、无自动化代码 |
 | 清理 | `clean_case.js` | 清理临时文件、缓存、中间产物 |
 

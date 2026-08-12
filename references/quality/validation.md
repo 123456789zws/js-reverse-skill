@@ -99,7 +99,7 @@
 ### 测试 12：ruyiPage / RuyiTrace 检测
 
 ```bash
-node scripts/check_external_tools.js --markdown
+node scripts/check_external_tools.js --markdown --project-dir <project-root>
 ```
 
 期望：

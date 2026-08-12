@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 const STATEFUL_API_PATTERN = /XMLHttpRequest|fetch|sendBeacon|readyState|readystatechange|loadend|abort|timeout|location\.reload|beforeunload|pagehide|visibilitychange|unload|Worker|SharedWorker|MessagePort|MessageChannel|postMessage|terminate|\.close|appendChild|removeChild|insertBefore|replaceChild|replaceChildren|innerHTML|textContent|querySelector|MutationObserver/i;
 const MAX_TIMELINE_SEQUENCE = 10000;
@@ -262,7 +263,7 @@ function buildStatefulTimeline(events) {
 }
 
 function buildContract(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const files = discoverTraceFiles(args, caseDir);
   if (!files.length) throw new Error('未找到原始 Trace 文件；请使用 --trace 指定，或把日志放入 case/ruyi-trace/logs/。');
   if (!args.traces.length && files.length > 1) {

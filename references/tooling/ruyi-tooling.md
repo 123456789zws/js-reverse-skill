@@ -65,10 +65,10 @@
 先运行检测脚本：
 
 ```bash
-node scripts/check_external_tools.js --markdown
-node scripts/check_external_tools.js --json
-node scripts/check_external_tools.js --python python --ruyipage-install-dir <ruyipage-browsers-dir> --markdown
-node scripts/check_external_tools.js --python python --ruyipage-browser-path <firefox.exe> --markdown
+node scripts/check_external_tools.js --markdown --project-dir <project-root>
+node scripts/check_external_tools.js --json --project-dir <project-root>
+node scripts/check_external_tools.js --python python --ruyipage-install-dir <ruyipage-browsers-dir> --project-dir <project-root> --markdown
+node scripts/check_external_tools.js --python python --ruyipage-browser-path <firefox.exe> --project-dir <project-root> --markdown
 ```
 
 检测脚本会顺带对比 GitHub 最新 release：**发现新版只提示、不自动更新**，输出位于 `## 版本更新提示（仅提示，不自动更新）`。出现提示时由用户确认后再走 `download_ruyi_tool.js --dry-run` / `pip install --upgrade` 更新；更新工具版本会改变指纹基线与 NDJSON 日志格式，当前未完成的 case 建议保持版本不变，旧取证样本与新工具样本不能混用。网络失败或限流时该节静默跳过，不影响检测结果；透明代理自签 CA 环境下需设置 `RUYI_INSECURE_TLS=1` 才能完成版本查询（与 download_ruyi_tool.js 同开关）。
@@ -299,7 +299,7 @@ new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: 3, clien
    - `ctx = opts.smart_fingerprint(...)` → `ctx.apply_emulation(page)`；`ctx.to_dict()` 持久化基线。
 3. 抓包完成后 `page.capture.stop()` 会确保响应体加载；JS 文件优先从 `response_body` 落盘，不要改用普通 `requests` 重新下载（会丢失指纹上下文）。
 
-只有当 `node scripts/check_external_tools.js --markdown` 显示“默认解析路径是否为定制 Firefox：是”时，才可直接 `FirefoxPage()` 或 `launch(headless=False)`。否则必须显式指定已验证的定制 Firefox 路径。
+只有当 `node scripts/check_external_tools.js --markdown --project-dir <project-root>` 显示“默认解析路径是否为定制 Firefox：是”时，才可直接 `FirefoxPage()` 或 `launch(headless=False)`。否则必须显式指定已验证的定制 Firefox 路径。
 
 ### ruyiPage 取证验收标准
 

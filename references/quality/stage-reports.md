@@ -19,8 +19,8 @@
 
 | 阶段 | 文件名 | 触发时机 |
 |---|---|---|
-| 需求信息确认 | `01-需求信息确认.md` | 用户提供 URL、API、参数、样本、取证模式等初始材料后，或发现信息不完整并列出缺失项时 |
-| 取证方案确认 | `02-取证方案确认.md` | 用户确认 ruyiPage / RuyiTrace / 手动取证 / AI 自行决定后 |
+| 需求信息确认 | `01-需求信息确认.md` | 用户提供 URL、API、参数、样本、取证材料等初始材料后，或发现信息不完整并列出缺失项时 |
+| 取证方案确认 | `02-取证方案确认.md` | 确认取证来源（ruyipage / RuyiTrace / 用户手动材料）后 |
 | 请求样本与可疑参数确认 | `03-请求样本与可疑参数确认.md` | 解析 cURL / HAR / 请求样本并列出所有可疑加密参数后 |
 | JS文件与入口定位 | `04-JS文件与入口定位.md` | 收集 JS 文件、定位 source / entry / builder / writer 后 |
 | 补环境前置分析 | `05-补环境前置分析.md` | 进入 Node.js 补环境前，完成日志、trace、依赖和风险优先级整理后 |
@@ -90,7 +90,7 @@ node scripts/check_stage_reports.js --case-dir case --require-stage WebAPI补齐
 - 用户声明的加密参数。
 - 请求样本中发现的可疑加密参数。
 - 参数位置：Query / Header / Body / Cookie。
-- 取证模式选择：ruyiPage + RuyiTrace / 仅 ruyiPage / 用户手动取证 / AI 自行决定。
+- 取证来源：ruyipage 网络取证 / RuyiTrace 日志采集 / 用户手动提供材料。
 - 最终请求 TLS 指纹兼容客户端选择。
 - 最终请求 Session 模式：默认启用；session client 类型、Cookie jar 策略和销毁方式。
 - 指纹基线状态：未创建 / 已创建 / 待采样；`baselineId` 与 baseline 文件路径。
@@ -117,7 +117,7 @@ node scripts/check_stage_reports.js --case-dir case --require-stage WebAPI补齐
 - 请求方法：
 - 加密参数：
 - 参数位置：
-- 取证模式：
+- 取证来源（ruyipage / RuyiTrace / 用户手动材料）：
 - 最终请求 TLS 指纹兼容客户端：
 - 最终请求 Session 模式：
 - 指纹基线状态：

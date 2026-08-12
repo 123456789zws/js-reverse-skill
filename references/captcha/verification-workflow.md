@@ -42,7 +42,7 @@
    - 只有达到 5 次失败且无一次成功，且图片/坐标/轨迹/切片还原/补环境/challenge 新鲜度都无明显异常时，才主动建议切换到平台对照。
 8. 需要真实网页验证时：
    - 先读取 `references/tooling/browser-acquisition.md`。
-   - 让用户确认 ruyiPage/Camoufox/CloakBrowser 模式。
+   - 让用户确认取证模式（ruyiPage + RuyiTrace / 用户手动取证）。
    - 让用户确认具体动作：打开页面、截图、拖动、点击、提交或人工接管。
 9. 结束时输出报告：
    - 使用方案、输入证据、产物、成功/失败、失败原因、下一步建议。

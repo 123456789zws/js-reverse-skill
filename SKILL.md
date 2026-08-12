@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.16
+version: 2.3.17
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -150,7 +150,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 └── result/
 ```
 
-所有脚本的 `--case-dir` 统一传 `<project-root>`；`check_session_resume`/`check_fingerprint_fixture`/`check_trace_api_coverage` 已归一化，传 `<project-root>` 或 `<project-root>/case` 均可。
+所有脚本的 `--case-dir` 统一传 `<project-root>`（已全局归一化：`scripts/lib/paths.js` 的 `resolveCaseDir` 对 `<project-root>` 与 `<project-root>/case` 均兼容，质检类脚本同样适用）。
 
 先确认目标 URL、参数名、接口 URL（如已知）、请求方法、请求范围和当前项目根目录。范围明确后输出一条简明方案声明：
 

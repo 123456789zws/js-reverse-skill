@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 const BLOCKING_STATUSES = new Set([
   'needs-browser-baseline',
@@ -241,7 +242,7 @@ function compareTargetRecords(browser, nodeAudit, problems) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const root = path.resolve(args.dir || path.join(caseDir, '..', 'result'));
   const matrixPath = path.resolve(args.matrix || path.join(caseDir, 'notes', 'object-shape-audit.md'));
   const browserPath = path.resolve(args.browserBaseline || path.join(caseDir, 'fixtures', 'browser-object-shape-baseline.json'));

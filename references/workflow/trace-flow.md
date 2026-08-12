@@ -63,7 +63,7 @@ python scripts/forensic_ruyipage.py --url <目标页> --case-dir <project-root> 
 
 仅在复杂多步交互超出脚本参数（`--click` / `--scroll` / `--manual-pause`）能力时才手写，且必须：用 `targets=True` 抓全部包、`page.capture.wait(count=1)` 取单包、`page.capture.steps` 读全部包、`CapturePacket.to_dict()` 取响应体。详见 `references/tooling/ruyi-tooling.md` 的“逃生舱”小节。
 
-只有当 `node scripts/check_external_tools.js --markdown` 显示"默认解析路径是否为定制 Firefox：是"时，才可直接 `FirefoxPage()` 或 `launch(headless=False)`。否则必须显式指定已验证的定制 Firefox 路径。
+只有当 `node scripts/check_external_tools.js --markdown --project-dir <project-root>` 显示"默认解析路径是否为定制 Firefox：是"时，才可直接 `FirefoxPage()` 或 `launch(headless=False)`。否则必须显式指定已验证的定制 Firefox 路径。
 
 ### 取证验收标准
 

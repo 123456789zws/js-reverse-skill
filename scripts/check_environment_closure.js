@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 const { spawnSync } = require('child_process');
 
 function parseArgs(argv) {
@@ -236,7 +237,7 @@ function runJson(scriptDir, script, args) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const scriptDir = __dirname;
   const signals = scanCaseEvidence(caseDir);
   const trace = hasTraceEvidence(caseDir);

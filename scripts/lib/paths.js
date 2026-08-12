@@ -126,9 +126,20 @@ function getDefaultRuyiBrowsersDirs(explicitInstallDir, projectDir) {
   return uniquePaths(dirs);
 }
 
+// 归一化 --case-dir：兼容"项目根"与"case 目录"，统一返回 case 目录。
+// 传 <project-root>（其下含 case/ 子目录）→ 返回 <project-root>/case；
+// 传 <project-root>/case 或任意 case 目录 → 返回自身。
+function resolveCaseDir(input) {
+  const p = path.resolve(input || '.');
+  const caseSub = path.join(p, 'case');
+  try { if (fs.statSync(caseSub).isDirectory()) return caseSub; } catch {}
+  return p;
+}
+
 module.exports = {
   findProjectRoot,
   normalizeTraceHome,
   getDefaultRuyiBrowsersDirs,
   resolveProjectDirFromCaseDir,
+  resolveCaseDir,
 };

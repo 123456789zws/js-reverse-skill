@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 const BLOCKING_PRIORITIES = new Set(['P0', 'P1']);
 const ASSERTION_FIELDS = [
@@ -195,7 +196,7 @@ function compareTimeline(contract, audit, problems) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const contractPath = path.resolve(args.contract || path.join(caseDir, 'notes', 'trace-runtime-contract.json'));
   const auditPath = path.resolve(args.nodeAudit || path.join(caseDir, 'tmp', 'node-trace-runtime-audit.json'));
   const problems = [];

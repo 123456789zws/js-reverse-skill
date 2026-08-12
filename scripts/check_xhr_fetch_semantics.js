@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const paths = require('./lib/paths');
 
 const AUDIT_SCHEMA = 'xhr-fetch-semantics-audit/v3';
 const TRANSCRIPT_SCHEMA = 'network-transcript/v3';
@@ -543,7 +544,7 @@ function extraEventsByKey(expectedEvents, observedEvents) {
 }
 
 function check(args) {
-  const caseDir = path.resolve(args.caseDir || 'case');
+  const caseDir = paths.resolveCaseDir(args.caseDir || 'case');
   const browserPath = path.resolve(args.browser || path.join(caseDir, 'fixtures', 'browser-network-transcript.ndjson'));
   const nodePath = path.resolve(args.node || path.join(caseDir, 'tmp', 'node-network-transcript.ndjson'));
   const problems = [];
