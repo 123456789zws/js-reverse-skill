@@ -46,6 +46,7 @@ function usage() {
   - ruyiPage runtime：<cwd>/tools/ruyipage-browsers/
   - RuyiTrace：       <cwd>/tools/RuyiTrace/
 请先在项目根目录（tools/ 要安装到的用户工程目录）运行本脚本；在 skill 安装目录运行会装错位置。
+--python <cmd>：显式指定 Python 解释器，严格使用、失败不回退；未传时自动按 python → python3 → py -3 探测，安装与后验全程用同一解释器。
 --yes：跳过用户确认，直接安装缺失项。
 --project-dir <dir>：用户工程目录（tools/ 安装目标）。安装模式下 skill 安装目录无 tools/，必须显式指定，避免装到 skill 根附近。未传时使用当前工作目录。`;
 }
@@ -94,7 +95,18 @@ function mirrorEnv(mirror) {
   return mirror ? { GITHUB_MIRROR: mirror } : null;
 }
 
-function detectState(python) {
+// 解析唯一 Python 解释器：显式 --python 严格使用不回退；未提供时按 python → python3 → py -3 自动探测
+// 安装、runtime 安装、后验检测必须全程用同一个解释器，避免"用 A 装、用 B 验"导致的误判
+function resolvePython(explicit) {
+  if (explicit) return { cmd: explicit, args: [] };
+  for (const c of [['python'], ['python3'], ['py', '-3']]) {
+    const ret = run(c[0], c.slice(1).concat(['-c', 'import sys; print(sys.version.split()[0])']), 15000);
+    if (ret.ok) return { cmd: c[0], args: c.slice(1) };
+  }
+  return { cmd: 'python', args: [] };
+}
+
+function detectState(pythonSpec) {
   const result = {
     node: { ok: false, version: '' },
     ruyipagePackage: false,
@@ -107,12 +119,14 @@ function detectState(python) {
   result.node = { ok: nodeMajor >= 18, version: process.version };
 
   const pkgCode = 'import ruyipage, json; print(json.dumps({"ok": True}, ensure_ascii=False))';
-  const pkgRet = run(python, ['-c', pkgCode], 20000);
+  const pkgRet = run(pythonSpec.cmd, pythonSpec.args.concat(['-c', pkgCode]), 20000);
   result.ruyipagePackage = pkgRet.ok && /"ok":\s*true/i.test(pkgRet.stdout);
 
   if (result.ruyipagePackage) {
     const checkScript = path.join(__dirname, 'check_external_tools.js');
-    const checkRet = run(process.execPath, [checkScript, '--python', python, '--ruyipage-install-dir', RUYIPAGE_BROWSERS_DIR, '--json'], 60000);
+    const checkArgs = [checkScript, '--python', pythonSpec.cmd, '--ruyipage-install-dir', RUYIPAGE_BROWSERS_DIR, '--json'];
+    if (pythonSpec.args.length) checkArgs.push('--python-args', pythonSpec.args.join(' '));
+    const checkRet = run(process.execPath, checkArgs, 60000);
     try {
       const parsed = JSON.parse(checkRet.stdout.replace(/^\uFEFF/, ''));
       result.ruyipageRuntime = !!(parsed.ruyiPage && parsed.ruyiPage.managedRuntimeVerified);
@@ -138,12 +152,12 @@ function detectState(python) {
   return result;
 }
 
-function installRuyipagePackage(python) {
-  const ret = run(python, ['-m', 'pip', 'install', 'ruyiPage', 'requests', '--upgrade'], 180000);
+function installRuyipagePackage(pythonSpec) {
+  const ret = run(pythonSpec.cmd, pythonSpec.args.concat(['-m', 'pip', 'install', 'ruyiPage', 'requests', '--upgrade']), 180000);
   return { ok: ret.ok, output: (ret.stdout || ret.stderr || ret.error || '').slice(0, 2000) };
 }
 
-function installRuyipageRuntime(python, mirror) {
+function installRuyipageRuntime(pythonSpec, mirror) {
   fs.mkdirSync(RUYIPAGE_BROWSERS_DIR, { recursive: true });
   // 两步安装：先用镜像下载 zip，再用 --from-file 本地安装
   // 原因：python -m ruyipage install 直连 GitHub 下载，不支持镜像，速度极慢
@@ -160,7 +174,7 @@ function installRuyipageRuntime(python, mirror) {
     return { ok: false, output: `下载失败：${(dlRet.stdout || dlRet.stderr || dlRet.error || '').slice(0, 1500)}` };
   }
   // 步骤2：用 --from-file 本地安装（不走网络）
-  const instRet = run(python, ['-m', 'ruyipage', 'install', '--from-file', zipFile, '--install-dir', RUYIPAGE_BROWSERS_DIR], 300000);
+  const instRet = run(pythonSpec.cmd, pythonSpec.args.concat(['-m', 'ruyipage', 'install', '--from-file', zipFile, '--install-dir', RUYIPAGE_BROWSERS_DIR]), 300000);
   return { ok: instRet.ok, output: (instRet.stdout || instRet.stderr || instRet.error || '').slice(0, 2000) };
 }
 
@@ -188,15 +202,15 @@ function downloadAndExtractRuyiTrace(mirror) {
   };
 }
 
-function install(state, args, mirror) {
+function install(state, pythonSpec, mirror) {
   const steps = [];
 
   if (!state.ruyipagePackage) {
-    steps.push({ name: '安装 ruyiPage Python 包 + requests', ...installRuyipagePackage(args.python) });
+    steps.push({ name: '安装 ruyiPage Python 包 + requests', ...installRuyipagePackage(pythonSpec) });
   }
 
   if (!state.ruyipageRuntime) {
-    steps.push({ name: '安装 ruyiPage 定制 Firefox runtime', ...installRuyipageRuntime(args.python, mirror) });
+    steps.push({ name: '安装 ruyiPage 定制 Firefox runtime', ...installRuyipageRuntime(pythonSpec, mirror) });
   }
 
   if (!state.ruyitrace) {
@@ -206,9 +220,11 @@ function install(state, args, mirror) {
   return steps;
 }
 
-function verify(args) {
+function verify(pythonSpec) {
   const script = path.join(__dirname, 'check_external_tools.js');
-  const ret = run(process.execPath, [script, '--python', args.python, '--ruyipage-install-dir', RUYIPAGE_BROWSERS_DIR, '--ruyitrace-home', RUYITRACE_DIR, '--json'], 60000);
+  const checkArgs = [script, '--python', pythonSpec.cmd, '--ruyipage-install-dir', RUYIPAGE_BROWSERS_DIR, '--ruyitrace-home', RUYITRACE_DIR, '--json'];
+  if (pythonSpec.args.length) checkArgs.push('--python-args', pythonSpec.args.join(' '));
+  const ret = run(process.execPath, checkArgs, 60000);
   let parsed = null;
   try { parsed = JSON.parse(ret.stdout.replace(/^\uFEFF/, '')); } catch { /* ignore */ }
   return parsed;
@@ -270,7 +286,11 @@ function main() {
   if (args.help) { console.log(usage()); return; }
   initPaths(args);
 
-  const before = detectState(args.python);
+  // 解析唯一解释器并全程复用：显式 --python 严格使用；未提供时自动探测可用解释器
+  const pythonSpec = resolvePython(args.python);
+  const pythonLabel = pythonSpec.args.length ? `${pythonSpec.cmd} ${pythonSpec.args.join(' ')}` : pythonSpec.cmd;
+
+  const before = detectState(pythonSpec);
   const allInstalled = before.node.ok && before.ruyipagePackage && before.ruyipageRuntime && before.ruyitrace && before.ruyitraceKernel;
 
   let mirror = '';
@@ -282,7 +302,7 @@ function main() {
   }
 
   const result = {
-    python: args.python,
+    python: pythonLabel,
     mirror,
     before,
     skipped: allInstalled,
@@ -315,10 +335,12 @@ function main() {
     return;
   }
 
-  result.steps = install(before, args, mirror);
-  result.after = verify(args);
-  // 真正执行安装后必须按最终检测结果返回非零，避免上层（AI/CI/脚本）误判安装成功
-  process.exitCode = computeAllOk(result.after) ? 0 : 1;
+  result.steps = install(before, pythonSpec, mirror);
+  result.after = verify(pythonSpec);
+  // 真正执行安装后必须同时满足"本次安装步骤全部成功 + 最终环境全部通过"才返回 0，
+  // 否则退非零，避免安装动作失败但后验被其它 Python 回退兜底时上层（AI/CI/脚本）误判成功
+  const stepsOk = result.steps.every((s) => s.ok);
+  process.exitCode = stepsOk && computeAllOk(result.after) ? 0 : 1;
 
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(renderMarkdown(result));

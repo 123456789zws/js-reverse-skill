@@ -16,6 +16,7 @@ function parseArgs(argv) {
     ruyiPageInstallDir: '',
     ruyiPageBrowserPath: '',
     projectDir: '',
+    pythonArgsPrefix: '',
     json: false,
     markdown: false,
     quick: false,
@@ -30,6 +31,7 @@ function parseArgs(argv) {
     else if (a === '--ruyipage-install-dir') args.ruyiPageInstallDir = nextVal('');
     else if (a === '--ruyipage-browser-path') args.ruyiPageBrowserPath = nextVal('');
     else if (a === '--project-dir') args.projectDir = nextVal('');
+    else if (a === '--python-args') args.pythonArgsPrefix = (i + 1 < argv.length) ? argv[++i] : '';
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--quick') args.quick = true;
@@ -52,6 +54,7 @@ function usage() {
 同时顺带对比 GitHub 最新 release：发现新版只提示、不自动更新；网络失败或限流时静默跳过，不影响检测结果。
 注意：选择 ruyiPage 时，只有“ruyiPage 包可用 + 定制 Firefox runtime 验证通过”才视为可用；普通系统 Firefox fallback 不视为通过。
 --project-dir <dir>：用户工程目录（tools/ 所在）。安装模式下 skill 安装目录无 tools/（gitignore 不随分发），需靠此定位；未传时回退 cwd/tools + skill 根/tools。
+--python-args <args>：--python 指定解释器附带的参数前缀（如 --python py --python-args -3），与显式 Python 配合严格探测；不传则显式 Python 无前缀，失败时仍会回退 python/python3/py -3。
 --quick：快速模式，只检测 Node.js 版本是否满足要求，不执行子命令、不扫描目录、不检测 ruyipage/ruyitrace。
 --offline：跳过 GitHub release 更新查询（不访问网络）。用于离线环境或需要快速、确定性的纯本地检测；默认每次检测都会顺带查询更新（失败静默，不影响检测结果）。`;
 }
@@ -86,9 +89,9 @@ function run(cmd, args, timeout = 15000, options = {}) {
   };
 }
 
-function pythonCandidates(explicit) {
+function pythonCandidates(explicit, explicitArgs) {
   const out = [];
-  if (explicit) out.push({ cmd: explicit, argsPrefix: [] });
+  if (explicit) out.push({ cmd: explicit, argsPrefix: explicitArgs || [] });
   out.push({ cmd: 'python', argsPrefix: [] });
   out.push({ cmd: 'python3', argsPrefix: [] });
   out.push({ cmd: 'py', argsPrefix: ['-3'] });
@@ -125,7 +128,7 @@ function unique(items) {
   return out;
 }
 
-function detectRuyiPagePackage(explicitPython) {
+function detectRuyiPagePackage(explicitPython, explicitArgs) {
   const code = [
     'import json',
     'try:',
@@ -143,7 +146,7 @@ function detectRuyiPagePackage(explicitPython) {
   ].join('\n');
 
   const checked = [];
-  for (const c of pythonCandidates(explicitPython)) {
+  for (const c of pythonCandidates(explicitPython, explicitArgs)) {
     const ret = run(c.cmd, c.argsPrefix.concat(['-c', code]));
     checked.push({ python: [c.cmd].concat(c.argsPrefix).join(' '), ok: ret.ok, stderr: ret.stderr || ret.error });
     if (!ret.ok) continue;
@@ -362,7 +365,7 @@ function ruyiPageDoctor(pkg, args, installDir) {
 }
 
 function detectRuyiPage(args) {
-  const pkg = detectRuyiPagePackage(args.python);
+  const pkg = detectRuyiPagePackage(args.python, (args.pythonArgsPrefix || '').split(' ').filter(Boolean));
   // 多版本 runtime 并存时（如 151-ruyi 旧版 + 155 新版），按 Firefox 主版本号降序选最新
   const pickLatest = (list) => {
     if (!list.length) return null;
