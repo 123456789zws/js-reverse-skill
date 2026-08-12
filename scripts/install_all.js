@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawnSync } = require('child_process');
 
 // 默认安装目录：cwd 优先（安装模式下装到用户工作目录），开发模式下 cwd 即 skill 项目根；
@@ -13,11 +14,11 @@ let RUYIPAGE_BROWSERS_DIR = path.join(TOOLS_DIR, 'ruyipage-browsers');
 let RUYITRACE_DIR = path.join(TOOLS_DIR, 'RuyiTrace');
 
 function parseArgs(argv) {
-  const args = { python: 'python', yes: false, json: false, markdown: false, projectDir: '', help: false };
+  const args = { python: '', yes: false, json: false, markdown: false, projectDir: '', help: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     const nextVal = (fb) => (i + 1 < argv.length && typeof argv[i + 1] === 'string' && !argv[i + 1].startsWith('-')) ? argv[++i] : fb;
-    if (a === '--python') args.python = nextVal('python');
+    if (a === '--python') args.python = nextVal('');
     else if (a === '--project-dir') args.projectDir = nextVal('');
     else if (a === '--yes' || a === '-y') args.yes = true;
     else if (a === '--json') args.json = true;
@@ -83,7 +84,7 @@ function detectBestMirror() {
   // ghproxy 等镜像只转发 releases/download 路径，不代理仓库主页和 api.github.com
   for (const m of MIRROR_CANDIDATES) {
     for (const testPath of MIRROR_TEST_PATHS) {
-      const ret = run('curl', ['-sk', '--max-time', '10', '-r', '0-0', '-o', 'NUL', '-w', '%{http_code}', `${m}/${testPath}`], 15000);
+      const ret = run('curl', ['-sk', '--max-time', '10', '-r', '0-0', '-o', os.devNull, '-w', '%{http_code}', `${m}/${testPath}`], 15000);
       const code = ret.stdout.trim();
       if (ret.ok && (code === '200' || code === '206')) return m;
     }
