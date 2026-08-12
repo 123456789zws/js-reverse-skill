@@ -88,18 +88,31 @@ function normalizeTraceHome(args) {
   if (args.ruyitraceExe) return path.dirname(path.resolve(args.ruyitraceExe));
   if (process.env.RUYI_TRACE_HOME) return path.resolve(process.env.RUYI_TRACE_HOME);
   if (process.env.RUYITRACE_HOME) return path.resolve(process.env.RUYITRACE_HOME);
+  // 默认安装目录优先 cwd（安装模式下用户工作目录），skill 项目根兜底（开发模式下两者相同）
+  const toolsDirs = [
+    path.join(process.cwd(), 'tools'),
+    path.join(findProjectRoot(), 'tools'),
+  ];
   // 优先带版本号的 RuyiTrace-* 目录（新版 2.5+，Electron 壳 + resources/kernel 内核），
   // 按版本号降序取最新；无版本目录 tools/RuyiTrace 兜底
-  const projectRoot = findProjectRoot();
-  const toolsDir = path.join(projectRoot, 'tools');
   let candidates = [];
-  if (isDir(toolsDir)) {
+  for (const toolsDir of toolsDirs) {
+    if (!isDir(toolsDir)) continue;
     try {
-      candidates = fs.readdirSync(toolsDir)
+      const found = fs.readdirSync(toolsDir)
         .filter((n) => /^RuyiTrace/i.test(n) && isDir(path.join(toolsDir, n)))
         .map((n) => path.join(toolsDir, n));
-    } catch { candidates = []; }
+      candidates = candidates.concat(found);
+    } catch { /* ignore */ }
   }
+  // 去重（cwd = findProjectRoot 时同一目录会被扫两次）
+  const seen = new Set();
+  candidates = candidates.filter((p) => {
+    const k = process.platform === 'win32' ? p.toLowerCase() : p;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   const versioned = candidates
     .map((p) => ({ p, v: (/RuyiTrace[-_]?v?(\d+(?:\.\d+)+)/i.exec(path.basename(p)) || [])[1] || '' }))
     .filter((x) => x.v)

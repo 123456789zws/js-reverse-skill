@@ -5,30 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const PROJECT_ROOT = findProjectRoot();
+// 默认安装目录：cwd 优先（安装模式下装到用户工作目录），开发模式下 cwd 即 skill 项目根
+const PROJECT_ROOT = process.cwd();
 const TOOLS_DIR = path.join(PROJECT_ROOT, 'tools');
 const RUYIPAGE_BROWSERS_DIR = path.join(TOOLS_DIR, 'ruyipage-browsers');
 const RUYITRACE_DIR = path.join(TOOLS_DIR, 'RuyiTrace');
-
-function findProjectRoot() {
-  // 脚本位于 <项目根>/scripts/ 下，优先用 __dirname 向上查找 SKILL.md
-  let cur = path.dirname(__dirname);
-  for (let i = 0; i < 5; i++) {
-    if (fs.existsSync(path.join(cur, 'SKILL.md'))) return cur;
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  // fallback: 从 cwd 查找
-  cur = process.cwd();
-  for (let i = 0; i < 10; i++) {
-    if (fs.existsSync(path.join(cur, 'SKILL.md'))) return cur;
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  return process.cwd();
-}
 
 function parseArgs(argv) {
   const args = { python: 'python', yes: false, json: false, markdown: false };
@@ -52,9 +33,9 @@ function usage() {
   node scripts/install_all.js --python python --yes --markdown
 
 说明：检测并自动安装 ruyiPage（Python 包 + 定制 Firefox runtime）和 RuyiTrace（定制 trace 内核）。
-默认安装目录：
-  - ruyiPage runtime：<项目根>/tools/ruyipage-browsers/
-  - RuyiTrace：       <项目根>/tools/RuyiTrace/
+默认安装目录（当前工作目录）：
+  - ruyiPage runtime：<cwd>/tools/ruyipage-browsers/
+  - RuyiTrace：       <cwd>/tools/RuyiTrace/
 --yes：跳过用户确认，直接安装缺失项。`;
 }
 
@@ -223,7 +204,7 @@ function verify(args) {
 }
 
 function renderMarkdown(result) {
-  const lines = ['# 一键安装结果', '', `- 项目根目录：${PROJECT_ROOT}`, `- 安装目录：${TOOLS_DIR}`, `- Python：${result.python}`, ''];
+  const lines = ['# 一键安装结果', '', `- 工作目录：${PROJECT_ROOT}`, `- 安装目录：${TOOLS_DIR}`, `- Python：${result.python}`, ''];
 
   lines.push('## 安装前状态');
   lines.push(`- Node.js：${result.before.node.ok ? '通过' : '不通过'}（${result.before.node.version}）`);
