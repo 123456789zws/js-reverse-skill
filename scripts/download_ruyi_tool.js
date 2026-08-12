@@ -174,12 +174,23 @@ function extractZip(zipFile, destDir) {
   if (entries.length === 1) {
     const nestedDir = path.join(destDir, entries[0]);
     if (isDirectory(nestedDir)) {
+      const destReal = fs.realpathSync(destDir);
       for (const entry of fs.readdirSync(nestedDir)) {
-        fs.renameSync(path.join(nestedDir, entry), path.join(destDir, entry));
+        const src = path.join(nestedDir, entry);
+        // 提升前逐项复核：拒绝符号链接 / junction / reparse point，并校验真实路径仍在目标内
+        const st = fs.lstatSync(src);
+        if (st.isSymbolicLink()) throw new Error(`拒绝符号链接条目：${src}`);
+        const real = fs.realpathSync(src);
+        if (real !== destReal && !real.startsWith(destReal + path.sep)) {
+          throw new Error(`Zip Slip：提升条目越界：${src} -> ${real}`);
+        }
+        fs.renameSync(src, path.join(destDir, entry));
       }
       fs.rmdirSync(nestedDir);
     }
   }
+  // 提升动作后再复验一次整树边界，防御提升引入的新越界
+  assertTreeInside(destDir);
   return { ok: true, stdout: (ret.stdout || '').trim(), stderr: (ret.stderr || '').trim(), error: '' };
 }
 
