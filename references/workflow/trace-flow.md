@@ -80,7 +80,7 @@ python scripts/forensic_ruyipage.py --url <目标页> --case-dir <project-root> 
 
 ```bash
 node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
+node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --target-signal handshake --import-after --markdown
 ```
 
 执行要求：

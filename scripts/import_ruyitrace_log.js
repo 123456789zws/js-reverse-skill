@@ -14,6 +14,7 @@ function parseArgs(argv) {
     maxExamples: 10,
     truncationThreshold: 3900,
     maxTruncationExamples: 50,
+    targetSignals: [],
     json: false,
     markdown: false,
   };
@@ -26,6 +27,7 @@ function parseArgs(argv) {
     else if (a === '--max-examples') args.maxExamples = Number(nextVal('10'));
     else if (a === '--truncation-threshold') args.truncationThreshold = Number(nextVal('3900'));
     else if (a === '--max-truncation-examples') args.maxTruncationExamples = Number(nextVal('50'));
+    else if (a === '--target-signal') args.targetSignals.push(nextVal(''));
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--help' || a === '-h') args.help = true;
@@ -33,6 +35,7 @@ function parseArgs(argv) {
   }
   if (!Number.isFinite(args.truncationThreshold) || args.truncationThreshold < 1) args.truncationThreshold = 3900;
   if (!Number.isFinite(args.maxTruncationExamples) || args.maxTruncationExamples < 1) args.maxTruncationExamples = 50;
+  args.targetSignals = args.targetSignals.filter((s) => s && s.trim());
   if (!args.json && !args.markdown) args.markdown = true;
   return args;
 }
@@ -41,8 +44,10 @@ function usage() {
   return `用法：
   node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir . --markdown
   node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir . --truncation-threshold 3900 --json
+  node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir . --target-signal handshake --target-signal /api/verify --markdown
 
-说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。复制 RuyiTrace NDJSON 日志到 <case-dir>/case/ruyi-trace/logs/，生成 <case-dir>/case/notes/ruyitrace-summary.md，并标记接近 4000 / 4096 字符的字段为“疑似被 RuyiTrace 截断”。`;
+说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。复制 RuyiTrace NDJSON 日志到 <case-dir>/case/ruyi-trace/logs/，生成 <case-dir>/case/notes/ruyitrace-summary.md，并标记接近 4000 / 4096 字符的字段为“疑似被 RuyiTrace 截断”。
+--target-signal <信号>（可多次）：扫描日志是否命中目标接口 URL / 关键词，未命中时退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。`;
 }
 
 function exists(p) {
@@ -198,12 +203,22 @@ async function summarizeNdjson(file, options) {
   let lines = 0, parsed = 0, invalid = 0;
 
   const rl = readline.createInterface({ input: fs.createReadStream(file, { encoding: 'utf8' }), crlfDelay: Infinity });
+  const targetHits = options.targetSignals.map((s) => ({ signal: s, hits: 0, sampleLine: 0 }));
   for await (const raw of rl) {
     const line = raw.replace(/^\uFEFF/, '').trim();
     if (!line) continue;
     lines++;
     let evt;
     try { evt = JSON.parse(line); parsed++; } catch { invalid++; continue; }
+    if (targetHits.length) {
+      const text = JSON.stringify(evt).toLowerCase();
+      for (const t of targetHits) {
+        if (text.includes(t.signal.toLowerCase())) {
+          t.hits++;
+          if (!t.sampleLine) t.sampleLine = lines;
+        }
+      }
+    }
     const api = evt.api || evt.name || evt.path || '';
     inc(apiCounts, api);
     inc(typeCounts, evt.t || evt.type || '');
@@ -221,6 +236,11 @@ async function summarizeNdjson(file, options) {
     topTypes: top(typeCounts, 20),
     topCategories: top(categoryCounts, 20),
     topStackFiles: top(fileCounts, 30),
+    targetSignal: {
+      enabled: targetHits.length > 0,
+      allHit: targetHits.length > 0 && targetHits.every((t) => t.hits > 0),
+      signals: targetHits,
+    },
     truncation: {
       threshold: options.truncationThreshold,
       totalSuspectedFields: truncationState.totalSuspectedFields,
@@ -243,6 +263,16 @@ function renderMarkdown(result) {
   lines.push('', '## 高频调用栈文件');
   if (!result.summary.topStackFiles.length) lines.push('- 未发现 stack.file');
   for (const item of result.summary.topStackFiles.slice(0, 20)) lines.push(`- ${item.key}：${item.count}`);
+
+  const ts = result.summary.targetSignal;
+  if (ts.enabled) {
+    lines.push('', '## 目标信号命中检查');
+    for (const t of ts.signals) {
+      if (t.hits > 0) lines.push(`- ✅ 命中「${t.signal}」：${t.hits} 次（示例行 ${t.sampleLine}）`);
+      else lines.push(`- ❌ 未命中「${t.signal}」：0 次`);
+    }
+    if (!ts.allHit) lines.push('- ⚠️ **目标路径未覆盖：日志未触发目标接口，不得当作“采集完成”，按 TRACE_RETRY 处理（查因→重试/转手动/降级补充）**');
+  }
 
   const truncation = result.summary.truncation;
   lines.push('', '## 长字段截断风险');
@@ -295,6 +325,10 @@ async function main() {
   fs.writeFileSync(path.join(notesDir, 'ruyitrace-summary.md'), md, 'utf8');
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(md);
+  if (args.targetSignals.length && !summary.targetSignal.allHit) {
+    console.error('⚠️ 目标信号未命中：日志未触发目标接口，不得当作“采集完成”，按 TRACE_RETRY 处理');
+    process.exitCode = 1;
+  }
 }
 
 main().catch(err => {

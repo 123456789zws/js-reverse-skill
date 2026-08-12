@@ -291,6 +291,8 @@ new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: 3, clien
 
 通用脚本已覆盖绝大多数场景（打开页面、抓全部包、过滤目标、落盘 JS、指纹基线、登录前暂停、单点拟人点击 / 滚动）。仅在脚本参数无法覆盖的**复杂多步业务交互**时才手写，且必须遵守：
 
+0. **脚本缺陷 / 能力缺口不是手写理由**：`forensic_ruyipage.py` / `capture_ruyitrace_log.js` 等共享脚本有 bug 或参数覆盖不了时，**禁止用 case 内手写脚本绕过**——先修共享脚本，或请用户提供材料（cURL / HAR / 手动 trace NDJSON）。手写仅限「复杂多步交互」这一种理由，且必须走完下方同一套启动硬约束与验收标准。
+
 1. 复用通用脚本同一套启动硬约束（定制 Firefox、有头、独立 profile、smart_fingerprint + apply_emulation、capture.start 在 get 之前、navigator.webdriver 自检）。
 2. **正确 API（基于 ruyipage >=1.2.45 内省确认，151/155 runtime 均适用，含 v1.2.57+，避免重蹈覆辙）**：
    - `page.capture.start(targets=True, collect_bodies=True)`：`targets=True` 抓**全部**请求；用字符串 / `list` 只做子串过滤，会漏掉 JS 文件。
@@ -323,7 +325,7 @@ RuyiTrace 日志采集方式请选择：
 
 ```bash
 node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --dry-run --markdown
-node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
+node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <project-root> --ruyitrace-home <RuyiTrace-dir> --target-signal handshake --import-after --markdown
 ```
 
 执行要求：

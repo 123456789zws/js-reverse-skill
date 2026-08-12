@@ -753,7 +753,7 @@ function renderMarkdown(result) {
   if (result.ruyiTrace.reason) lines.push(`- 原因：${result.ruyiTrace.reason}`);
   if (result.ruyiTrace.installed) {
     lines.push('- 采集方式：RuyiTrace 已检测通过，采集方式由用户选择——自动 trace（`capture_ruyitrace_log.js --url ...`）或手动 trace（用户采集后 `capture_ruyitrace_log.js --input <日志>` 导入）。');
-    lines.push('- 自动 trace 示例：`node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown`');
+    lines.push('- 自动 trace 示例：`node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir case --ruyitrace-home <RuyiTrace-dir> --target-signal handshake --import-after --markdown`');
   }
 
   if (result.ruyiTrace.version) lines.push(`- 本机版本（目录名识别）：${result.ruyiTrace.version}`);

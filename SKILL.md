@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.21
+version: 2.3.22
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -220,10 +220,14 @@ python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root>
 日志采集使用：
 
 ```powershell
-node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-root> --import-after --markdown
+node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-root> --target-signal <目标接口URL或关键词> --import-after --markdown
+# --target-signal 可多次传入（如 handshake、/api/verify）：导入后自动扫描 NDJSON 是否命中目标接口。
+# 未命中时导入退出码非 0 = 硬信号：目标路径未覆盖，不得当作“采集完成”。
 ```
 
-用户已提供 NDJSON 时，导入并生成摘要，不重复采集。取证结果只进入 `case/`，原始 JS 放入 `case/js/original/`，临时材料放入 `case/tmp/`。
+用户已提供 NDJSON 时，导入并生成摘要（`node scripts/capture_ruyitrace_log.js --input <ndjson> --case-dir <project-root> --target-signal <信号> --markdown`），不重复采集。取证结果只进入 `case/`，原始 JS 放入 `case/js/original/`，临时材料放入 `case/tmp/`。
+
+**目标请求需手动触发时，必须提示用户操作并等确认**：目标请求需登录 / 点击 / 验证码 / 权限确认等用户交互时，启动 trace（或 ruyipage 取证）后必须明确提示用户在 trace 浏览器中完成该操作；**用户确认“已触发”前不得结束采集**（自动 trace 默认 `--duration 120` 秒兜底，交互场景可调大；仍不足或无法自动触发时转手动 trace，见 `references/workflow/trace-flow.md` 方式二）。不得自动跑满时长就收工、把“没触发目标路径”当成“采集完成”。
 
 #### TRACE_CAPTURE 质量判定（不可跳过）
 
@@ -235,6 +239,8 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 | 轻度不足 | 有栈但覆盖不全 / 部分字段截断（截断风险表非空） | 可进入 CASE_LOOKUP，但须在分析时降级补充 |
 
 阈值用建议值，AI 可按目标站点复杂度自主判断上调或下调，但「无 stack.file」是硬性重度不足信号，不得自行放宽。
+
+**目标信号未命中 = 质量不足（硬信号）**：指定了 `--target-signal` 且导入退出码非 0 时，即“NDJSON 存在但未触发目标接口路径”，必须按 TRACE_RETRY 处理，不得推进 `CASE_LOOKUP`。`check_evidence.js` 复检时可加 `--require-target-signal <信号>` 让 GATE-2 一并卡住该情况。
 
 #### TRACE_RETRY 处理顺序（按序降级，不回退）
 
@@ -260,9 +266,19 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 
 ### 4.5 状态记录
 
-每次状态转换都在当前会话中记录：当前状态、进入依据、已完成证据、下一状态和阻塞项。续接时以最新阶段报告、环境快照和磁盘产出共同判断，不凭对话记忆直接跳转。
+每次状态转换**必须强制输出一行状态行**（当前状态 + 证据状态 + 门禁结论），不得只更新 TODO：
+
+```text
+TRACE_RETRY：目标路径未覆盖（--target-signal 未命中，退出码 1），阻断分析
+CASE_LOOKUP：trace 达标（目标信号命中），继续
+IMPLEMENT：trace 达标 或 用户已确认轻量路径，允许实现
+```
+
+除状态行外，在会话中记录：当前状态、进入依据、已完成证据、下一状态和阻塞项。续接时以最新阶段报告、环境快照和磁盘产出共同判断，不凭对话记忆直接跳转。
 
 状态失败时停留在当前节点：范围缺失回到 `INTENT_CONFIRM`，环境异常回到 `ENV_READY`，证据不足回到 `EVIDENCE_GATE`，验证失败按已有 trace 与无 trace 两条路径处理（见状态机）。不得为了推进而把失败标记为通过。
+
+**IMPLEMENT 前置条件（硬约束）**：进入 `IMPLEMENT` 前必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认走轻量路径（无 trace，EXTERNAL_LOOKUP 方案作为假设）」。两条均不满足时停在 `TRACE_ANALYZE`，不得以 mock、猜测或实验性实现替代证据。
 
 ## 5. CASE_LOOKUP：案例按需搜索
 

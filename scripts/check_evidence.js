@@ -13,6 +13,7 @@ function parseArgs(argv) {
     caseDir: '.',
     inputs: '',
     url: '',
+    requireTargetSignal: [],
     json: false,
     markdown: false,
     help: false,
@@ -30,6 +31,7 @@ function parseArgs(argv) {
     if (a === '--case-dir' || a === '--dir' || a === '-d') args.caseDir = nextVal();
     else if (a === '--inputs' || a === '-i') args.inputs = nextVal();
     else if (a === '--url' || a === '-u') args.url = nextVal();
+    else if (a === '--require-target-signal') args.requireTargetSignal.push(nextVal());
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--self-test') args.selfTest = true;
@@ -37,6 +39,7 @@ function parseArgs(argv) {
     else throw new Error(`未知参数：${a}`);
   }
   if (!args.json && !args.markdown) args.markdown = true;
+  args.requireTargetSignal = args.requireTargetSignal.filter((s) => s && s.trim());
   return args;
 }
 
@@ -44,6 +47,7 @@ function usage() {
   return `用法：
   node scripts/check_evidence.js --case-dir . --markdown
   node scripts/check_evidence.js --case-dir . --url <目标URL> --inputs <材料1,材料2> --markdown
+  node scripts/check_evidence.js --case-dir . --url <目标URL> --require-target-signal handshake --require-target-signal /api/verify --markdown
   node scripts/check_evidence.js --case-dir . --json
   node scripts/check_evidence.js --self-test
 
@@ -55,6 +59,8 @@ function usage() {
   两步证据齐全退出 0。调用方（含 AI）必须按退出码 + 输出文本判定，不能只看输出文本。
 - Step 1 只接受有效 capture 网络记录或用户 HAR / cURL / 原始 HTTP 请求文本；JS、截图和指纹只能作为辅助材料。
 - Step 2 只接受内容可解析、记录非空且关联目标域的 NDJSON；摘要不能替代 NDJSON。
+- --require-target-signal <信号>（可多次）：NDJSON 里必须出现该目标接口 URL / 关键词，
+  未命中则 Step 2 判定为缺失（退出码 1）——防止“页面加载日志”冒充“目标路径已触发”。
 - URL 不是证据：--url 只记录目标地址，绝不作为跳过任何取证的依据；仅提供 URL → 两步全做。
 - --inputs：逗号分隔的用户声称提供材料路径（NDJSON/HAR/cURL/请求文本/JS/截图等）。
   文件必须真实存在且通过内容校验才会被计入对应步骤；失败原因会以警告列出。
@@ -222,7 +228,7 @@ function inspectCapture(p, target) {
   return result;
 }
 
-function inspectNdjson(p, target) {
+function inspectNdjson(p, target, signals) {
   let lines;
   try {
     lines = readText(p).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -239,8 +245,30 @@ function inspectNdjson(p, target) {
     }
   }
   const targetMatched = records.some((record) => valueMatchesTarget(record, target));
-  const reason = !targetMatched ? `未发现与目标域 ${target.hostname} 关联的记录` : '';
-  return { ok: !reason, parseable: true, recordCount: records.length, targetMatched, reason };
+  const sigHits = (signals || []).map((s) => ({ signal: s, hits: 0, sampleLine: 0 }));
+  for (let i = 0; i < records.length; i += 1) {
+    if (!sigHits.length) break;
+    const text = JSON.stringify(records[i]).toLowerCase();
+    for (const sig of sigHits) {
+      if (sig.hits > 0 || !text.includes(sig.signal.toLowerCase())) continue;
+      sig.hits += 1;
+      sig.sampleLine = i + 1;
+    }
+  }
+  const signalEnabled = sigHits.length > 0;
+  const allHit = !signalEnabled || sigHits.every((sig) => sig.hits > 0);
+  const missed = sigHits.filter((sig) => sig.hits === 0).map((sig) => sig.signal);
+  let reason = !targetMatched ? `未发现与目标域 ${target.hostname} 关联的记录` : '';
+  if (!reason && !allHit) reason = `目标信号未命中：${missed.join('、')}（日志未触发目标接口，不能当作采集完成）`;
+  const result = {
+    ok: !reason,
+    parseable: true,
+    recordCount: records.length,
+    targetMatched,
+    reason,
+    targetSignal: { enabled: signalEnabled, allHit, signals: sigHits },
+  };
+  return result;
 }
 
 function inspectJs(p, target, linkedUrls = []) {
@@ -301,6 +329,10 @@ function detailText(inspection) {
   if (typeof inspection.nonWhitespaceBytes === 'number') parts.push(`非空白 ${inspection.nonWhitespaceBytes} B`);
   if (typeof inspection.parseable === 'boolean') parts.push(inspection.parseable ? '可解析' : '不可解析');
   if (typeof inspection.targetMatched === 'boolean') parts.push(inspection.targetMatched ? '目标域匹配' : '目标域未匹配');
+  if (inspection.targetSignal && inspection.targetSignal.enabled) {
+    const hitText = inspection.targetSignal.signals.map((sig) => (sig.hits > 0 ? `${sig.signal}×${sig.hits}` : `${sig.signal}×0`)).join('，');
+    parts.push(`目标信号[${hitText}]`);
+  }
   if (inspection.reason) parts.push(inspection.reason);
   return parts.join('，');
 }
@@ -309,7 +341,7 @@ function makeCheck(label, file, inspection) {
   return { label, ok: inspection.ok, file, ...inspection, detail: detailText(inspection) };
 }
 
-function classifyUserInput(p, warnings, target) {
+function classifyUserInput(p, warnings, target, signals) {
   const ext = path.extname(p).toLowerCase();
   if (!exists(p)) {
     warnings.push(`声称提供但文件不存在：${p}`);
@@ -327,7 +359,7 @@ function classifyUserInput(p, warnings, target) {
   let kind;
   let step = 0;
   if (ext === '.ndjson' || ext === '.jsonl') {
-    inspection = inspectNdjson(p, target);
+    inspection = inspectNdjson(p, target, signals);
     kind = 'NDJSON';
     step = 2;
   } else if (ext === '.har') {
@@ -400,7 +432,7 @@ function check(args) {
 
   const ndjsonDir = path.join(caseSubdir, 'ruyi-trace', 'logs');
   const ndjsonFiles = listNdjsonFiles(ndjsonDir);
-  const ndjsonInspections = ndjsonFiles.map((file) => inspectNdjson(file, target));
+  const ndjsonInspections = ndjsonFiles.map((file) => inspectNdjson(file, target, args.requireTargetSignal));
   const validNdjson = ndjsonInspections.filter((item) => item.ok);
   const ndjsonInspection = {
     ok: validNdjson.length > 0,
@@ -431,7 +463,7 @@ function check(args) {
   const userInputs = [];
   if (args.inputs) {
     for (const p of args.inputs.split(',').map((s) => s.trim()).filter(Boolean)) {
-      const input = classifyUserInput(path.resolve(p), warnings, target);
+      const input = classifyUserInput(path.resolve(p), warnings, target, args.requireTargetSignal);
       userInputs.push(input);
       if (input.formatError) errors.push(`材料格式错误：${input.path}（${input.reason}）`);
     }
@@ -443,7 +475,13 @@ function check(args) {
   const skipStep2 = step2.evidence;
 
   if (!step1.evidence) missing.push('Step 1 网络取证证据（无有效 capture 网络记录或用户 HAR / cURL / HTTP 请求文本）');
-  if (!step2.evidence) missing.push('Step 2 RuyiTrace 日志证据（无可解析、记录非空且关联目标域的 NDJSON；摘要不能替代）');
+  if (!step2.evidence) {
+    const required = args.requireTargetSignal || [];
+    const sigPart = required.length
+      ? `；且目标信号未命中：${required.join('、')}（日志未触发目标接口，不能当作采集完成）`
+      : '';
+    missing.push(`Step 2 RuyiTrace 日志证据（无可解析、记录非空且关联目标域的 NDJSON${sigPart}；摘要不能替代）`);
+  }
 
   const urlOnly = !!args.url && !step1.evidence && !step2.evidence;
   const anyEvidence = step1.evidence || step2.evidence;
@@ -595,6 +633,20 @@ function runSelfTest() {
     const cli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', path.join(root, 'empty'), '--url', targetUrl, '--json'], { encoding: 'utf8' });
     assert.strictEqual(cli.status, 1); // 缺失证据 → 退出码 1（硬信号）
 
+    // 目标信号：命中通过、未命中按缺失处理
+    const sigRoot = path.join(root, 'sig');
+    const sigForensic = path.join(sigRoot, 'case', 'forensic');
+    const sigTrace = path.join(sigRoot, 'case', 'ruyi-trace', 'logs');
+    fs.mkdirSync(sigForensic, { recursive: true });
+    fs.mkdirSync(sigTrace, { recursive: true });
+    fs.writeFileSync(path.join(sigForensic, 'capture.json'), JSON.stringify([{ url: targetUrl, method: 'POST', request_body: 'x' }]), 'utf8');
+    fs.writeFileSync(path.join(sigTrace, 'trace.ndjson'), `${JSON.stringify({ api: 'fetch', url: targetUrl })}\n`, 'utf8');
+    const sigHitCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', sigRoot, '--url', targetUrl, '--require-target-signal', 'handshake', '--markdown'], { encoding: 'utf8' });
+    assert.strictEqual(sigHitCli.status, 1); // NDJSON 关联目标域但无 handshake 信号 → 退出码 1
+    assert.match(sigHitCli.stdout, /目标信号未命中/);
+    const sigBoth = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', sigRoot, '--url', targetUrl, '--require-target-signal', targetUrl, '--markdown'], { encoding: 'utf8' });
+    assert.strictEqual(sigBoth.status, 0); // 信号命中 → 通过
+
     const bothRoot = path.join(root, 'both');
     const bothForensic = path.join(bothRoot, 'case', 'forensic');
     const bothJs = path.join(bothRoot, 'case', 'js', 'original');
@@ -612,7 +664,7 @@ function runSelfTest() {
     fs.writeFileSync(brokenHar, '{broken', 'utf8');
     const brokenCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', path.join(root, 'empty'), '--inputs', brokenHar, '--json'], { encoding: 'utf8' });
     assert.strictEqual(brokenCli.status, 1);
-    return { clean: true, tests: 23 };
+    return { clean: true, tests: 25 };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

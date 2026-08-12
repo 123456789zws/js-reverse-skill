@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2.3.22 - 2026-08-12
+
+### 修复
+- **forensic_ruyipage.py 二进制 body 被 UTF-8 解码破坏（真实案例复盘 P0）**：`capture.json` 目标命中记录的 response/request body 一律 `.decode("utf-8","replace")`，`application/octet-stream` 等二进制响应被损坏（字节丢失），后续所有基于坏样本的 body 对比失真。修复：新增 `_body_to_text` 按 Content-Type 或 UTF-8 严格解码结果区分——文本落字符串，二进制（octet-stream / 解码失败）落 base64 并写 `response_body_binary` / `response_body_bytes` 字段保留原始字节信息。
+- **trace 采集默认时长口径不一致（真实案例复盘 P2）**：`capture_ruyitrace_log.js` 默认 `--duration` 60 秒，而取证侧 `--wait` 已是 120 秒；需要手动触发的目标请求（登录/点击/验证码）在自动跑满时长后未触发即收工。修复：默认 60 → 120 秒（含 usage 示例同步）。
+
+### 新增
+- **目标信号检测（真实案例复盘 P1，GATE-2 盲区修复）**：`check_evidence.js` 的 Step 2 只验「可解析、非空、关联目标域」，页面加载日志天然满足——一份未触发目标接口的 NDJSON 也能过证据门禁。修复：`import_ruyitrace_log.js` 新增 `--target-signal <信号>`（可多次），导入时扫描 NDJSON 是否命中目标接口 URL / 关键词，未命中输出 ⚠️ 且退出码非 0（硬信号）；`capture_ruyitrace_log.js` 新增同名参数并透传给导入；`check_evidence.js` 新增 `--require-target-signal <信号>`，未命中按 Step 2 缺失处理（退出码 1）；SKILL.md 4.3 质量判定新增「目标信号未命中 = 质量不足（硬信号）」，TRACE_CAPTURE 命令模板带 `--target-signal`。
+- **浏览器关闭失败显眼告警（真实案例复盘 P3）**：`killOk=false` 时除报告字段外，stderr 与 markdown 报告同时输出 ⚠️ 浏览器未能自动关闭提示（含 profile 路径）。
+
+### 优化
+- **SKILL.md 4.3 手动触发协调环节（真实案例复盘 P1）**：目标请求需登录/点击/验证码/权限确认时，启动 trace（或取证）后必须提示用户在 trace 浏览器操作，**用户确认「已触发」前不得结束采集**；自动 trace 默认 120 秒兜底，不足转手动 trace。此前的提示逻辑散落在 references（browser-acquisition.md / trace-flow.md），自动 trace 主路径未覆盖。
+- **逃生舱边界（真实案例复盘 P2）**：ruyi-tooling.md 新增第 0 条——共享脚本缺陷/能力缺口不得用 case 内手写脚本绕过，先修共享脚本或请用户提供材料；手写仅限「复杂多步交互」一种理由。
+- **SKILL.md 4.5 状态记录强制输出（真实案例复盘 P3）**：状态转换必须输出一行「当前状态 + 证据状态 + 门禁结论」状态行（示例：`TRACE_RETRY：目标路径未覆盖（--target-signal 未命中，退出码 1），阻断分析`）；新增 IMPLEMENT 前置条件硬约束（trace 达标或用户确认轻量路径，两条均不满足停在 TRACE_ANALYZE）。
+
+---
+
 ## 2.3.21 - 2026-08-12
 
 ### 修复

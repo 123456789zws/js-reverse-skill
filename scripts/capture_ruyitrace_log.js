@@ -16,8 +16,9 @@ function parseArgs(argv) {
     ruyitraceHome: '',
     ruyitraceExe: '',
     projectDir: '',
-    duration: 60,
+    duration: 120,
     limit: 200000,
+    targetSignals: [],
     dryRun: false,
     importAfter: false,
     json: false,
@@ -35,8 +36,9 @@ function parseArgs(argv) {
     else if (a === '--ruyitrace-home') args.ruyitraceHome = nextVal('');
     else if (a === '--ruyitrace-exe') args.ruyitraceExe = nextVal('');
     else if (a === '--project-dir') args.projectDir = nextVal('');
-    else if (a === '--duration') args.duration = Number(nextVal('60'));
+    else if (a === '--duration') args.duration = Number(nextVal('120'));
     else if (a === '--limit') args.limit = Number(nextVal('200000'));
+    else if (a === '--target-signal') args.targetSignals.push(nextVal(''));
     else if (a === '--dry-run') args.dryRun = true;
     else if (a === '--import-after') args.importAfter = true;
     else if (a === '--json') args.json = true;
@@ -45,7 +47,7 @@ function parseArgs(argv) {
     else throw new Error(`未知参数：${a}`);
   }
   if (!args.json && !args.markdown) args.markdown = true;
-  if (!Number.isFinite(args.duration) || args.duration <= 0) args.duration = 60;
+  if (!Number.isFinite(args.duration) || args.duration <= 0) args.duration = 120;
   if (!Number.isFinite(args.limit) || args.limit <= 0) args.limit = 200000;
   return args;
 }
@@ -53,7 +55,7 @@ function parseArgs(argv) {
 function usage() {
   return `用法（自动 trace / 手动 trace 二选一）：
   # 自动 trace：自动启动随 RuyiTrace 提供的 trace Firefox 捕获 NDJSON
-  node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir . --ruyitrace-home <RuyiTrace-dir> --duration 90 --import-after --markdown
+  node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir . --ruyitrace-home <RuyiTrace-dir> --duration 120 --import-after --markdown
   # 手动 trace：用户已用 RuyiTrace 手动 trace 完成，指定 NDJSON 日志直接导入生成摘要
   node scripts/capture_ruyitrace_log.js --input <用户trace生成的.ndjson> --case-dir . --markdown
   # 仅检测环境并打印计划（不启动浏览器）
@@ -61,7 +63,8 @@ function usage() {
 
 说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。
 --project-dir <dir>：用户工程目录（tools/ 所在），未传时从 --case-dir 推断；安装模式下需靠此定位 RuyiTrace。
---url 与 --input 互斥：--url 为自动捕获（需 RuyiTrace 完整安装）；--input 为手动 trace 后直接导入用户指定的 NDJSON，无需 RuyiTrace 安装检测。`;
+--url 与 --input 互斥：--url 为自动捕获（需 RuyiTrace 完整安装）；--input 为手动 trace 后直接导入用户指定的 NDJSON，无需 RuyiTrace 安装检测。
+--target-signal <信号>（可多次）：导入时扫描日志是否命中目标接口 URL / 关键词，未命中时导入退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。`;
 }
 
 function exists(p) {
@@ -277,9 +280,10 @@ function killProcessTree(pid, profileDir, firefoxExe) {
   });
 }
 
-function importLog(caseDir, file, markdown) {
+function importLog(caseDir, file, markdown, targetSignals) {
   const script = path.join(__dirname, 'import_ruyitrace_log.js');
   const args = [script, '--input', file, '--case-dir', caseDir, '--truncation-threshold', '3900', markdown ? '--markdown' : '--json'];
+  for (const s of targetSignals || []) args.push('--target-signal', s);
   const ret = spawnSync(process.execPath, args, { encoding: 'utf8', windowsHide: true });
   return { ok: ret.status === 0, status: ret.status, stdout: ret.stdout || '', stderr: ret.stderr || '' };
 }
@@ -352,7 +356,7 @@ async function capture(args, plan) {
   }
   result.logs = listNdjsonFiles(plan.outDir, startedAt);
   if (args.importAfter && result.logs.length) {
-    result.importResults = result.logs.map(file => importLog(plan.caseDir, file, args.markdown));
+    result.importResults = result.logs.map(file => importLog(plan.caseDir, file, args.markdown, args.targetSignals));
   }
   return result;
 }
@@ -372,6 +376,7 @@ function renderMarkdown(obj) {
   lines.push(`- Profile 目录：${plan.profileDir}`);
   lines.push(`- 计划 trace 文件：${plan.traceFile}`);
   lines.push(`- 采集时长：${args.duration} 秒`);
+  if (args.targetSignals.length) lines.push(`- 目标信号（未命中则导入退出码非 0）：${args.targetSignals.join('、')}`);
   lines.push(`- DOM trace 行数上限：${args.limit}`);
   lines.push(`- 启动参数：${[plan.firefoxExe].concat(plan.firefoxArgs).join(' ')}`);
   lines.push('- 环境变量：MOZ_DOM_TRACE=1，MOZ_DOM_TRACE_FILE=<case trace file>，MOZ_DOM_TRACE_LIMIT=<limit>，MOZ_DISABLE_LAUNCHER_PROCESS=1');
@@ -392,6 +397,7 @@ function renderMarkdown(obj) {
   if (result.pid) lines.push(`- 进程 PID：${result.pid}`);
   lines.push(`- 是否尝试结束进程：${result.killAttempted ? '是' : '否'}`);
   if (result.killAttempted) lines.push(`- 结束方式：${result.killMethod}，是否成功：${result.killOk ? '是' : '否'}${result.killError ? `（${result.killError}）` : ''}`);
+  if (result.killAttempted && !result.killOk) lines.push('- ⚠️ **浏览器未能自动关闭，请手动关闭残留的 trace Firefox（profile: ' + plan.profileDir + '）**');
   lines.push(`- 发现 NDJSON 数量：${result.logs.length}`);
   for (const file of result.logs) lines.push(`  - ${file}`);
   if (!result.logs.length) {
@@ -419,7 +425,7 @@ async function main() {
   if (args.input) {
     const inputPath = path.resolve(args.input);
     if (!exists(inputPath)) throw new Error(`日志文件不存在：${inputPath}`);
-    const ret = importLog(args.caseDir || '.', inputPath, args.markdown);
+    const ret = importLog(args.caseDir || '.', inputPath, args.markdown, args.targetSignals);
     if (args.markdown) {
       const lines = ['# RuyiTrace 手动日志导入', ''];
       lines.push(`- 手动 trace 日志：${inputPath}`);
@@ -461,9 +467,13 @@ async function main() {
   }
   const result = await capture(args, plan);
   const obj = { args, trace, plan, result };
+  if (result.killAttempted && !result.killOk) {
+    console.error(`⚠️ 浏览器未能自动关闭，请手动关闭残留的 trace Firefox（profile: ${plan.profileDir}）`);
+  }
   if (args.json) process.stdout.write(JSON.stringify(obj, null, 2) + '\n');
   if (args.markdown) process.stdout.write(renderMarkdown(obj));
   if (!result.logs.length) process.exitCode = 3;
+  if (result.importResults && result.importResults.some(r => !r.ok)) process.exitCode = 4;
 }
 
 main().catch((err) => {
