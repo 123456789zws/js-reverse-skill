@@ -1,6 +1,6 @@
 # ruyiPage / RuyiTrace 集成流程
 
-当新 case 从一开始选择 ruyiPage / RuyiTrace 作为取证模式，或需要检测、安装、采集、导入 ruyiPage / RuyiTrace 材料时读取本文件。不要等确认目标站点存在自动化、CDP、JS Hook 或浏览器指纹检测后才使用 ruyiPage / RuyiTrace。
+当新 case 的取证来源涉及 ruyiPage / RuyiTrace（EVIDENCE_GATE 判定需补网络取证或 trace，见 SKILL.md 4.2/4.3），或需要检测、安装、采集、导入 ruyiPage / RuyiTrace 材料时读取本文件。不要等确认目标站点存在自动化、CDP、JS Hook 或浏览器指纹检测后才使用 ruyiPage / RuyiTrace。
 
 ## 来源与定位
 
@@ -17,7 +17,7 @@
 
 ## RuyiTrace 优先诊断原则
 
-当用户确认取证模式为 **ruyiPage + RuyiTrace** 时，RuyiTrace NDJSON 不是可选参考，而是补环境阶段的优先证据源：
+当取证来源包含 RuyiTrace（自动采集或用户提供 NDJSON）时，RuyiTrace NDJSON 不是可选参考，而是补环境阶段的优先证据源：
 
 1. 进入 Node.js 补环境前，必须先确认是否已经采集并导入 RuyiTrace NDJSON。
 2. 如果已有 NDJSON，先运行 `import_ruyitrace_log.js` 生成 `notes/ruyitrace-summary.md`，再阅读摘要和必要的原始日志片段。
@@ -31,26 +31,27 @@
 6. 输出补环境计划时，必须标明哪些环境依赖来自 RuyiTrace 证据，哪些只是 Node trace / 推断，避免把推断写成事实。
 7. RuyiTrace 长字符串字段可能被截断。导入日志后，如果任意字符串字段达到或接近 4000 字符，必须标记为疑似截断：真实长度写 `unknown`，最小长度写可见长度，不能把 4000 或可见长度解释为加密参数或指纹值真实长度。涉及 WebAPI / 指纹具体值时，未截断 RuyiTrace 值优先；RuyiTrace 未选择、缺失、未覆盖或疑似截断时，必须使用当前用户确认的取证工具在同一 fingerprint baseline 下补采完整值，不能由 AI 猜值。
 
-如果用户选择了 ruyiPage + RuyiTrace 但尚无日志，采集方式先让用户选择：**手动 trace（指定日志）** 或 **自动 trace**。自动 trace 需先检测 RuyiTrace 是否完整安装，检测通过后用 `scripts/capture_ruyitrace_log.js` 自动启动随 RuyiTrace 提供的 trace Firefox 捕获 NDJSON 并导入摘要；手动 trace 由用户用 RuyiTrace 采集完成后提供 NDJSON，用 `scripts/capture_ruyitrace_log.js --input <日志>` 直接导入。用户明确确认无法提供 NDJSON 后，才降级为 ruyiPage 网络证据 + Node trace 流程。
+如果取证来源需要 RuyiTrace 但尚无日志，采集方式默认自动 trace（`scripts/capture_ruyitrace_log.js` 自动启动随 RuyiTrace 提供的 trace Firefox 捕获 NDJSON 并导入摘要），自动失败、需登录验证等复杂交互或用户指定日志时转手动 trace（用户用 RuyiTrace 采集完成后提供 NDJSON，用 `scripts/capture_ruyitrace_log.js --input <日志>` 直接导入）；用户已提供 NDJSON 时直接导入，不重复采集。用户明确确认无法提供 NDJSON 后，才降级为 ruyiPage 网络证据 + Node trace 流程。
 
-如果用户选择了 ruyiPage + RuyiTrace 但检测到 RuyiTrace 未安装或目录不完整，不得自动改成“仅 ruyiPage”，也不要只建议“仅使用 ruyiPage”。必须先引导用户安装 / 提供 RuyiTrace 路径，或让用户明确确认降级；用户选择安装时，需要等待用户安装完成并再次验证通过后才继续任何依赖 NDJSON 的流程。
+如果取证来源需要 RuyiTrace 但检测到 RuyiTrace 未安装或目录不完整，不得自动改成“仅 ruyiPage”，也不要只建议“仅使用 ruyiPage”。必须先引导用户安装 / 提供 RuyiTrace 路径，或让用户明确确认降级；用户选择安装时，需要等待用户安装完成并再次验证通过后才继续任何依赖 NDJSON 的流程。
 
-## 取证工具选择权必须交给用户
+## 取证来源由 EVIDENCE_GATE 自动判定
 
-新网页端补环境任务开始后、任何取证动作之前，先让用户选择：
+不需要用户在任务开始前“选择取证模式”。取证来源由 `scripts/check_evidence.js`（SKILL.md 4.2 EVIDENCE_GATE）按磁盘上真实存在的材料自动判定：
 
-```markdown
-请先选择本 case 的取证模式。后续抓包、JS 收集、Hook、断点、截图、RuyiTrace 日志采集等取证操作都会沿用该模式；如果后续需要切换工具，我会再次请求确认。
+- 用户提供了有效 `capture.json` / HAR / cURL / 原始 HTTP 请求文本 → Step 1 具备，跳过 ruyipage 抓包。
+- 用户提供了有效 RuyiTrace NDJSON → Step 2 具备，跳过 trace 采集。
+- 两步均缺 → 依次执行 `forensic_ruyipage.py`（Step 1）与 `capture_ruyitrace_log.js`（Step 2），工具是固定路线，不需要用户逐个选择。
+- 仅 URL 不是材料，不跳过任何取证步骤。
 
-1. ruyiPage + RuyiTrace（推荐）：用 ruyiPage 做 Firefox/BiDi 自动化取证，用 RuyiTrace 采集 NDJSON 环境日志辅助补环境。
-2. 仅 ruyiPage：只用 ruyiPage 打开页面、抓包、收集 JS，不采集 RuyiTrace 日志。
-3. 用户手动取证：你手动提供 cURL、HAR、JS 文件、调用栈截图、RuyiTrace 日志。
-4. AI 自行决定：我根据目标风险和本机工具可用性提出建议，但仍会在启动浏览器前再次确认。
+只有以下场景才需要用户介入确认（均来自 SKILL.md 状态机与决策树阻塞点）：
 
-请回复你选择的编号，并说明是否已经安装 ruyiPage / RuyiTrace。
-```
+1. 检测到 ruyiPage / RuyiTrace 未安装或目录不完整（GATE-1 未过）→ 按 `install_all.js` 安装计划，用户确认后安装。
+2. 取证需要 RuyiTrace 但未安装 → 在“安装 / 提供路径”与“明确降级”之间由用户选择（见下节）。
+3. RuyiTrace 自动采集失败、需登录/验证码/复杂交互 → 转手动 trace，让用户用 RuyiTrace GUI 采集。
+4. 用户明确表示不提供自动化或需要真实登录态 → 用户手动材料来源，跳过对应取证步骤（先过 `check_evidence.js` 门禁，仅 URL 不触发）。
 
-用户未选择前，不要直接启动浏览器工具；用户选择后，后续所有浏览器取证动作都必须沿用该选择，不能临时 fallback 到普通 Playwright、Puppeteer 或系统 Firefox。
+用户未提供任何材料且门禁判定需取证时，直接按上述来源执行，不要先问“用哪个工具”。用户选择后，后续所有浏览器取证动作必须沿用该来源，不能临时 fallback 到普通 Playwright、Puppeteer 或系统 Firefox。
 
 ## 验证码场景的 RuyiTrace 覆盖
 
@@ -102,10 +103,10 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <ve
 
 ## ruyiPage + RuyiTrace 但 RuyiTrace 未安装
 
-当本 case 的取证模式已经确认为 **ruyiPage + RuyiTrace**，检测脚本返回 RuyiTrace 未安装、`RuyiTrace.exe` 不存在、定制内核目录缺失（新版 `resources/kernel/` 或旧版 `firefox/`），或 `RUYI_DOMTRACE.txt` 缺失时，按以下强制流程处理：
+当取证需要 RuyiTrace（GATE-2 判定需补 Step 2，或用户已提供 NDJSON 来源），检测脚本返回 RuyiTrace 未安装、`RuyiTrace.exe` 不存在、定制内核目录缺失（新版 `resources/kernel/` 或旧版 `firefox/`），或 `RUYI_DOMTRACE.txt` 缺失时，按以下强制流程处理：
 
-1. **不要自动降级**：不得把取证模式静默切换为“仅 ruyiPage”，也不得继续进入需要 RuyiTrace NDJSON 的补环境分析。
-2. **暂停并提示用户选择**：必须让用户在“安装 / 提供 RuyiTrace 路径”和“明确降级为仅 ruyiPage”之间选择。
+1. **不要自动降级**：不得静默降级为“仅 ruyiPage 网络取证”，也不得继续进入需要 RuyiTrace NDJSON 的补环境分析。
+2. **暂停并提示用户选择**：必须让用户在“安装 / 提供 RuyiTrace 路径”和“明确降级为仅 ruyiPage 网络取证”之间选择。
 3. **用户选择安装 / 提供路径时**：
    - 若已安装但未检测到，要求用户提供 `RuyiTrace.exe` 路径或所在目录。
    - 若未安装，要求用户提供下载 / 安装目录。
@@ -113,7 +114,7 @@ node scripts/check_external_tools.js --python python --ruyipage-browser-path <ve
    - 用户确认后才下载；下载后提示用户解压 / 安装。
    - 等用户确认 `RuyiTrace.exe` 可打开、定制内核目录（`resources/kernel/` 或 `firefox/`）存在、日志目录可选择后，再重新运行检测。
 4. **用户选择降级时**：
-   - 记录“取证模式已由 ruyiPage + RuyiTrace 经用户确认降级为仅 ruyiPage”。
+   - 记录“RuyiTrace 已由用户确认降级：后续仅 ruyiPage 网络取证 + Hook / Node trace”。
    - 后续不得再假设存在 NDJSON。
    - 补环境阶段使用 ruyiPage 网络证据、Hook / 断点证据、Node trace / Proxy trace 作为替代来源，并在输出中标明缺少 RuyiTrace 高保真日志。
 
@@ -220,7 +221,7 @@ node scripts/download_ruyi_tool.js --tool ruyipage-firefox --dest <download-dir>
 > ```
 > 输出：`<case-dir>/forensic/capture.json`（全部包元数据）、`target-hits.json`（目标命中，含响应体截断）、`js/original/`（JS 文件）、`notes/fingerprint-baseline.json`。
 
-用户选择 ruyiPage 后：
+取证来源判定为 ruyiPage 网络取证（需补 Step 1）后：
 
 1. 检查 ruyiPage 包、`requests` 依赖和 Firefox runtime，并确认 runtime 是 ruyiPage 定制 Firefox。
    - 如果只检测到系统 Firefox fallback，立即暂停，不启动浏览器。
@@ -308,7 +309,7 @@ new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: 3, clien
 
 ## RuyiTrace 日志采集流程
 
-用户选择 RuyiTrace 后，采集方式由用户选择（二选一，已选择后沿用；切换需再次确认）：
+取证来源需要 RuyiTrace 时，采集方式默认自动 trace（`capture_ruyitrace_log.js` 自动启动 trace Firefox），自动失败、需登录/验证/复杂交互或用户指定日志时转手动 trace（二选一，选定后沿用；切换需再次确认）：
 
 ```markdown
 RuyiTrace 日志采集方式请选择：

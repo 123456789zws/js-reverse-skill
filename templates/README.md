@@ -52,7 +52,7 @@ result/
 
 其中 `src/env/`、`src/request/`、`src/wasm/` 都是按需项。`final.js` 带 `require.main` 守卫，被其他项目 `require` 时只导出 API，不自动执行或发请求。
 
-Python 交付以 `final.py` 为唯一入口，按需引用 `client.py` 和 `src/signer.py`。验证码模板已经包含 load→solve→verify 三段链骨架和一次性 challenge 约束，不再叠加常规入口模板。
+Python 交付以 `final.py` 为唯一入口，按需引用模板的 `client.py`；signer 逻辑按站点实现，交付时自建 `src/signer.py`（参考上方 Node.js 组合结构的 result/ 目录约定）。验证码模板已经包含 load→solve→verify 三段链骨架和一次性 challenge 约束，不再叠加常规入口模板。
 
 ## 使用方式
 

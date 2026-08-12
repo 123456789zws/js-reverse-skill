@@ -1,42 +1,35 @@
 # 浏览器取证与 ruyiPage / RuyiTrace 流程
 
-每次开始新的网页端 JS 补环境任务时读取本文件。不要等确认目标站存在自动化/CDP/JS Hook 检测后才选择工具；必须在任何取证动作前，让用户先确认取证模式。任务需要浏览器交互、用户提到 ruyiPage、RuyiTrace，或出现登录、验证码、MFA 时也读取本文件。
+每次开始新的网页端 JS 补环境任务时读取本文件。不要等确认目标站存在自动化/CDP/JS Hook 检测后才选择工具；取证来源由 EVIDENCE_GATE 自动判定（ruyipage 网络取证 / RuyiTrace 日志采集 / 用户手动材料，见 SKILL.md 4.2/4.3），用户提供真实材料则跳过对应步骤。任务需要浏览器交互、用户提到 ruyiPage、RuyiTrace，或出现登录、验证码、MFA 时也读取本文件。
 
-## 取证模式选择触发时机
+## 取证来源判定（EVIDENCE_GATE 自动路由）
 
-触发时机是：**新 case 开始后、范围确认通过后、任何取证动作之前**。
+取证来源不靠用户预先“选模式”，由 `scripts/check_evidence.js`（SKILL.md 4.2 EVIDENCE_GATE）按磁盘上真实存在的材料自动判定：
 
-这里的“取证动作”包括但不限于：
+- 用户提供了有效的 `capture.json` / HAR / cURL / 原始 HTTP 请求文本 → Step 1 具备，跳过 FORENSIC_CAPTURE ruyipage 抓包。
+- 用户提供了有效的 RuyiTrace NDJSON → Step 2 具备，跳过 TRACE_CAPTURE 采集。
+- 两步均缺 → 依次执行 FORENSIC_CAPTURE（`forensic_ruyipage.py`）与 TRACE_CAPTURE（`capture_ruyitrace_log.js`），工具是固定路线，不需要用户逐个选择。
+- 仅 URL 不是材料，不跳过任何取证步骤。
 
-- 打开目标页面。
-- 抓包、导出 cURL / HAR。
-- 收集 JS bundle / chunk / sourcemap。
-- 注入 Hook、设置 XHR/fetch 断点、读取调用栈。
-- 截图、读取页面标题、Cookie、localStorage、sessionStorage。
-- 启动 ruyiPage、RuyiTrace、Playwright、Puppeteer 或其他浏览器自动化工具。
-- 采集 RuyiTrace NDJSON 日志。
+“取证动作”包括：打开目标页面、抓包/导出 cURL/HAR、收集 JS bundle/chunk/sourcemap、注入 Hook/断点/读取调用栈、截图/读取 Cookie/localStorage/sessionStorage、启动 ruyiPage/RuyiTrace、采集 RuyiTrace NDJSON——这些动作在 EVIDENCE_GATE 判定需要取证后按 SKILL.md 4.3 的命令执行，不需要先询问用户用哪个工具。
 
-不要把 ruyiPage / RuyiTrace 作为“确认存在自动化检测之后才启用”的补救方案。它们应作为用户从一开始选择的取证路线。用户未选择前，只能做离线文本检查和缺失信息提醒，不能开始浏览器取证。
+## 取证工具约束
 
-## 取证模式选择
+取证工具固定为第 2 节绝对规则第 8 条允许的三个来源，EVIDENCE_GATE 自动判定后按 SKILL.md 4.3 命令执行：
 
-不要直接替用户决定工具。先给用户选择：
-
-| 模式 | 说明 | 建议 |
+| 来源 | 使用条件 | 执行 |
 |---|---|---|
-| ruyiPage + RuyiTrace | ruyiPage 做 Firefox/BiDi 自动化取证，RuyiTrace 采集内核层 NDJSON 环境日志 | 默认推荐，高风控、需要补环境日志时首选 |
-| 用户手动取证 | 用户提供 cURL、HAR、JS 文件、调用栈截图、RuyiTrace 日志（**必须是真实存在的文件，URL 不算材料**） | 用户不允许自动化或需要真实登录态时 |
+| ruyiPage 网络取证 | 需补 Step 1（无有效 capture.json / HAR / cURL / 请求文本） | `python scripts/forensic_ruyipage.py --url <目标URL> --case-dir <project-root> --markdown` |
+| RuyiTrace 日志采集 | 需补 Step 2（无有效 NDJSON） | `node scripts/capture_ruyitrace_log.js --url <目标URL> --case-dir <project-root> --import-after --markdown` |
+| 用户手动材料 | 用户提供了真实存在的文件 | 先过 `check_evidence.js` 门禁，按可跳过步骤跳过取证 |
 
 > ⚠️ **URL ≠ 证据**：仅提供目标 URL / 接口 URL / JS URL 不构成任何取证材料，仍须走完整两步取证。用户手动提供材料时，先用 `node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <材料路径> --markdown` 验证文件真实存在，并以门禁输出的可跳过步骤为准（cURL/HAR/JS 只能跳过 Step 1；Step 2 RuyiTrace 日志采集需 NDJSON 才能跳过）。
 
-用户未选择前，不要启动 ruyiPage、RuyiTrace、Playwright 或 Puppeteer；同样禁止使用 chrome-devtools 类 MCP、agent-browser / browser 类 skill、系统 Chrome / Firefox / Edge 打开目标站，或用 requests / curl 直接抓取目标站 JS——这些不属于任何合法取证模式（见 SKILL.md 第3节纯协议红线与第4.3节 FORENSIC_CAPTURE）。
+门禁判定需要取证后，不要询问用户“用哪个工具”，直接按来源执行；禁止使用 chrome-devtools 类 MCP、agent-browser / browser 类 skill、系统 Chrome / Firefox / Edge 打开目标站，或用 requests / curl 直接抓取目标站 JS——这些不属于任何合法取证来源（见 SKILL.md 第3节纯协议红线与第4.3节 FORENSIC_CAPTURE）。
 
-用户确认后，将其记录为本 case 的“取证模式”。后续所有取证操作必须沿用该模式：
+已判定的取证来源在本次 case 内沿用，不中途更换：ruyipage 网络取证用 ruyiPage 做页面/网络/JS 取证；用户手动来源不启动本机浏览器自动化，只使用用户提供的真实文件。
 
-- 已选 ruyiPage + RuyiTrace：用 ruyiPage 做页面/网络/JS 取证，用 RuyiTrace 采集环境日志；不要临时改用普通 Playwright。
-- 已选用户手动取证：不要启动本机浏览器自动化；只让用户提供 cURL、HAR、JS 文件、调用栈截图、RuyiTrace 日志等**真实存在的文件**（先过 `check_evidence.js` 证据门禁；仅 URL 不视为材料）。
-
-如果所选工具不可用、路径缺失、runtime 不合格、需要登录、或后续必须更换工具，必须暂停并让用户确认，不得自动 fallback 到普通系统 Firefox、普通 Playwright、Puppeteer 或其他 Playwright Firefox，也不得 fallback 到 chrome-devtools 类 MCP、agent-browser / browser 类 skill 等任何 AI 浏览器工具。
+如果取证工具不可用、路径缺失、runtime 不合格、需要登录、或必须更换取证方式：工具不可用先按 GATE-1 安装计划补齐（`scripts/install_all.js`），用户已提供真实材料时按决策树阻塞点 #5 降级为手动材料取证；RuyiTrace 缺失时的安装/降级确认见 `ruyi-tooling.md`「RuyiTrace 但未安装」节。不得自动 fallback 到普通系统 Firefox、普通 Playwright、Puppeteer 或其他 Playwright Firefox，也不得 fallback 到 chrome-devtools 类 MCP、agent-browser / browser 类 skill 等任何 AI 浏览器工具。
 
 详细 ruyiPage / RuyiTrace 流程见 `ruyi-tooling.md`；自动点击、拖拽、键盘、滚动和验证码交互的 `isTrusted` 可信输入规则见 `quality/trusted-input.md`。
 
@@ -87,7 +80,7 @@
 
 ## 验证码接口取证门禁
 
-信息完整并确认任务后、任何取证动作前，先确认目标是否为验证码 / 风控验证 / challenge / WAF 接口。若是，验证码场景参考 web-verify-patcher skill，并让用户选择取证方式：
+信息完整并确认任务后、任何取证动作前，先确认目标是否为验证码 / 风控验证 / challenge / WAF 接口。若是，验证码场景参考 web-verify-patcher skill，并让用户确认取证方式（AI 自动完成最小必要交互，或用户自己在取证浏览器中触发到验证）：
 
 1. 用户提供从触发到验证的完整流程，AI 使用已确认取证工具自动完成最小必要交互和取证。
 2. 用户自己在取证浏览器中完成触发到验证，AI 只负责提前开启网络捕获、Hook、截图或 Trace，并等待用户回复“已经完成触发到验证流程”。
@@ -186,7 +179,7 @@ ruyiPage 的价值在于使用 Firefox + WebDriver BiDi，并配合其 managed r
 - 加密参数：
 - 参数位置：Query / Header / Body / Cookie
 - 登录状态：用户已手动确认登录成功
-- 取证模式：ruyiPage + RuyiTrace / 用户手动取证
+- 取证来源：ruyipage 网络取证 / RuyiTrace 日志采集 / 用户手动材料
 - 已知 JS 文件：
 - 是否已有 Copy as cURL：
 - 是否已有 HAR：

@@ -37,7 +37,7 @@
 | `capture_ruyitrace_log.js` | 自动采集或手动导入 RuyiTrace NDJSON 日志 | `node scripts/capture_ruyitrace_log.js --url <目标URL> --case-dir <project-root> --ruyitrace-home <RuyiTrace目录> --import-after --markdown` |
 | `import_ruyitrace_log.js` | 导入 RuyiTrace NDJSON，生成摘要并标记截断字段 | `node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --markdown` |
 
-`check_evidence.js` 的四种证据路由都是正常诊断结果并退出 `0`；只有未知参数、参数缺值、非法 URL 或材料格式处理异常等调用/格式错误才非零。JS、截图、指纹基线和 `ruyitrace-summary.md` 可展示为辅助材料，但不能分别替代 Step 1 网络记录或 Step 2 NDJSON。可运行 `node scripts/check_evidence.js --self-test` 执行内置自测。
+`check_evidence.js` 退出码是硬信号：任何步骤缺失证据（missing 非空）或材料格式错误（errors 非空）时退出 `1`；两步证据齐全退出 `0`。调用方（含 AI）必须按退出码 + 输出文本判定，不能只看输出文本。JS、截图、指纹基线和 `ruyitrace-summary.md` 可展示为辅助材料，但不能分别替代 Step 1 网络记录或 Step 2 NDJSON。可运行 `node scripts/check_evidence.js --self-test` 执行内置自测。
 
 ## Trace 分析与运行时闭环（7 个）
 

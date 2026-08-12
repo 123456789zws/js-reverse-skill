@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.3.18 - 2026-08-12
+
+### 修复
+- **tooling 两文档「取证模式选择」旧模型残留（2.3.5/2.3.17 同类漏网）**：2.3.5 清 validation.md、2.3.17 清 cases/_template 与 stage-reports 的「取证模式选择/已确认」字段时，漏掉 tooling 子域两份文档。`browser-acquisition.md` 第 3/5/19/21-41 行整节（「取证模式选择触发时机」「取证模式选择」要求任何取证动作前先让用户选模式、未选择前不能开浏览器）与 `ruyi-tooling.md` 第 38-53 行「取证工具选择权必须交给用户」4 选项模板（含「仅 ruyiPage」「AI 自行决定」）仍与 EVIDENCE_GATE 自动判定模型冲突（validation.md 测试 7「取证路径由 EVIDENCE_GATE 自动判定」），且「仅 ruyiPage」选项与 SKILL.md TRACE_CAPTURE 必做步骤矛盾。修复：两文档改为「取证来源由 EVIDENCE_GATE 自动判定」——ruyipage 网络取证 / RuyiTrace 日志采集 / 用户手动材料，用户提供真实材料跳过对应步骤；删除 4 选项选择模板；RuyiTrace 缺失时的安装/降级确认流程（ruyi-tooling 第 103-130 行）保留并改为「取证需要 RuyiTrace」表述；browser-acquisition 的登录处理 / Cookie 分类 / 指纹基线 / isTrusted / ruyiPage 启动硬约束等有效内容全部保留。
+- **ruyi-tooling.md RuyiTrace 采集方式默认值矛盾（validation.md 测试 13）**：原文「采集方式由用户选择（手动/自动二选一）」与 validation.md 测试 13「RuyiTrace 采集默认自动、失败转手动」矛盾。改为默认自动 trace（capture_ruyitrace_log.js），自动失败 / 需登录验证 / 用户指定日志时转手动 trace。
+- **scripts/README.md check_evidence 退出码旧表述（2.3.17 漏同步）**：2.3.17 把 check_evidence.js 退出码改为「缺失证据退 1」并同步脚本 usage，但 scripts/README.md 第 40 行仍写「四种证据路由都是正常诊断结果并退出 0」，与 SKILL.md 第 0 节「退出码是硬信号」及脚本实际行为矛盾。修复：同步为「缺失证据（missing 非空）或材料格式错误（errors 非空）退出 1，两步齐全退出 0」。
+- **browser-acquisition.md 验证码/登录模板残留「取证模式」字段**：第 90 行「让用户选择取证方式」改为「让用户确认取证方式（AI 自动最小交互 / 用户自己在取证浏览器中触发）」，第 182 行登录提示模板字段「取证模式：ruyiPage + RuyiTrace / 用户手动取证」改为「取证来源：ruyipage 网络取证 / RuyiTrace 日志采集 / 用户手动材料」。
+- **templates/README.md `src/signer.py` 引用不存在的文件**：模板中无 src/signer.py（python-request 只有 final.py/client.py/requirements.txt），原文「按需引用 client.py 和 src/signer.py」易被理解为模板自带。改为「按需引用模板的 client.py；signer 逻辑按站点实现，交付时自建 src/signer.py」。
+
+---
+
 ## 2.3.17 - 2026-08-12
 
 ### 修复
