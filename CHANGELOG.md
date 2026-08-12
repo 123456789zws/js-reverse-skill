@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2.3.20 - 2026-08-12
+
+### 修复
+- **install_all.js Python 自动探测死代码（外部审计 P1）**：`parseArgs` 的 `--python` 默认值与兜底值均为 `'python'`（恒真），`resolvePython` 的 `if (explicit)` 分支永远命中，`python3 → py -3` 探测循环永不执行，与 usage（第 49 行）及 2.3.19「未提供时按 python → python3 → py -3 自动探测」声明矛盾；在只有 python3/py -3 的机器上 GATE-1 硬门禁检测会失败。修复：默认值与兜底值改为 `''`，恢复自动探测。
+- **install_all.js 镜像探测 `-o NUL` 跨平台问题（外部审计 P3）**：`curl -o NUL` 在 Linux/macOS 会在 cwd 留下名为 `NUL` 的文件。修复：改用 `os.devNull`（Windows=NUL、Linux/macOS=/dev/null）。
+- **三个 Python 脚本工作树 CRLF 未归一（外部审计 P3）**：`analyze_tile_restore.py` / `generate_motion_track.py` / `map_coordinates.py` 磁盘为 CRLF（`i/lf w/crlf`），与 `.gitattributes eol=lf` 及 2.3.19 归一声明不符，`core.autocrlf=false` 下会把 CRLF 重新带进后续提交。修复：重新检出归一为 LF。
+- **git upstream 失效（外部审计 P2）**：本地 `refs/remotes/origin/main` 缺失导致 `[origin/main: gone]`，推送会失败，且 `.git/config` 残留 `vscode-merge-base = origin/main`。修复：fetch 后手动补 ref、重置 upstream 为 `origin/main`、清除残留配置（远端 main 分支实际存在，非远端删除）。
+- **README 案例数量与索引不符（外部审计 P3）**：`cases/` 17 条中 2 条为 `kind: template` 方法论骨架（universal-vmp-source-instrumentation、vm-sandbox-custom-algo），实证案例实为 15 个。修复：README 目录结构改为「15 个实证案例 + 2 个方法论模板」。
+- **缺 LICENSE 文件（外部审计 P2）**：README 声明 MIT 但根目录无 LICENSE。修复：新增 MIT LICENSE 文件；README 来源表补充 4 个上游项目许可证标注（hello_js_reverse_skill / RuyiTrace 未声明、xbsReverseSkill MIT、ruyipage BSD-3-Clause）与合规提示。
+
+---
+
 ## 2.3.19 - 2026-08-12
 
 ### 修复

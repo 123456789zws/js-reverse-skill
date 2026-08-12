@@ -4,14 +4,16 @@
 
 ## 来源
 
-本 Skill 采用以下项目的流程、工具和案例，并按本仓库的证据门禁与交付规则组织：
+本 Skill 采用以下项目的流程、工具和案例，并按本仓库的证据门禁与交付规则组织。本仓库自身以 MIT 许可发布，但聚合自上游的流程、工具与代码仍受各上游项目自身许可证约束：
 
-| 来源 | 贡献 |
-|------|------|
-| [hello_js_reverse_skill](https://github.com/WhiteNightShadow/hello_js_reverse_skill) | 流程骨架 + 案例库 |
-| [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill) | 补环境流程 + 工具链 + web-verify-patcher 验证码识别/求解模块（ddddocr/坐标/轨迹脚本 + 题型分类器） |
-| [ruyipage](https://github.com/LoseNine/ruyipage) | Firefox WebDriver BiDi 取证 |
-| [RuyiTrace](https://github.com/LoseNine/Firefox-FingerPrint-Analyzer) | NDJSON trace 内核 |
+| 来源 | 贡献 | 许可证 |
+|------|------|--------|
+| [hello_js_reverse_skill](https://github.com/WhiteNightShadow/hello_js_reverse_skill) | 流程骨架 + 案例库 | 未声明（作者保留所有权利） |
+| [xbsReverseSkill](https://github.com/lwjjike/xbsReverseSkill) | 补环境流程 + 工具链 + web-verify-patcher 验证码识别/求解模块（ddddocr/坐标/轨迹脚本 + 题型分类器） | MIT |
+| [ruyipage](https://github.com/LoseNine/ruyipage) | Firefox WebDriver BiDi 取证 | BSD-3-Clause（上游 README 附加"仅限合法合规非盈利个人研究、商用需授权"限制） |
+| [RuyiTrace](https://github.com/LoseNine/Firefox-FingerPrint-Analyzer) | NDJSON trace 内核 | 未声明（上游 README 声明其 Firefox 内核为 MPL-2.0） |
+
+> ⚠️ 合规提示：hello_js_reverse_skill 与 RuyiTrace 两个上游项目未提供 LICENSE 文件，按默认版权法其作者保留所有权利；本仓库引用的上游流程/代码用于个人研究与技术交流，**商业分发或二次发布前需逐一与上游作者确认授权**。
 
 ## 能力边界
 
@@ -33,7 +35,7 @@ js-reverse-skill/
 ├── assets/               可复用资产（AST 反混淆 + 补环境片段 + fixture 模板）
 ├── templates/            7 类交付入口模板（Node/Python、请求客户端、vm 沙箱、WASM、验证码）
 ├── references/           知识参考（按需读取；含验证码封装层与答案层资产）
-├── cases/                17 个经验案例 + `index.json` 机器索引
+├── cases/                15 个实证案例 + 2 个方法论模板 + `index.json` 机器索引
 └── scripts/              工具脚本（ruyipage+RuyiTrace 采集/导入/检查 + 验证码题型分类/坐标/轨迹/答案校验）
 ```
 
