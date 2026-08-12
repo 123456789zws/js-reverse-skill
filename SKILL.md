@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.10
+version: 2.3.11
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -20,31 +20,31 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 ═══ GATE-0 会话续接判定 ═══
 运行: node scripts/check_session_resume.js --case-dir <project-root> --markdown
 输出: mode = resume | fresh
-  resume → 跳过 GATE-1 完整环境自检，读最新阶段报告续接，直接进 GATE-2
-  fresh  → 走完整 GATE-1，通过后用 --write-snapshot 写入/更新快照
+  resume → 跳过 GATE-2 完整环境自检，读最新阶段报告续接，直接进 GATE-3
+  fresh  → 走完整 GATE-2，通过后用 --write-snapshot 写入/更新快照
 
-═══ GATE-1 环境自检（续接模式可跳过）═══
+═══ GATE-1 意图声明 + 用户确认 ═══
+输出: 目标 URL、接口 URL、目标参数、请求范围、已提供材料、初步反爬类型（标为待验证假设）
+      是否需要登录态/人工验证码、默认向真实 API 验证（或 sign-only 原因）
+确认: 用户确认范围后才继续推进
+
+═══ GATE-2 环境自检（续接模式可跳过）═══
 运行: node scripts/check_external_tools.js --markdown
        node scripts/precheck_runtime.js
 判定: Node.js + ruyipage + ruyipage 定制 Firefox + RuyiTrace + trace Firefox 五项全过
 未过: 按 nextRequiredInput 计划安装（scripts/install_all.js），用户确认后才继续
 通过后: node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
 
-═══ GATE-2 证据门禁（硬阻断）═══
+═══ GATE-3 证据门禁（硬阻断）═══
 运行: node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <用户材料> --markdown
-判定: 退出码 0 且无「缺失证据」→ 进入 GATE-3
+判定: 退出码 0 且无「缺失证据」→ 进入状态机
       退出码非 0 或输出含「缺失证据」「不可跳过」→ 必须停在 EVIDENCE_GATE，
-      依次执行 FORENSIC_CAPTURE 与 TRACE_CAPTURE 补齐证据后再回 GATE-2 复检
+      依次执行 FORENSIC_CAPTURE 与 TRACE_CAPTURE 补齐证据后再回 GATE-3 复检
 铁律: URL 不是证据。仅有 URL、参数名或案例文件 = 两步取证全缺，禁止直接分析
-
-═══ GATE-3 意图声明 + 用户确认 ═══
-输出: 目标 URL、接口 URL、目标参数、请求范围、已提供材料、初步反爬类型（标为待验证假设）
-      是否需要登录态/人工验证码、默认向真实 API 验证（或 sign-only 原因）
-确认: 用户确认范围后才进入状态机推进
 ═══ 四步全过 + 用户确认，进入状态机 ═══
 ```
 
-续接模式只跳过 GATE-1 环境自检，**不跳过** GATE-2 证据门禁和 GATE-3 用户确认。
+续接模式只跳过 GATE-2 环境自检，**不跳过** GATE-1 意图声明和 GATE-3 证据门禁。
 
 ## 1. 任务边界与授权
 
@@ -62,7 +62,7 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 
 1. 所有关键结论必须有本次任务的证据：RuyiTrace NDJSON、网络请求记录、落盘 JS、调用栈、运行时变量、中间值对比或用户提供的真实材料。
 2. 历史案例只能作为假设和路径提示，不能替代本次证据。案例结论与本次 trace 冲突时，以本次 trace 为准。
-3. 默认先定位请求链，再确定还原方式。不得先凭参数名称猜算法、补环境或写最终代码。未过第 0 节 GATE-2 证据门禁就分析参数或猜算法 = 违反本条，视为任务失败。
+3. 默认先定位请求链，再确定还原方式。不得先凭参数名称猜算法、补环境或写最终代码。未过第 0 节 GATE-3 证据门禁就分析参数或猜算法 = 违反本条，视为任务失败。
 4. JSVMP 默认黑盒执行或最小环境复现，不反编译字节码源码。
 5. 最终交付必须能在无浏览器、无显示器、无 X11 的环境中独立运行。
 6. 默认完成真实 API 验证；只有用户明确要求“只输出参数”“不发真实请求”或等价表述时，才允许 sign-only 模式。
