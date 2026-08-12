@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2.3.13 - 2026-08-12
+
+### 修复
+- **TRACE_CAPTURE 质量不足不会触发重试（状态机盲区）**：状态机 `TRACE_CAPTURE → CASE_LOOKUP` 原为无条件推进，AI 看到「生成了 NDJSON」就推进，没有质量门槛。实测案例只采到 1 条无栈事件（Step 2 偏弱），AI 直接转静态还原，未触发重试。根因：`import_ruyitrace_log.js` 已输出质量信号（如「未发现 stack.file」），但 SKILL.md 状态机和 references 没规则接住；trace-flow.md 现有 3 条质量规则散落且触发条件互不重叠，有盲区（「生成了但无栈/事件极少」无人覆盖）。修复：状态机 `TRACE_CAPTURE` 节点内补 `TRACE_RETRY` 分支（不新增编号，避免 GATE/TODO 编号回归）；SKILL.md 4.3 节补「质量判定标准」+「TRACE_RETRY 处理顺序」5 步降级；`references/workflow/trace-flow.md` 补「Trace 质量判定与重试」统一节，合并现有 3 条散落规则，消除盲区。阈值用建议值让 AI 自主判断（符合 EXTERNAL_LOOKUP 设计原则），但「无 stack.file」是硬性重度不足信号不得放宽。
+
+---
+
 ## 2.3.12 - 2026-08-12
 
 ### 修复

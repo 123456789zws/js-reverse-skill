@@ -98,9 +98,38 @@ node scripts/capture_ruyitrace_log.js --url <target-page-url> --case-dir <projec
 node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --truncation-threshold 3900 --markdown
 ```
 
+### Trace 质量判定与重试
+
+> **触发条件**：TRACE_CAPTURE 采集到 NDJSON 并导入生成 `notes/ruyitrace-summary.md` 后立即读。本节合并了原先散落在采集流程、RuyiTrace 优先诊断原则、验证码覆盖三处的质量规则，统一判定标准与处理顺序，消除「生成了但质量不足」的规则盲区。
+
+采集到 NDJSON ≠ 质量达标。导入后必须先按质量标准判定，未达标不得推进 `CASE_LOOKUP`。
+
+#### 质量判定标准
+
+| 等级 | 判定信号（来自 `ruyitrace-summary.md`） | 处理 |
+|---|---|---|
+| 重度不足 | 摘要输出「未发现 stack.file」/ 成功解析极低（建议 < 10 条）/ topApis 找不到目标参数 writer 附近调用 | 必须进入 TRACE_RETRY，不得推进 |
+| 轻度不足 | 有栈但覆盖不全 / 截断风险表非空 | 可进入 CASE_LOOKUP，但须在分析时降级补充 |
+
+阈值用建议值，AI 可按目标站点复杂度自主判断上调或下调，但「无 stack.file」是硬性重度不足信号，不得自行放宽。
+
+#### TRACE_RETRY 处理顺序（按序降级，不回退）
+
+1. **查失败原因**：`--duration` 不够 / 未触发目标业务动作 / 需要登录或验证码 / trace Firefox 配置异常（`MOZ_DOM_TRACE` 未生效、用错内核等）。
+2. **自动 trace 重试一次**：修正参数后重跑 `capture_ruyitrace_log.js`。
+3. **转手动 trace**：让用户在 trace Firefox 里操作触发目标参数生成路径（见下方方式二）。
+4. **降级补充**：用 `run_with_trace.js`、Proxy trace、Hook 或断点补充。仅当 NDJSON 缺失/未覆盖当前路径/结论不足时使用，不得把降级补充当作首轮手段。
+5. **全部失败**：走 `FORENSIC_CAPTURE` 已有证据继续，但必须在 `最终项目总结.md` 声明 trace 未覆盖及已尝试手段。
+
+#### 与现有规则的对应关系（避免重复执行）
+
+- 「自动 trace 没有生成 NDJSON」（采集流程第 6 条）= **采集失败**，直接转方式二手动 trace，不进 TRACE_RETRY 质量判定。
+- 「日志结论不足用 run_with_trace/Hook 补充」（RuyiTrace 优先诊断原则第 5 条）= TRACE_RETRY 第 4 步降级补充。
+- 「验证码场景只覆盖页面加载需重新采集」（验证码覆盖节末尾）= 重度不足的特化判定，走 TRACE_RETRY 重试。
+
 ### 方式二：手动 trace（用户指定日志）
 
-适用场景：用户选择手动 trace；或自动 trace 启动失败 / trace Firefox 无法写日志 / 需登录验证等复杂交互 / 日志未覆盖目标参数生成路径时转手动。
+适用场景：用户选择手动 trace；或自动 trace 启动失败 / trace Firefox 无法写日志 / 需登录验证等复杂交互时转手动。质量不足（日志生成了但未覆盖目标参数生成路径）的处理见上方「Trace 质量判定与重试」TRACE_RETRY 第 3 步。
 
 手动流程：
 
@@ -302,4 +331,4 @@ JS 引擎 trace（补环境）
 
 - 用户提供完整流程时，自动捕获脚本应按该流程执行；若流程需要人工识别、登录、验证码答案或权限交互，暂停让用户完成。
 - 用户选择自己完成流程时，先启动 RuyiTrace 记录，再让用户操作；只有用户回复"已经完成触发到验证流程"后，才停止记录并导入 NDJSON。
-- 如果 `notes/ruyitrace-summary.md` 只覆盖页面加载、没有交互事件或 verify 接口附近调用栈，应要求重新采集，不得直接进入补环境。
+- 如果 `notes/ruyitrace-summary.md` 只覆盖页面加载、没有交互事件或 verify 接口附近调用栈，属于重度质量不足，按上方「Trace 质量判定与重试」TRACE_RETRY 流程重新采集，不得直接进入补环境。

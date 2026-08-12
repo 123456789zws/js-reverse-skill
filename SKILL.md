@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.12
+version: 2.3.13
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -99,7 +99,15 @@ EVIDENCE_GATE
   ├─ 只有 Step 2 → STEP2_ONLY
   └─ 两步均缺失 → FORENSIC_CAPTURE
 STEP2_ONLY → CASE_LOOKUP
-FORENSIC_CAPTURE → TRACE_CAPTURE → CASE_LOOKUP
+FORENSIC_CAPTURE → TRACE_CAPTURE
+TRACE_CAPTURE
+  ├─ 采集成功 + 质量达标 → CASE_LOOKUP
+  ├─ 质量不足 → TRACE_RETRY（查因→重试/换手动/降级补充）
+  └─ 采集失败（无 NDJSON）→ 转手动 trace（见 4.3）
+TRACE_RETRY
+  ├─ 重试达标 → CASE_LOOKUP
+  ├─ 重试仍不足 → 降级补充（run_with_trace/Hook，标 trace 未覆盖）
+  └─ 全部失败 → 走 FORENSIC_CAPTURE 已有证据 + 最终总结声明 trace 缺失
 CASE_LOOKUP
   ├─ 本地命中且时效校验通过 → IDENTIFY
   └─ 本地未命中 → EXTERNAL_LOOKUP
@@ -203,6 +211,27 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 ```
 
 用户已提供 NDJSON 时，导入并生成摘要，不重复采集。取证结果只进入 `case/`，原始 JS 放入 `case/js/original/`，临时材料放入 `case/tmp/`。
+
+#### TRACE_CAPTURE 质量判定（不可跳过）
+
+采集到 NDJSON ≠ 质量达标。导入生成 `notes/ruyitrace-summary.md` 后，必须按以下标准判定，未达标不得推进 `CASE_LOOKUP`：
+
+| 等级 | 判定信号（来自摘要） | 处理 |
+|---|---|---|
+| 重度不足 | 摘要输出「未发现 stack.file」/ 成功解析极低（建议 < 10 条）/ topApis 找不到目标参数 writer 附近调用 | 必须进入 TRACE_RETRY，不得推进 |
+| 轻度不足 | 有栈但覆盖不全 / 部分字段截断（截断风险表非空） | 可进入 CASE_LOOKUP，但须在分析时降级补充 |
+
+阈值用建议值，AI 可按目标站点复杂度自主判断上调或下调，但「无 stack.file」是硬性重度不足信号，不得自行放宽。
+
+#### TRACE_RETRY 处理顺序（按序降级，不回退）
+
+1. 查失败原因：`--duration` 不够 / 未触发目标业务动作 / 需要登录或验证码 / trace Firefox 配置异常。
+2. 自动 trace 重试一次：修正参数后重跑 `capture_ruyitrace_log.js`。
+3. 转手动 trace：让用户在 trace Firefox 里操作触发目标参数生成路径（见 `references/workflow/trace-flow.md` 方式二）。
+4. 降级补充：用 `run_with_trace.js`、Proxy trace、Hook 或断点补充（仅当 NDJSON 缺失/未覆盖当前路径/结论不足时，现有规则）。
+5. 全部失败：走 `FORENSIC_CAPTURE` 已有证据继续，但必须在 `最终项目总结.md` 声明 trace 未覆盖及已尝试手段。
+
+验证码场景额外要求：`notes/ruyitrace-summary.md` 只覆盖页面加载、没有交互事件或 verify 接口附近调用栈时，必须重新采集，不得直接进入补环境。
 
 ### 4.4 EXTERNAL_LOOKUP：网络方案搜索
 
