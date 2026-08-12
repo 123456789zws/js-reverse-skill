@@ -769,7 +769,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--require-country", default="", help="smart_fingerprint require_country（ISO-2）；缺省不校验出口国家（适配代理出口 IP 与目标国家不一致）")
     p.add_argument("--manual-geo", default="", help="地理探测失败时的 manual_geo（JSON 字符串或文件路径）")
     p.add_argument("--no-fp", action="store_true", help="跳过 smart_fingerprint（禁用智能指纹）")
-    p.add_argument("--wait", type=int, default=30, help="完成判定的总超时秒：目标命中 / 网络静默共用，默认 30")
+    p.add_argument("--wait", type=int, default=120, help="完成判定的总超时秒：目标命中即提前结束 / 未命中到点自动关闭，默认 120")
     p.add_argument("--settle", type=int, default=5, help="未指定 --targets 时的静默窗口：包数不再增长且连续 N 秒无新包视为抓包完成，默认 5")
     p.add_argument("--max-body-bytes", type=int, default=1048576, help="target-hits 响应体截断阈值，默认 1MB")
     p.add_argument("--click", default="", help="导航后拟人点击的 CSS 选择器")

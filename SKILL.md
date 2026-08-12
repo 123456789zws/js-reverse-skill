@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.20
+version: 2.3.21
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -207,9 +207,15 @@ URL 不是证据。只有脚本确认文件真实存在并可归类时，才允�
 
 ```powershell
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --markdown
+# 已知/疑似目标接口时加 --targets 过滤；目标请求需登录、点击、验证码等手动触发时，
+# 浏览器打开期间提示用户操作（取证窗口默认 --wait 120 秒：命中目标接口即提前关闭，
+# 未命中到点自动关闭；登录场景可加 --manual-pause 暂停等待）：
+python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets handshake --markdown
 ```
 
 统一脚本负责网络包、目标响应、JS 落盘和指纹基线。取证工具约束见第 2 节绝对规则第 8 条（任何阶段不得手写抓取脚本、不得用 requests/curl 下载目标 JS）。
+
+**目标请求未命中 = Step 1 缺失，禁止转向源码搜索继续分析（硬规则）**：取证窗口结束仍未捕获目标接口时，先判原因。若目标请求需登录 / 点击 / 验证码 / 权限等用户交互（如 handshake 类风控握手接口），重采时必须在浏览器打开期间提示用户操作（窗口不够可调大 `--wait`），或请用户提供该接口的 cURL / HAR / 原始请求文本；命中并落盘后再回 `EVIDENCE_GATE` 复检。JS 源码关键词定位只能作辅助假设，不能替代 Step 1 网络记录（目标 body / headers / cookie 以真实捕获请求为准）；Step 1 缺失前不得进入 `IDENTIFY` / `TRACE_ANALYZE` / `IMPLEMENT`。
 
 日志采集使用：
 
