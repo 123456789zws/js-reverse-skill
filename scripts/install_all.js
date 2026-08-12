@@ -5,18 +5,20 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-// 默认安装目录：cwd 优先（安装模式下装到用户工作目录），开发模式下 cwd 即 skill 项目根
-const PROJECT_ROOT = process.cwd();
-const TOOLS_DIR = path.join(PROJECT_ROOT, 'tools');
-const RUYIPAGE_BROWSERS_DIR = path.join(TOOLS_DIR, 'ruyipage-browsers');
-const RUYITRACE_DIR = path.join(TOOLS_DIR, 'RuyiTrace');
+// 默认安装目录：cwd 优先（安装模式下装到用户工作目录），开发模式下 cwd 即 skill 项目根；
+// 支持 --project-dir 显式指定，避免在 skill 安装目录运行时装错位置
+let PROJECT_ROOT = process.cwd();
+let TOOLS_DIR = path.join(PROJECT_ROOT, 'tools');
+let RUYIPAGE_BROWSERS_DIR = path.join(TOOLS_DIR, 'ruyipage-browsers');
+let RUYITRACE_DIR = path.join(TOOLS_DIR, 'RuyiTrace');
 
 function parseArgs(argv) {
-  const args = { python: 'python', yes: false, json: false, markdown: false };
+  const args = { python: 'python', yes: false, json: false, markdown: false, projectDir: '', help: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     const nextVal = (fb) => (i + 1 < argv.length && typeof argv[i + 1] === 'string' && !argv[i + 1].startsWith('-')) ? argv[++i] : fb;
     if (a === '--python') args.python = nextVal('python');
+    else if (a === '--project-dir') args.projectDir = nextVal('');
     else if (a === '--yes' || a === '-y') args.yes = true;
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
@@ -25,6 +27,13 @@ function parseArgs(argv) {
   }
   if (!args.json && !args.markdown) args.markdown = true;
   return args;
+}
+
+function initPaths(args) {
+  PROJECT_ROOT = args.projectDir ? path.resolve(args.projectDir) : process.cwd();
+  TOOLS_DIR = path.join(PROJECT_ROOT, 'tools');
+  RUYIPAGE_BROWSERS_DIR = path.join(TOOLS_DIR, 'ruyipage-browsers');
+  RUYITRACE_DIR = path.join(TOOLS_DIR, 'RuyiTrace');
 }
 
 function usage() {
@@ -37,7 +46,8 @@ function usage() {
   - ruyiPage runtime：<cwd>/tools/ruyipage-browsers/
   - RuyiTrace：       <cwd>/tools/RuyiTrace/
 请先在项目根目录（tools/ 要安装到的用户工程目录）运行本脚本；在 skill 安装目录运行会装错位置。
---yes：跳过用户确认，直接安装缺失项。`;
+--yes：跳过用户确认，直接安装缺失项。
+--project-dir <dir>：用户工程目录（tools/ 安装目标）。安装模式下 skill 安装目录无 tools/，必须显式指定，避免装到 skill 根附近。未传时使用当前工作目录。`;
 }
 
 function run(cmd, args, timeout = 300000, env = null) {
@@ -258,6 +268,7 @@ function renderMarkdown(result) {
 function main() {
   const args = parseArgs(process.argv);
   if (args.help) { console.log(usage()); return; }
+  initPaths(args);
 
   const before = detectState(args.python);
   const allInstalled = before.node.ok && before.ruyipagePackage && before.ruyipageRuntime && before.ruyitrace && before.ruyitraceKernel;

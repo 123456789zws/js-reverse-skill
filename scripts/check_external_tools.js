@@ -19,6 +19,7 @@ function parseArgs(argv) {
     json: false,
     markdown: false,
     quick: false,
+    offline: false,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -32,6 +33,7 @@ function parseArgs(argv) {
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--quick') args.quick = true;
+    else if (a === '--offline') args.offline = true;
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`未知参数：${a}`);
   }
@@ -50,7 +52,8 @@ function usage() {
 同时顺带对比 GitHub 最新 release：发现新版只提示、不自动更新；网络失败或限流时静默跳过，不影响检测结果。
 注意：选择 ruyiPage 时，只有“ruyiPage 包可用 + 定制 Firefox runtime 验证通过”才视为可用；普通系统 Firefox fallback 不视为通过。
 --project-dir <dir>：用户工程目录（tools/ 所在）。安装模式下 skill 安装目录无 tools/（gitignore 不随分发），需靠此定位；未传时回退 cwd/tools + skill 根/tools。
---quick：快速模式，只检测 Node.js 版本是否满足要求，不执行子命令、不扫描目录、不检测 ruyipage/ruyitrace。`;
+--quick：快速模式，只检测 Node.js 版本是否满足要求，不执行子命令、不扫描目录、不检测 ruyipage/ruyitrace。
+--offline：跳过 GitHub release 更新查询（不访问网络）。用于离线环境或需要快速、确定性的纯本地检测；默认每次检测都会顺带查询更新（失败静默，不影响检测结果）。`;
 }
 
 function exists(p) {
@@ -800,9 +803,14 @@ async function main() {
     return;
   }
   const result = withNextSteps(detect(args));
-  const latest = await fetchLatestReleases();
-  result.latest = latest;
-  result.updates = buildUpdates(result, latest);
+  if (args.offline) {
+    result.latest = {};
+    result.updates = [];
+  } else {
+    const latest = await fetchLatestReleases();
+    result.latest = latest;
+    result.updates = buildUpdates(result, latest);
+  }
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(renderMarkdown(result));
 }
