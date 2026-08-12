@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.9
+version: 2.3.10
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -116,9 +116,19 @@ REAL_VERIFY
 DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 ```
 
-> **执行主线 TODO**：激活本 skill 后，把状态机主干建成可勾选 TODO 暴露给用户，每完成一项勾一项：
-> `INTENT_CONFIRM → ENV_READY → EVIDENCE_GATE → 取证(FORENSIC_CAPTURE/TRACE_CAPTURE) → 定位(IDENTIFY) → 分析(TRACE_ANALYZE) → 实现(IMPLEMENT) → 验证(REAL_VERIFY) → 交付(DELIVER) → 清理(CLEANUP)`
-> 分支判定以本节状态机为准；分支跳出主干时回到对应项重做，不新建子项（如 REAL_VERIFY 失败 → 回「实现」重做；EXTERNAL_LOOKUP 失败 → 回「取证」重做）。
+> **执行主线 TODO（激活即建，逐步勾选）**：激活 skill 后的第一件事——把下方 10 个主干项建成可勾选任务清单暴露给用户，让进度可见、可控。
+> 清单项与状态机节点一一对应：
+> 1. INTENT_CONFIRM（确认范围）
+> 2. ENV_READY（环境就绪；续接模式跳过则直接勾掉）
+> 3. EVIDENCE_GATE（证据门禁）
+> 4. 取证 FORENSIC_CAPTURE / TRACE_CAPTURE
+> 5. 定位 IDENTIFY
+> 6. 分析 TRACE_ANALYZE
+> 7. 实现 IMPLEMENT
+> 8. 验证 REAL_VERIFY
+> 9. 交付 DELIVER
+> 10. 清理 CLEANUP
+> 勾选规则：每进入一个状态就立即把对应项标记为完成；分支回退（如 REAL_VERIFY 失败 → 回「实现」）把该项重新置为进行中，不新建子任务；续接模式跳过 ENV_READY 时直接勾掉第 2 项。
 
 ### 4.1 INTENT_CONFIRM 与 ENV_READY
 

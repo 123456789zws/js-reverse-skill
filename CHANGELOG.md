@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2.3.10 - 2026-08-12
+
+### 修复
+- **check_session_resume.js 内 RuyiTrace 路径检测为空（安装模式回归）**：`runCheckExternalTools()` 在 spawn `check_external_tools.js` 时强制 `cwd: projectRoot`（即 skill 安装根）。而 `check_external_tools.js` 的 `normalizeTraceHome()` 优先扫 `process.cwd()/tools`——安装模式下 tools/ 在用户工程目录（gitignore 不随 skill 分发），skill 根没有 tools/，于是找不到 RuyiTrace；但你单独跑 `check_external_tools.js`（cwd=用户工程目录）能找到。这把 2.3.8 的 `cwd/tools` 优先修复给抵消了。修复：spawn 的 `cwd` 改为「--case-dir 解析出的用户工程根」（tools/ 实际所在处），并透传 `--ruyitrace-home/--ruyitrace-exe`。
+
+### 优化
+- **执行主线 TODO 指令改具体可执行**：原指令是弱 blockquote + 一整条箭头字符串（无离散可勾项、无明确建清单/勾选触发）。改为「激活即建 + 10 个离散项（1:1 对应状态机节点）+ 明确勾选规则（进入即勾、分支回退重置、续接跳过 ENV_READY 直接勾第 2 项）」，解决 AI 加载 skill 后不及时建清单、不逐步勾选的问题。内容更具体，不改变状态机/门禁/节号结构。
+
+---
+
 ## 2.3.9 - 2026-08-12
 
 ### 修复
