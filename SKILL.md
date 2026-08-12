@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.11
+version: 2.3.12
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -20,7 +20,7 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 ═══ GATE-0 会话续接判定 ═══
 运行: node scripts/check_session_resume.js --case-dir <project-root> --markdown
 输出: mode = resume | fresh
-  resume → 跳过 GATE-2 完整环境自检，读最新阶段报告续接，直接进 GATE-3
+  resume → 跳过 GATE-2 完整环境自检，读最新阶段报告续接（GATE-1 意图声明仍需完成）
   fresh  → 走完整 GATE-2，通过后用 --write-snapshot 写入/更新快照
 
 ═══ GATE-1 意图声明 + 用户确认 ═══
