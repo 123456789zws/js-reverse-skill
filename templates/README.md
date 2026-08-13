@@ -10,7 +10,7 @@
 | `node-request/` | Node.js 请求模块 | `client.js` | 需要 TLS 指纹或统一 Session 的 Node.js 交付 |
 | `python-request/` | Python 基础入口与请求模块 | `final.py` + `client.py` + `requirements.txt` | A/B/C/D |
 | `vm-sandbox/` | Node.js 运行时模块 | `install-env.js` + `vm-context.js` + `native-protect.js` | B/D |
-| `wasm-loader/` | Node.js WASM 模块 | `loader.js` | C |
+| `wasm-loader/` | Node.js WASM 模块 | `loader.js`（干净 `.wasm` + 导出函数）；`emscripten-bundle-blackbox.js`（整包 Emscripten glue 黑盒，webpack 内嵌 wasm base64） | C |
 | `captcha-verify/` | Node.js 验证码完整入口 | `final.js` + `config.json` + `package.json` | 验证码封装层主要在 Node.js 还原 |
 | `captcha-verify-py/` | Python 验证码完整入口 | `final.py` + `config.json` + `requirements.txt` | 答案层主要使用 ddddocr/OpenCV/Whisper |
 
@@ -22,7 +22,7 @@
 |------|---------|---------|
 | Node.js 纯算法 | `final-entry/` | 有 TLS 指纹或 Session 要求时加入 `node-request/` |
 | Node.js vm 补环境 | `final-entry/` | `vm-sandbox/`；需要真实请求适配时再加入 `node-request/` |
-| Node.js WASM | `final-entry/` | `wasm-loader/`；WASM 外层依赖浏览器环境时再加入 `vm-sandbox/` |
+| Node.js WASM | `final-entry/` | `wasm-loader/`；WASM 外层依赖浏览器环境时再加入 `vm-sandbox/`；目标是 webpack 内嵌 wasm + Emscripten glue 时用 `wasm-loader/emscripten-bundle-blackbox.js` 整包黑盒 |
 | Python 纯算法或协议请求 | `python-request/` | 标准算法直接在 Python signer 中实现 |
 | Python 调用原始 JavaScript | `python-request/` | 仅在证据要求时通过 JS 运行时桥接所需模块，不复制 Node.js 入口 |
 | 验证码 Node.js | `captcha-verify/` | 封装层需要 vm 时加入 `vm-sandbox/`；请求层需要 TLS 适配时复用 `node-request/` |

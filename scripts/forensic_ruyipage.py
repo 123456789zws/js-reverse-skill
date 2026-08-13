@@ -281,6 +281,39 @@ def _safe_body(body: Any) -> bytes:
     return json.dumps(body, ensure_ascii=False).encode("utf-8", "replace")
 
 
+def _maybe_decompress(body: bytes, headers: Optional[dict]) -> bytes:
+    """按 Content-Encoding / 魔数尝试解压 gzip / br / deflate 响应体；解压失败原样返回。
+
+    背景：ruyipage 的 BiDi collector 对 gzip/br 响应经常拿不到 body，replay fetch 兜底
+    拿到的又是已解码文本；但个别版本/场景 body 会以压缩字节原样到达这里，直接 UTF-8 解码
+    会得到乱码或空，落盘 JS 不可用。这里对字节做幂等解压，失败不改变原值。
+    """
+    if not body:
+        return body
+    headers = headers or {}
+    ce = ""
+    for k, v in headers.items():
+        if str(k).lower() == "content-encoding":
+            ce = str(v or "").lower().strip()
+            break
+    try:
+        if "gzip" in ce or body[:2] == b"\x1f\x8b":
+            import gzip
+            return gzip.decompress(body)
+        if "br" in ce:
+            try:
+                import brotli
+            except ImportError:
+                return body
+            return brotli.decompress(body)
+        if "deflate" in ce or (body[:2] == b"\x78\x9c"):
+            import zlib
+            return zlib.decompress(body)
+    except Exception:
+        return body
+    return body
+
+
 def _body_to_text(body: bytes, headers: Optional[dict]) -> Tuple[str, bool, int]:
     """body 落盘为可读文本；二进制（octet-stream 或 UTF-8 严格解码失败）落 base64 并标记。
 
@@ -289,6 +322,7 @@ def _body_to_text(body: bytes, headers: Optional[dict]) -> Tuple[str, bool, int]
     """
     if not body:
         return "", False, 0
+    body = _maybe_decompress(body, headers)
     ct = ((headers or {}).get("content-type", "") or "").lower()
     if "application/octet-stream" in ct:
         return base64.b64encode(body).decode("ascii"), True, len(body)
@@ -406,7 +440,7 @@ def _classify_packets(steps, args, substrings, regexes):
         if is_js or is_target:
             d = p.to_dict(include_bodies=True)
         if is_js:
-            body = _safe_body(d.get("response_body"))
+            body = _maybe_decompress(_safe_body(d.get("response_body")), d.get("response_headers"))
             fname = sanitize_filename(d.get("url", ""))
             fpath = os.path.join(js_dir, fname)
             if body:
@@ -421,7 +455,7 @@ def _classify_packets(steps, args, substrings, regexes):
                 "source_mapping_url": extract_sourcemap(body) if body else None,
             })
         if is_target:
-            body = _safe_body(d.get("response_body"))
+            body = _maybe_decompress(_safe_body(d.get("response_body")), d.get("response_headers"))
             total = len(body)
             truncated = total > args.max_body_bytes
             if truncated:
@@ -474,6 +508,23 @@ def _target_reached(steps, substrings, regexes) -> bool:
     return bool(accepted)
 
 
+def _js_quality(js_records) -> str:
+    """JS 落盘质量判定：无 JS → N/A；全过 → PASS；部分缺失 → WARN；缺失比例 ≥50% → FAIL。
+
+    背景：JS 落盘 0B（gzip/br 响应体未拿回）时 capture.json 仍可能正常、目标命中仍 PASS，
+    导致"带病 PASS"——这里把 JS 完整性单独暴露为硬信号。
+    """
+    total = len(js_records)
+    if total == 0:
+        return "N/A"
+    missing = sum(1 for j in js_records if j.get("body_missing"))
+    if missing == 0:
+        return "PASS"
+    if missing / total >= 0.5:
+        return "FAIL"
+    return "WARN"
+
+
 def _build_result(args, browser_path, baseline_id, fingerprint, cookies,
                   records_meta, js_records, target_hits, accepted, only_options,
                   webdriver_flag, wd_err, has_filter):
@@ -492,6 +543,8 @@ def _build_result(args, browser_path, baseline_id, fingerprint, cookies,
         "webdriverCheckError": wd_err,
         "navigatorWebdriverSelfCheck": "FAIL" if webdriver_flag is True else ("PASS" if webdriver_flag is False else "UNKNOWN"),
         "acceptance": "PASS" if (not has_filter) or accepted else ("PARTIAL" if target_hits and not accepted else "NO_TARGET"),
+        "jsMissingCount": sum(1 for j in js_records if j.get("body_missing")),
+        "jsQuality": _js_quality(js_records),
         "fingerprint": fingerprint,
         "cookies": cookies,
         "jsFiles": js_records,
@@ -616,19 +669,29 @@ def _close_browser(page) -> str:
 
 def _apply_ruyipage_anti_hang_patch():
     """防挂补丁（依赖 ruyipage 内部实现，失败仅告警不阻断）：
-    - 禁用 CapturePacket._fallback_fetch_body：capture.stop() 逐包拉 body 时，
-      拿不到 body 的 GET 请求会逐个在页面内 replay fetch（15s 超时），
-      京东等大页面 GET 请求多，会拖到数百秒，表现为"抓完还卡死"；
-    - Settings.response_body_timeout 默认 10s，调小到 1s，限制逐包等待。
+    - CapturePacket._fallback_fetch_body 保留但仅对 JS 包放行：capture.stop() 逐包拉 body 时，
+      拿不到 body 的 GET 会逐个在页面内 replay fetch（15s/个），京东等大页面 GET 多会拖到数百秒；
+      本脚本收尾已不调 stop()，改为按需 to_dict(include_bodies=True)（仅 JS / 目标命中包拉 body），
+      replay 成本有界。JS 是后续定位分析的关键证据，其 gzip/br 响应体 BiDi collector 常拿不到，
+      必须保留 replay 兜底，否则 JS 落盘 0B 且取证质量不达标；非 JS 的 GET 跳过 replay，
+      避免页面内多余的 fetch replay。
+    - Settings.response_body_timeout 恢复到默认 10s：压到 1s 会让大 JS 在 collector 内超时返回空 body。
     """
     try:
         from ruyipage._units import capture as _cap
-        _cap.CapturePacket._fallback_fetch_body = lambda self: None
+        orig = _cap.CapturePacket._fallback_fetch_body
+        def _js_only_fallback(self):
+            if self.method != "GET" or not self.url or not self._owner:
+                return None
+            if not is_js_packet({"url": self.url, "response_headers": dict(self.response_headers or {})}):
+                return None
+            return orig(self)
+        _cap.CapturePacket._fallback_fetch_body = _js_only_fallback
     except Exception as e:
-        logger.warning("防挂补丁 fallback 禁用失败：%s", e)
+        logger.warning("防挂补丁 fallback 限流失败：%s", e)
     try:
         from ruyipage._functions import settings as _settings
-        _settings.Settings.response_body_timeout = 1
+        _settings.Settings.response_body_timeout = 10
     except Exception as e:
         logger.warning("防挂补丁 response_body_timeout 调整失败：%s", e)
 
@@ -947,7 +1010,12 @@ def render_markdown(r: Dict[str, Any]) -> str:
     L.append(f"- 抓包总数：{r.get('packetCount')}")
     L.append(f"- JS 文件数：{r.get('jsFileCount')}")
     L.append(f"- 目标命中数：{r.get('targetHitCount')}（验收通过 {r.get('acceptedTargetCount')}）")
+    L.append(f"- JS 落盘质量：{r.get('jsQuality')}（{r.get('jsFileCount') - r.get('jsMissingCount', 0)}/{r.get('jsFileCount')} 完整）")
     L.append(f"- navigator.webdriver 自检：{r.get('navigatorWebdriverSelfCheck')}")
+    if r.get("jsQuality") == "FAIL":
+        L.append("- ⚠️ JS 落盘 0B 比例过高（≥50%），取证质量不达标：gzip/br 大 JS 响应体未拿回，无法用于定位分析，必须重采或补采 JS。")
+    elif r.get("jsQuality") == "WARN":
+        L.append("- ⚠️ 部分 JS 落盘缺失（0B）：以下 JS 未拿到响应体，定位关键资源时注意补采。")
     if r.get("getTimedOut"):
         L.append("- ⚠️ page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
     L.append(f"- 取证验收：{r.get('acceptance')}")

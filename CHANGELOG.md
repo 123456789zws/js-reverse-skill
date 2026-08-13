@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2.3.26 - 2026-08-13
+
+### 修复
+- **取证 JS 落盘 0B 根因（forensic_ruyipage.py 防挂补丁误伤新流程）**：`_apply_ruyipage_anti_hang_patch` 全局置空 `CapturePacket._fallback_fetch_body` 且把 `response_body_timeout` 压到 1s，是为旧 `capture.stop()` 全量拉 body 写的；`run_forensic` 改按需 `to_dict(include_bodies=True)` 后补丁未删，把 gzip/br 响应体唯一的 replay 兜底砍了——大 JS 落盘 0B、取证"带病 PASS"。现改为：fallback 仅对非 JS GET 跳过（JS 保留 replay 兜底，这是 0B 的真正修复），timeout 恢复默认 10s；另加 `_maybe_decompress` 做 gzip/deflate 防御性解压（ruyipage 已把 body 解码为字符串的场景不触发，仅兜住未来 raw 压缩字节直接到达的情况）。
+- **JS 落盘质量暴露为硬信号（防带病 PASS）**：`forensic_ruyipage.py` 报告新增 `jsQuality`/`jsMissingCount`（缺失 ≥50% 标 FAIL 并输出重采提示）；`check_evidence.js` 新增 JS 落盘质量门禁——capture 记录到 JS 资源但全部落盘为空（0B）时按 Step 1 缺失处理（退出码 1），部分缺失给警告，并补自测断言。
+
+### 优化
+- **WASM 决策前置强规则 + 整包 Emscripten bundle 黑盒打法（此前空白）**：`decision-tree.md` / `scenario-quickref.md` / `SKILL.md` IDENTIFY 增加"确认加密在 WASM 后先整包黑盒（vm 加载原版 glue + mock window/document/第三方 SDK/fetch + hook fetch 抓 body），禁止先手撕字节码"；`env-wasm-advanced.md` 新增「整包 Emscripten bundle 黑盒执行」章节（webpack 内嵌 wasm base64、Asyncify ccall、跨 realm instanceof、WebAssembly.Table funcref/anyfunc、CaptchaSDK 回调生命周期 mock）；新增 `templates/wasm-loader/emscripten-bundle-blackbox.js` harness 模板。
+- **CASE_LOOKUP 拆回独立 TODO 项**：SKILL.md 执行主线 TODO 第 5 项从「定位 IDENTIFY（含 CASE_LOOKUP/EXTERNAL_LOOKUP）」拆为「案例检索 CASE_LOOKUP」与「定位 IDENTIFY」两项，让"先搜本地+网络现成结论"成为可勾选强制节点（本次实战因合并导致跳过案例检索、多走了约 40 条手撕消息）。
+- **trace 检索助手**：新增 `scripts/search_trace.js`（`--keyword`/`--regex`/`--url` 按行号+上下文检索 NDJSON），SKILL.md TRACE_ANALYZE 显式指向，替代命令行手搓 `python -c`/引号嵌套 grep（本次实战反复出现 SyntaxError/AttributeError）。
+- **关键结论随节点落盘（防上下文压缩丢主线）**：SKILL.md 4.5 状态记录新增要求——IDENTIFY 结论、WASM 黑盒跑通、body 结构确认、实现方案选定等重活节点转移时必须 `write_stage_report.js` 写入 `case/阶段报告/`，续接不靠对话记忆重复确认。
+- **REAL_VERIFY 范围纪律**：SKILL.md REAL_VERIFY 新增"黑盒输出与取证样本结构一致后直接用真实 URL 进验证；内部参数映射等旁支问题不阻塞交付，记录到经验沉淀而非反复排错"。
+
 ## 2.3.25 - 2026-08-13
 
 ### 修复

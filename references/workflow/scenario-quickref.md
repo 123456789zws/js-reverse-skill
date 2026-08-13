@@ -22,9 +22,10 @@
 - **还原**：走 `assets/ast-patterns/` AST 反混淆流水线
 
 ## 场景 5：WASM 加密
-- **特征**：加密函数调用 WebAssembly 导出函数
-- **路径**：WASM 可 vm 加载，不需补环境
+- **特征**：加密函数调用 WebAssembly 导出函数；或 webpack bundle 内嵌 wasm base64 + Emscripten glue（异步 glue + 内部 fetch，如 handshake 类风控 SDK）
+- **路径**：确认加密在 WASM 后先整包黑盒（vm 加载原版 glue + mock 环境 + hook fetch），不先手撕字节码
 - **ruyiPage**：`search_code("WebAssembly|.wasm|instantiate")` + `list_network_requests` 找 .wasm
+- **详见** `references/env/env-wasm.md`、`references/env/env-wasm-advanced.md`「整包 Emscripten bundle 黑盒执行」
 
 ## 场景 6：TLS 指纹/协议检测
 - **特征**：算法全对但请求失败（403/连接超时）

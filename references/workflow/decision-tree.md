@@ -62,6 +62,7 @@
 - 算法可纯算提取（无 JSVMP）→ 路径 A
 - 算法不可提取但 JS 可 vm 执行（无 JSVMP）→ 路径 B（vm 沙箱）
 - WASM 加密 → 路径 C（WASM 加载，不补环境）
+- **WASM 强规则（先黑盒后静态）**：确认加密逻辑落在 WASM 后，先整包黑盒执行——Node vm 加载原版 glue + mock 环境 + hook fetch 抓 body；**禁止先反编译 WASM、逐字节解析 body 或手撕字节码**（对 JSVMP 已有同类硬规则，对 WASM 同样适用）。详见 `references/env/env-wasm-advanced.md`「整包 Emscripten bundle 黑盒执行」。
 - JSVMP 不确定时 → 路径 D（环境伪装成功率高，是 JSVMP 的标准打法）
 - JSVMP 仅生成签名参数且 env-free 确定性 → 路径 B/D 跑通后，用 vm 输出当 oracle 反测、升级为路径 A（可选优化，严禁反编译字节码）
 
@@ -82,8 +83,9 @@
 - **路径**：AST 反混淆 + 通用流程（按算法可提取性选择路径 A 或 B）
 
 ### WASM 加密
-- **特征**：加密逻辑在 WebAssembly 中，JS 调用 WASM 导出函数
-- **路径**：路径 C WASM 加载（不需补环境）
+- **特征**：加密逻辑在 WebAssembly 中，JS 调用 WASM 导出函数；或 webpack 大 bundle 内嵌 wasm base64 + Emscripten glue（异步 glue + 内部 fetch，如 handshake 类风控 SDK）
+- **路径**：路径 C WASM 加载（不需补完整浏览器）
+- **强规则（先黑盒后静态）**：确认加密落在 WASM 后，先整包黑盒——Node vm 加载原版 glue，mock `window/document/第三方 SDK/fetch`，hook fetch 抓 body；禁止先手撕字节码。整包方案跑通再按需静态提取。
 
 ### 识别标准动作
 ```

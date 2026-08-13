@@ -59,6 +59,7 @@ function usage() {
   两步证据齐全退出 0。调用方（含 AI）必须按退出码 + 输出文本判定，不能只看输出文本。
 - Step 1 只接受有效 capture 网络记录或用户 HAR / cURL / 原始 HTTP 请求文本；JS、截图和指纹只能作为辅助材料。
 - Step 2 只接受内容可解析、记录非空且关联目标域的 NDJSON；摘要不能替代 NDJSON。
+- JS 落盘质量门禁：capture 记录到 JS 资源但全部落盘为空（0B）时按 Step 1 缺失处理（退出码 1），防止"带病 PASS"。
 - --require-target-signal <信号>（可多次）：NDJSON 里必须出现该目标接口 URL / 关键词，
   未命中则 Step 2 判定为缺失（退出码 1）——防止“页面加载日志”冒充“目标路径已触发”。
 - URL 不是证据：--url 只记录目标地址，绝不作为跳过任何取证的依据；仅提供 URL → 两步全做。
@@ -323,6 +324,20 @@ function captureLinks(captureInspection) {
   return links;
 }
 
+function isJsRecord(record) {
+  if (!record || typeof record !== 'object') return false;
+  const cleanUrl = String(record.url || '').split('?')[0].split('#')[0];
+  if (/\.js$/i.test(cleanUrl)) return true;
+  const headers = record.response_headers || {};
+  const ct = String(headers['content-type'] || headers['Content-Type'] || '').toLowerCase();
+  return ct.includes('javascript') || ct.includes('ecmascript');
+}
+
+function countCapturedJs(captureInspection) {
+  if (!captureInspection || !Array.isArray(captureInspection.value)) return 0;
+  return captureInspection.value.filter(isJsRecord).length;
+}
+
 function detailText(inspection) {
   const parts = [];
   if (typeof inspection.recordCount === 'number') parts.push(`记录 ${inspection.recordCount}`);
@@ -416,6 +431,8 @@ function check(args) {
   const links = captureLinks(capInspection);
   const jsInspections = jsFiles.map((file) => inspectJs(file, target, links.get(path.basename(file)) || []));
   const validJsCount = jsInspections.filter((item) => item.ok).length;
+  const emptyJsCount = jsInspections.filter((item) => item.nonWhitespaceBytes === 0).length;
+  const capturedJsCount = countCapturedJs(capInspection);
   const jsInspection = {
     ok: validJsCount > 0,
     recordCount: validJsCount,
@@ -483,6 +500,21 @@ function check(args) {
     missing.push(`Step 2 RuyiTrace 日志证据（无可解析、记录非空且关联目标域的 NDJSON${sigPart}；摘要不能替代）`);
   }
 
+  // JS 落盘质量门禁：capture 记录到 JS 资源但全部落盘为空（gzip/br 响应体未拿回 → 0B）时，
+  // 取证结论会"带病 PASS"，必须硬阻断；部分缺失给警告。
+  if (capturedJsCount > 0 && jsFiles.length === 0) {
+    missing.push(`Step 1 JS 落盘质量：capture 记录到 ${capturedJsCount} 个 JS 资源，但 case/js/original/ 无任何落盘文件（响应体 0B/未写盘），取证质量不达标，需重采或补采 JS`);
+  }
+  if (capturedJsCount > 0 && jsFiles.length > 0 && emptyJsCount === jsFiles.length) {
+    missing.push(`Step 1 JS 落盘质量：${jsFiles.length} 个 JS 全部为 0B/空白（capture 记录到 ${capturedJsCount} 个 JS 资源），取证质量不达标，需重采或补采 JS`);
+  }
+  if (emptyJsCount > 0 && emptyJsCount < jsFiles.length) {
+    warnings.push(`JS 落盘不完整：${emptyJsCount}/${jsFiles.length} 个 JS 为 0B/空白，定位关键资源时注意补采`);
+  }
+  if (capturedJsCount > jsFiles.length && jsFiles.length > 0) {
+    warnings.push(`JS 落盘不完整：capture 记录到 ${capturedJsCount} 个 JS 资源，实际落盘 ${jsFiles.length} 个（约 ${capturedJsCount - jsFiles.length} 个未写盘，可能是 0B 响应体），定位关键资源时注意补采`);
+  }
+
   const urlOnly = !!args.url && !step1.evidence && !step2.evidence;
   const anyEvidence = step1.evidence || step2.evidence;
   const mode = !anyEvidence ? 'none' : (step1.evidence && step2.evidence) ? 'both' : step1.evidence ? 'step1-only' : 'step2-only';
@@ -504,6 +536,8 @@ function check(args) {
     errors,
     clean: anyEvidence && missing.length === 0,
     actionable: !(urlOnly && mode === 'none'),
+    capturedJsCount,
+    emptyJsCount,
   };
 }
 
@@ -660,11 +694,53 @@ function runSelfTest() {
     const bothCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', bothRoot, '--url', targetUrl, '--json'], { encoding: 'utf8' });
     assert.strictEqual(bothCli.status, 0); // 两步证据齐全 → 退出码 0
 
+    // JS 落盘质量门禁：capture 记录到 JS 但全部落盘为空 → 硬阻断（防"带病 PASS"）
+    const jsGateRoot = path.join(root, 'js-gate');
+    const jsGateForensic = path.join(jsGateRoot, 'case', 'forensic');
+    const jsGateJs = path.join(jsGateRoot, 'case', 'js', 'original');
+    const jsGateTrace = path.join(jsGateRoot, 'case', 'ruyi-trace', 'logs');
+    fs.mkdirSync(jsGateForensic, { recursive: true });
+    fs.mkdirSync(jsGateJs, { recursive: true });
+    fs.mkdirSync(jsGateTrace, { recursive: true });
+    fs.writeFileSync(path.join(jsGateForensic, 'capture.json'), JSON.stringify([
+      { url: targetUrl, method: 'POST', request_body: 'x' },
+      { url: scriptUrl, method: 'GET' },
+    ]), 'utf8');
+    fs.writeFileSync(path.join(jsGateJs, sanitizedJsName(scriptUrl)), '', 'utf8'); // 0B 落盘
+    fs.writeFileSync(path.join(jsGateTrace, 'trace.ndjson'), `${JSON.stringify({ api: 'fetch', url: targetUrl })}\n`, 'utf8');
+    const jsGateCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', jsGateRoot, '--url', targetUrl, '--markdown'], { encoding: 'utf8' });
+    assert.strictEqual(jsGateCli.status, 1); // JS 全部 0B → 退出码 1
+    assert.match(jsGateCli.stdout, /JS 落盘质量/);
+    const jsGatePartial = check({ caseDir: jsGateRoot, inputs: '', url: targetUrl });
+    assert.strictEqual(jsGatePartial.capturedJsCount, 1);
+    assert.strictEqual(jsGatePartial.emptyJsCount, 1);
+
+    // JS 部分缺失：capture 记录到多个 JS，但只落盘一部分 → 仅警告，不硬阻断
+    const jsPartialRoot = path.join(root, 'js-partial');
+    const jsPartialForensic = path.join(jsPartialRoot, 'case', 'forensic');
+    const jsPartialJs = path.join(jsPartialRoot, 'case', 'js', 'original');
+    const jsPartialTrace = path.join(jsPartialRoot, 'case', 'ruyi-trace', 'logs');
+    fs.mkdirSync(jsPartialForensic, { recursive: true });
+    fs.mkdirSync(jsPartialJs, { recursive: true });
+    fs.mkdirSync(jsPartialTrace, { recursive: true });
+    const scriptUrl2 = 'https://static.example.com/helper.js';
+    fs.writeFileSync(path.join(jsPartialForensic, 'capture.json'), JSON.stringify([
+      { url: targetUrl, method: 'POST', request_body: 'x' },
+      { url: scriptUrl, method: 'GET' },
+      { url: scriptUrl2, method: 'GET' },
+    ]), 'utf8');
+    fs.writeFileSync(path.join(jsPartialJs, sanitizedJsName(scriptUrl)), 'window.answer = 42;\n', 'utf8');
+    fs.writeFileSync(path.join(jsPartialTrace, 'trace.ndjson'), `${JSON.stringify({ api: 'fetch', url: targetUrl })}\n`, 'utf8');
+    const jsPartial = check({ caseDir: jsPartialRoot, inputs: '', url: targetUrl });
+    assert.strictEqual(jsPartial.capturedJsCount, 2);
+    assert.strictEqual(jsPartial.step1.checks[1].fileCount, 1);
+    assert.ok(jsPartial.warnings.some((w) => w.includes('未写盘')), '部分缺失 JS 应产生警告');
+
     const brokenHar = path.join(root, 'broken.har');
     fs.writeFileSync(brokenHar, '{broken', 'utf8');
     const brokenCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', path.join(root, 'empty'), '--inputs', brokenHar, '--json'], { encoding: 'utf8' });
     assert.strictEqual(brokenCli.status, 1);
-    return { clean: true, tests: 25 };
+    return { clean: true, tests: 33 };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

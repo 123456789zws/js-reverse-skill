@@ -493,6 +493,54 @@ async function loadWasmCached(wasmPath, importObject) {
 }
 ```
 
+## 整包 Emscripten bundle 黑盒执行
+
+> **触发条件**：目标不是「干净 `.wasm` + 明确导出函数」，而是压缩 webpack bundle 内嵌 WASM base64 + 异步 Emscripten glue + 内部 fetch（典型：风控 / 验证码握手 SDK，如 handshake 类接口）。
+> **核心原则（强规则）**：确认加密逻辑落在 WASM 后，先整包黑盒执行——Node `vm` 加载原版 glue，mock `window/document/第三方 SDK/fetch`，hook fetch 抓 body；**禁止先反编译 WASM、逐字节解析 body 或手撕字节码**。黑盒方案跑通后再按需静态提取。
+
+### 与「干净 wasm 加载」的区别
+
+| 维度 | 干净 `.wasm` + 导出函数 | 整包 Emscripten bundle |
+|---|---|---|
+| 产物形态 | 独立 `.wasm` + 明确导出 | webpack bundle 内嵌 base64 + glue JS |
+| 调用方式 | `WebAssembly.instantiate` + `exports` | `vm` 跑原版 bundle，等 glue 初始化后调导出 / 触发内部 fetch |
+| 环境依赖 | 少量 import | `window`/`document`/第三方 SDK/异步回调全要 mock |
+| 输出抓取 | 读 memory | hook 内部 fetch 抓请求 body |
+| 默认策略 | 可直接加载 | 整包黑盒，不拆不反编译 |
+
+### 步骤
+
+1. **先确认结论再动手**：IDENTIFY 定位加密入口 → 证据指向 WASM（`WebAssembly.instantiate` / `.wasm` / 内嵌 base64 魔数）即停，禁止继续手撕 body 字节。
+2. **整包原样落盘**：把压缩后的 bundle（glue + 内嵌 wasm base64）原样存盘，不格式化、不 beautify、不反混淆。
+3. **vm 加载原版 bundle**：
+
+    ```javascript
+    const vm = require('vm');
+    const ctx = vm.createContext(sandbox);
+    vm.runInContext(code, ctx, { filename: 'bundle.js' });
+    ```
+
+    注意同一 bundle 内多次 `runInContext` 会重建 realm，**跨 realm 的 `TypeError instanceof` 失效**——错误类型判断与真实现不同、构造器判断失败；需要跨 realm 类型判断时在 sandbox 内完成，或把 sandbox 实例导出回宿主互转。
+4. **mock 环境（trace 驱动的最小集合）**：
+   - `window`/`document`/`navigator`/`location`/`crypto`：只补 bundle 实际读取的（见 `env-object-model.md`），不一次性伪造大量 API。
+   - `fetch`：记录 URL / body / headers，返回 mock Response（`{ ok:true, json:async()=>({}), text:async()=>'' }`），让 glue 内部请求走通。
+   - 第三方验证码 SDK（如 `CaptchaSDK`）：mock 其回调生命周期——`onVerify`/`onStatusChange` 按 SDK 调用顺序触发，`R.show()` 等 UI 方法返回 null 而非抛错。
+5. **等异步初始化**：Emscripten Asyncify 下 `Module.onRuntimeInitialized` / `ccall` 未必主动触发；`ccall` 不触发不要死磕，直接在 sandbox 里查导出与 `CI.currData`，或用 hook 在回调处取中间值。
+6. **抓 body**：hook 内部 fetch 调用点，把 body 参数原样输出，与取证样本（`target-hits.json`）逐字段比对，结构一致即交付，再进 `REAL_VERIFY`。
+
+### 已踩过的坑（模板化，遇到直接照做）
+
+| 坑 | 现象 | 解法 |
+|---|---|---|
+| Node v24 `WebAssembly.Table` `funcref`/`anyfunc` 不兼容 | 实例化报 table 元素类型错误 | 按 `WebAssembly.Module.imports()` 读到的声明手动指定 element 类型，不依赖默认值 |
+| 跨 vm realm `instanceof` 失效 | `TypeError` / 自定义错误跨 realm 判断 false | 类型判断在 sandbox 内完成，或 sandbox 实例导出回宿主互转 |
+| Asyncify 下 `ccall` 不触发 | 导出了 `ccall` 但调用无效果 | 不依赖 `ccall`；hook 回调 / `CI.currData` 取中间值 |
+| 第三方 SDK mock 不全 | `R.show()` 为 null 报错 | 按回调生命周期 mock（`onVerify`/`onStatusChange`），UI 方法返回 null |
+| bundle 依赖 `document.currentScript` / 动态 `import()` | 加载报错或找不到 chunk | mock `document.currentScript`；把内嵌 chunk 的 base64 解出后手动注册；`import` 注入同步返回 Promise 的 mock |
+| glue 内部 `fetch` 未走通 | body 一直为空 | 确认 sandbox 的 `fetch` 是 glue 闭包捕获的那个引用，必要时用 `runInContext` 改写全局 |
+
+> 完整 harness 模板见 `templates/wasm-loader/emscripten-bundle-blackbox.js`。
+
 ## 相关参考
 
 | 参考文档 | 关联点 |
@@ -501,4 +549,5 @@ async function loadWasmCached(wasmPath, importObject) {
 | `references/env/env-object-model.md` | WebAssembly 对象的原型链 / descriptor / native-like 保护 |
 | `references/env/env-native-protection.md` | WASM 调用的 navigator / document / crypto 等 env 对象保护 |
 | `references/workflow/worker-signing.md` | Worker / Service Worker 中加载 WASM 生成签名的分析路径 |
-| `templates/wasm-loader/loader.js` | WASM 加载器交付模板 |
+| `templates/wasm-loader/loader.js` | WASM 加载器交付模板（干净 `.wasm` + 导出函数） |
+| `templates/wasm-loader/emscripten-bundle-blackbox.js` | 整包 Emscripten bundle 黑盒执行 harness（webpack 内嵌 wasm base64 + glue） |

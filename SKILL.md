@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.25
+version: 2.3.26
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -144,18 +144,19 @@ REAL_VERIFY
 DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 ```
 
-> **执行主线 TODO（激活即建，逐步勾选）**：激活 skill 后的第一件事——把下方 10 个主干项建成可勾选任务清单暴露给用户，让进度可见、可控。
+> **执行主线 TODO（激活即建，逐步勾选）**：激活 skill 后的第一件事——把下方 11 个主干项建成可勾选任务清单暴露给用户，让进度可见、可控。
 > 清单项对应状态机主干节点（分支节点如 STEP2_ONLY / TRACE_RETRY / EXTERNAL_LOOKUP / DIAGNOSE 等不单列，按状态机转移规则并入所属主干项，勾选仍以状态机实际进度为准）：
 > 1. INTENT_CONFIRM（意图声明）
 > 2. ENV_READY（环境就绪；续接模式跳过则直接勾掉）
 > 3. EVIDENCE_GATE（证据门禁）
 > 4. 取证 FORENSIC_CAPTURE / TRACE_CAPTURE（含 STEP2_ONLY / TRACE_RETRY）
-> 5. 定位 IDENTIFY（含 CASE_LOOKUP / EXTERNAL_LOOKUP）
-> 6. 分析 TRACE_ANALYZE
-> 7. 实现 IMPLEMENT
-> 8. 验证 REAL_VERIFY（含 DIAGNOSE）
-> 9. 交付 DELIVER / SIGN_ONLY_DELIVER
-> 10. 清理 CLEANUP
+> 5. 案例检索 CASE_LOOKUP（本地 search_cases + EXTERNAL_LOOKUP 网络方案；**先搜有没有现成结论再定位**，独立成项，不与 IDENTIFY 合并）
+> 6. 定位 IDENTIFY
+> 7. 分析 TRACE_ANALYZE
+> 8. 实现 IMPLEMENT
+> 9. 验证 REAL_VERIFY（含 DIAGNOSE）
+> 10. 交付 DELIVER / SIGN_ONLY_DELIVER
+> 11. 清理 CLEANUP
 > 勾选规则：每进入一个状态就立即把对应项标记为完成；分支回退（如 REAL_VERIFY 失败 → 回「实现」）把该项重新置为进行中，不新建子任务；续接模式跳过 ENV_READY 时直接勾掉第 2 项。
 
 ### 4.1 INTENT_CONFIRM 与 ENV_READY
@@ -289,6 +290,14 @@ IMPLEMENT：trace 达标 或 用户已确认轻量路径，允许实现
 
 除状态行外，在会话中记录：当前状态、进入依据、已完成证据、下一状态和阻塞项。续接时以最新阶段报告、环境快照和磁盘产出共同判断，不凭对话记忆直接跳转。
 
+**关键结论必须随节点落盘（上下文压缩/续接的保险）**：重活节点（IDENTIFY 定位结论、WASM 黑盒跑通、body/签名结构确认、实现方案选定）在转移时把「已确认结论、证据来源、方案」写入阶段报告：
+
+```powershell
+node scripts/write_stage_report.js --case-dir <project-root> --stage <阶段> --input <草稿.md> --markdown
+```
+
+输出到 `case/阶段报告/`。上下文压缩或续接时依赖这些落盘结论续接，不靠对话记忆重复确认已知结论。
+
 状态失败时停留在当前节点：范围缺失回到 `INTENT_CONFIRM`，环境异常回到 `ENV_READY`，证据不足回到 `EVIDENCE_GATE`，验证失败按已有 trace 与无 trace 两条路径处理（见状态机）。不得为了推进而把失败标记为通过。
 
 **IMPLEMENT 前置条件（硬约束）**：进入 `IMPLEMENT` 前必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认走轻量路径（无 trace，EXTERNAL_LOOKUP 方案作为假设）」。两条均不满足时停在 `TRACE_ANALYZE`，不得以 mock、猜测或实验性实现替代证据。
@@ -326,7 +335,7 @@ node scripts/search_cases.js <关键词...> --json
 | md5、sha、aes、hmac、SM2/SM4/SM3 | 定位入口后优先纯算法还原 |
 | `_0x`、obfuscator.io、控制流平坦化 | AST 识别和最小化反混淆，再判断是否可纯算 |
 | 200KB+、while-switch、dispatcher、字节码数组 | JSVMP 默认黑盒执行或最小环境复现，不反编译字节码源码 |
-| `WebAssembly.instantiate`、WASM 导出函数 | 加载 WASM 并验证输入输出，不默认补完整浏览器 |
+| `WebAssembly.instantiate`、WASM 导出函数、webpack 内嵌 wasm base64 | 确认加密在 WASM 后先整包黑盒（vm 加载原版 glue + mock 环境 + hook fetch 抓 body），不默认补完整浏览器、禁止先手撕字节码；见 `references/env/env-wasm.md`、`env-wasm-advanced.md`「整包 Emscripten bundle 黑盒执行」 |
 | 412 循环、sdenv、挑战 Cookie | 先还原挑战链，再确认业务签名链 |
 | webmssdk、byted_acrawler、a_bogus、X-Bogus | trace 定位环境读取和签名写入 |
 | geetest、smcp、dx-captcha、TCaptcha、NECaptcha、AWSC | 按验证码封装层、答案层、verify 链分别处理 |
@@ -341,6 +350,13 @@ node scripts/search_cases.js <关键词...> --json
 ```powershell
 node scripts/analyze_trace.js --trace <project-root>/case/tmp/env-trace.jsonl --summary <project-root>/case/tmp/missing-env.json --markdown
 node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown
+```
+
+按关键词 / 接口 / URL 检索 trace 时用专用脚本（输出行号 + 上下文），**不要在命令行手搓 `python -c` / 引号嵌套 grep NDJSON**：
+
+```powershell
+node scripts/search_trace.js --trace <project-root>/case/ruyi-trace/logs/trace.ndjson --keyword <关键词> --context 3 --markdown
+# --keyword 可多次；--regex <正则> 按正则检索；--url <子串> 只命中 URL 字段
 ```
 
 默认只观察不修改。只有 NDJSON 缺失、截断或无法覆盖关键入口时，才使用已有 hook 模板，并且只能注入 ruyipage 定制 Firefox。Hook 必须在目标 SDK 加载前安装，命中后及时移除。
@@ -366,6 +382,8 @@ E. TLS/Session：对齐客户端指纹、连接复用、Cookie 顺序、重定�
 ## 10. REAL_VERIFY：真实 API 验证规则（写请求按副作用分级）
 
 默认验证是交付的必要条件，不是可选演示。除非用户明确选择 sign-only，否则必须使用最终纯协议入口向真实目标 API 发请求。验证请求按副作用分级（见第 1 节确认策略）：只读/验签请求（GET、验签类 POST）默认真实执行，不逐次确认；有业务副作用的写请求（提交表单、修改状态）在执行前必须先输出一行宣布：将向哪个 URL 发送几次什么方法的请求、预期业务影响，随后继续（B 档宣布 + 可打断）。
+
+**范围纪律（旁支问题不阻塞交付）**：黑盒输出与取证样本结构一致后，直接用真实目标 URL 进 REAL_VERIFY 验证；内部参数映射（如某字段名、URL 内层解析）等旁支问题不阻塞主交付，记录到 `经验沉淀-<站点>.md` 而不是反复排错、横向展开。
 
 最低要求：连续完成不少于 5 次真实请求，并记录每次的请求时间、HTTP 状态、目标参数摘要、会话阶段和响应判定。成功标准同时包含：
 
@@ -436,7 +454,7 @@ node scripts/check_final_artifact.js --case-dir <project-root> --production --ma
 | 混淆与 AST | `references/deobfuscation/obfuscation-identify.md`、`assets/ast-patterns/` |
 | 浏览器环境、对象模型、真实性保护与 native 缺口 | `references/env/env-object-model.md`、`env-debug-loop.md`、`env-detect-bypass.md`、`env-native-protection.md`、`native-capability-gap.md`、`object-shape-private-state.md`、`runtime-frameworks.md`、`webapi-env-detection-matrix.md` |
 | iframe、Worker 或移动 H5 | `references/env/env-iframe.md`、`mobile-h5-env.md`、`references/workflow/worker-signing.md` |
-| WASM | `references/env/env-wasm.md`，遇到 import、memory 或 streaming 再读 `env-wasm-advanced.md` |
+| WASM | `references/env/env-wasm.md`，遇到 import、memory、streaming 或**整包 Emscripten/webpack bundle 黑盒执行**（内嵌 wasm base64、异步 glue、内部 fetch、CaptchaSDK mock）再读 `env-wasm-advanced.md`，harness 用 `templates/wasm-loader/emscripten-bundle-blackbox.js` |
 | TLS、Cookie、Session、动态资源、协议分析、WebSocket | `references/network/tls-validation.md`、`session-chain.md`、`cookie-generation.md`、`dynamic-resource.md`、`protocol-analysis.md`、`websocket-signing.md` |
 | XHR/fetch 语义或会话桥接 | `references/network/xhr-fetch-semantics-audit.md`、`xhr-fetch-session-bridge.md` |
 | IP 风控与静默失败诊断 | `references/network/ip-risk-control.md`、`node-leakage.md` |
