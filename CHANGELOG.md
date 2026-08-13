@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.3.25 - 2026-08-13
+
+### 修复
+- **Firefox 155 取证启动兼容（ruyipage 1.2.45~1.2.61 均未处理，共享脚本补齐）**：
+  - `forensic_ruyipage.py` `build_options` 补 `--remote-allow-system-access`：管理员/提权 Windows 会话下 Firefox 155+ 默认拒绝浏览器外的远程调试连接，缺参表现为"浏览器启动了但 BiDi 连不上、抓包脚本启动卡死"；
+  - `forensic_ruyipage.py` 新增 capture 订阅降级补丁：ruyipage 1.2.61 的 `capture.start` 在 `session.subscribe` 无条件传 `contexts`，privileged scope（Firefox 155+）下直接抛错导致抓包无法启动；运行时把 subscribe 包一层，带 contexts 失败自动降级为全局订阅（1.2.45 首次尝试即成功，无额外 RPC）。
+- **禁止再改 site-packages/wheel 内部绕过**：ruyipage 1.2.61 的这两个缺口一律在共享脚本层修复（`forensic_ruyipage.py`），wheel 内直接改 `capture.py` 会在升级/重装后丢失且不可复现；环境检测与文档同步更新。
+
+### 保留的用户决策区（C 档，勿当作残留清理）
+登录/验证码/人工识别、手动 trace、打码平台等付费服务与人工接管选择、登录态 profile 处置、fingerprint baseline 切换、cURL 基线风险接受、工具版本升级——这些属于 C 档，仍由用户决定，等待期间并行推进其他分析。
+
 ## 2.3.24 - 2026-08-12
 
 ### 优化

@@ -21,6 +21,12 @@ ruyiPage 通用取证脚本
   - page.capture.steps                     -> list[CapturePacket]（全部包）
   - CapturePacket.to_dict(include_bodies=True) -> url/method/headers/status/bodies
   - opts.smart_fingerprint(...) -> FingerprintContext；ctx.apply_emulation(page)
+
+Firefox 155+ 兼容（共享脚本补齐，ruyipage 1.2.45~1.2.61 均未处理）：
+  - 启动参数补 --remote-allow-system-access：管理员/提权 Windows 会话下
+    Firefox 默认拒绝浏览器外的远程调试连接，缺参表现为"启动后连不上 BiDi"；
+  - capture 订阅降级：1.2.61 的 capture.start 在 session.subscribe 无条件传
+    contexts，privileged scope（Firefox 155+）下不支持，运行时包一层重试兜底。
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -358,6 +365,13 @@ def build_options(args: argparse.Namespace, browser_path: str):
     w, h = (args.window_size or "1366,900").split(",")[:2]
     opts.set_window_size(int(w), int(h))
     opts.set_human_algorithm(args.human_algorithm)
+    # Firefox 155+（v1.2.57+ runtime）在管理员/提权 Windows 会话下，远程调试
+    # 连接默认只允许浏览器自身，必须显式放行系统级连接，否则 BiDi 握手表现为
+    # "浏览器启动了但连不上"。ruyipage 1.2.45~1.2.61 均未自动附加，由共享脚本补齐。
+    try:
+        opts.set_argument("--remote-allow-system-access")
+    except Exception as e:
+        logger.warning("set_argument(--remote-allow-system-access) 失败：%s", e)
     # 进程级兜底：Python 进程退出（含异常/被杀前未走 finally）时自动关闭浏览器并清理临时 profile
     try:
         opts.close_on_exit(True)
@@ -619,6 +633,48 @@ def _apply_ruyipage_anti_hang_patch():
         logger.warning("防挂补丁 response_body_timeout 调整失败：%s", e)
 
 
+def _apply_ruyipage_capture_compat_patch():
+    """Firefox 155+（privileged scope）兼容补丁（依赖 ruyipage 内部实现，失败仅告警不阻断）。
+
+    ruyipage 1.2.61 的 capture.start 在 session.subscribe 时无条件传 contexts，
+    而 Firefox 155+ 的 privileged scope 下不支持该参数，subscribe 直接抛错导致
+    抓包启动失败（1.2.45 自带降级，1.2.61 回退掉了）。这里给 subscribe 包一层：
+    带 contexts 失败时自动降级为全局订阅（不限定 context），事件仍覆盖全部标签页。
+    1.2.45 自带同类降级，包装后由本补丁统一处理：仍是一次失败 + 一次全局重试，
+    不产生额外 RPC，行为等效。
+    """
+    try:
+        import ruyipage._bidi.session as _sess
+        orig = _sess.subscribe
+        if getattr(orig, "_ruyipage_privileged_fallback", False):
+            return
+        # 1.2.45 的 subscribe(driver, events, contexts=None) 没有 user_contexts
+        # 参数，1.2.61 新增了它；按签名条件传参，避免低版本 TypeError。
+        try:
+            _supports_user_contexts = "user_contexts" in inspect.signature(orig).parameters
+        except Exception:
+            _supports_user_contexts = True
+
+        def subscribe(driver, events, contexts=None, user_contexts=None):
+            kwargs = {"contexts": contexts}
+            if _supports_user_contexts:
+                kwargs["user_contexts"] = user_contexts
+            try:
+                return orig(driver, events, **kwargs)
+            except Exception:
+                if not kwargs.get("contexts") and not kwargs.get("user_contexts"):
+                    raise
+                logger.warning(
+                    "session.subscribe 带 contexts/user_contexts 失败，降级为全局订阅重试"
+                )
+                return orig(driver, events)
+
+        subscribe._ruyipage_privileged_fallback = True
+        _sess.subscribe = subscribe
+    except Exception as e:
+        logger.warning("capture privileged-scope 兼容补丁安装失败：%s", e)
+
+
 def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
     """ruyiPage 取证主流程：启动浏览器 → 抓全部包 → 分类（元数据/JS/目标）→ JS 落盘 → 报告。
 
@@ -627,6 +683,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
     """
     from ruyipage import FirefoxPage
     _apply_ruyipage_anti_hang_patch()
+    _apply_ruyipage_capture_compat_patch()
 
     page = None
     result = None
