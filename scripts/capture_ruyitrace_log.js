@@ -18,6 +18,7 @@ function parseArgs(argv) {
     projectDir: '',
     duration: 120,
     limit: 200000,
+    ptype: '',
     targetSignals: [],
     dryRun: false,
     importAfter: false,
@@ -38,6 +39,7 @@ function parseArgs(argv) {
     else if (a === '--project-dir') args.projectDir = nextVal('');
     else if (a === '--duration') args.duration = Number(nextVal('120'));
     else if (a === '--limit') args.limit = Number(nextVal('200000'));
+    else if (a === '--ptype') args.ptype = nextVal('');
     else if (a === '--target-signal') args.targetSignals.push(nextVal(''));
     else if (a === '--dry-run') args.dryRun = true;
     else if (a === '--import-after') args.importAfter = true;
@@ -64,7 +66,8 @@ function usage() {
 说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。
 --project-dir <dir>：用户工程目录（tools/ 所在），未传时从 --case-dir 推断；安装模式下需靠此定位 RuyiTrace。
 --url 与 --input 互斥：--url 为自动捕获（需 RuyiTrace 完整安装）；--input 为手动 trace 后直接导入用户指定的 NDJSON，无需 RuyiTrace 安装检测。
---target-signal <信号>（可多次）：导入时扫描日志是否命中目标接口 URL / 关键词，未命中时导入退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。目标信号只在主 DOM trace 日志上判定；cookie/storage/event 等分类日志只做摘要，不参与 target-signal 退出码。`;
+--target-signal <信号>（可多次）：导入时扫描日志是否命中目标接口 URL / 关键词，未命中时导入退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。目标信号只在主 DOM trace 日志上判定；cookie/storage/event 等分类日志只做摘要，不参与 target-signal 退出码。
+--ptype <list>：启用 trace 的进程类型（逗号分隔，透传 MOZ_DOM_TRACE_PTYPE），不传则全部进程类型；大页面可只留主/content 进程减少无关日志。`;
 }
 
 function exists(p) {
@@ -137,6 +140,7 @@ function buildPlan(args, trace) {
       MOZ_DOM_TRACE_FILE: traceFile,
       MOZ_DOM_TRACE_LIMIT: String(args.limit),
       MOZ_DISABLE_LAUNCHER_PROCESS: '1',
+      ...(args.ptype ? { MOZ_DOM_TRACE_PTYPE: args.ptype } : {}),
     },
   };
 }
@@ -387,7 +391,7 @@ function renderMarkdown(obj) {
   if (args.targetSignals.length) lines.push(`- 目标信号（未命中则导入退出码非 0）：${args.targetSignals.join('、')}`);
   lines.push(`- DOM trace 行数上限：${args.limit}`);
   lines.push(`- 启动参数：${[plan.firefoxExe].concat(plan.firefoxArgs).join(' ')}`);
-  lines.push('- 环境变量：MOZ_DOM_TRACE=1，MOZ_DOM_TRACE_FILE=<case trace file>，MOZ_DOM_TRACE_LIMIT=<limit>，MOZ_DISABLE_LAUNCHER_PROCESS=1');
+  lines.push(`- 环境变量：MOZ_DOM_TRACE=1，MOZ_DOM_TRACE_FILE=<case trace file>，MOZ_DOM_TRACE_LIMIT=${args.limit}${args.ptype ? `，MOZ_DOM_TRACE_PTYPE=${args.ptype}` : ''}，MOZ_DISABLE_LAUNCHER_PROCESS=1`);
   if (args.dryRun) {
     lines.push('', '## Dry-run 结果');
     lines.push('- 未启动浏览器，未创建日志文件。');

@@ -11,7 +11,8 @@
 - RuyiTrace / 如意 Trace：<https://github.com/LoseNine/Firefox-FingerPrint-Analyzer>
   - Windows x64 桌面工具，随包包含定制 Firefox trace 内核。
   - 采集 NDJSON 运行时 DOM / JS API 调用日志。
-  - 探针在浏览器内核层，适合为补环境提供高保真环境访问日志。
+  - 探针在浏览器内核层（C++ 层），适合为补环境提供高保真环境访问日志。
+  - **为什么不是 Playwright / Puppeteer 的 JS 钩子**：JS 层注入的钩子可被页面脚本通过原型检测、`toString` 嗅探、`navigator.webdriver` 或已知 hook 特征发现，触发风控反制并污染采集结果；RuyiTrace 探针位于 C++ 内核层，从 JS 视角完全不可见，因此采集的 trace 是研究指纹检测策略的高保真基线。
 
 仅在用户授权的网页端 JS 补环境、防御性分析、学术研究场景中使用。不要用这些工具绕过登录、验证码、MFA、付费墙、服务条款或业务风控。
 
@@ -381,6 +382,29 @@ set MOZ_DISABLE_LAUNCHER_PROCESS=1
 | `MOZ_DOM_TRACE_PTYPE=<list>` | 启用 trace 的进程类型 |
 | `MOZ_DISABLE_LAUNCHER_PROCESS=1` | Windows 下避免 launcher 提前退出 |
 
+## RuyiTrace NDJSON 事件结构
+
+NDJSON 每行一条事件，是 TRACE_ANALYZE 用 `search_trace.js` 检索、`analyze_trace.js` 分类、`import_ruyitrace_log.js` 摘要的共同依据。典型结构：
+
+```json
+{
+  "t": "call",
+  "api": "CanvasRenderingContext2D.fillText",
+  "args": ["BrowserLeaks.com", 4, 17],
+  "stack": [
+    { "file": "https://example.test/fp.js", "line": 42, "col": 17 }
+  ]
+}
+```
+
+| 字段 | 含义 | 脚本兼容 |
+|---|---|---|
+| `t`（或 `type`） | 事件类型，如 `call` / `get` / `set` | `import_ruyitrace_log.js` 统计 `evt.t \|\| evt.type` |
+| `api`（或 `name` / `path`） | 被访问的 DOM/JS API，如 `navigator.userAgent`、`XMLHttpRequest.send` | 统计 `evt.api \|\| evt.name \|\| evt.path` |
+| `args` | 调用参数数组 | 定位参数生成：关注与目标参数值邻近的 `args` |
+| `stack` | 调用栈帧数组 `{file,line,col}` | **核心定位依据** |
+
+`stack.file:line:col` 是定位关键证据的唯一权威来源：先按 `api` / `args` 缩小范围，再用 `search_trace.js --url <stack.file>` 或 `--keyword` 拿到 `file:line:col`，最后按行号切源码片段（单行大 bundle 用 `search_js.js` 做字符偏移检索）。不要忽略 `stack` 而只凭 `api` 名猜文件。
 
 ## RuyiTrace 长字段截断保护
 

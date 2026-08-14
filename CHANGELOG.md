@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.30 - 2026-08-14
+
+### 优化
+- **`capture_ruyitrace_log.js` 加 `--ptype` 参数**：透传 `MOZ_DOM_TRACE_PTYPE`，大页面可只保留主/content 进程类型，从源头缩小无关日志（对齐 RuyiTrace 上游文档的环境变量能力）。
+- **`ruyi-tooling.md` 补 RuyiTrace NDJSON 事件结构**：`t`/`api`/`args`/`stack` 字段权威说明 + 检索要点，明确 `stack.file:line:col` 是定位关键证据的唯一权威来源。
+- **`ruyi-tooling.md` 补「为什么不是 Playwright/Puppeteer」论证**：JS 钩子可被原型检测/`toString` 嗅探/`navigator.webdriver` 探测，RuyiTrace 探针在 C++ 内核层从 JS 视角不可见。
+- **`trace-flow.md` 大文件处理原则具体化**：按 5-10 万行一段分批投喂分析防撑爆上下文，采集时用 `--limit`/`--ptype` 从源头缩小日志。
+
 ## 2.3.29 - 2026-08-14
 
 ### 修复
