@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2.3.32 - 2026-08-14
+
+### 修复
+- **ruyipage 取证目标未命中仍返回 0，导致 Step 1 假通过**：`forensic_ruyipage.py` 指定 `--targets/--targets-regex` 后，即使目标接口完全未命中或只命中非 2xx 响应，脚本仍无条件 `return 0`；模型会把同域无关请求（如 `public/time`）当成 Step 1 取证成功并转入源码搜索。修复：`main()` 以 `acceptedTargetCount` 为硬信号——指定目标过滤且未捕获到非 OPTIONS 2xx 目标响应时返回 `1`，报告 `NO_TARGET`/`PARTIAL`，并在 Markdown 报告尾部输出“Step 1 缺失，不得转源码搜索”。
+- **`--require-target-signal` 只约束 Step 2 NDJSON，未约束 Step 1**：`check_evidence.js` 的 `--require-target-signal` 只扫 NDJSON，不检查 `capture.json` 是否命中目标接口，导致同域 `public/time` 也能让 Step 1 通过。修复：`inspectCapture()` 同步做目标信号命中判定；同时 `classifyUserInput()` 对 Step 1 用户 HAR/cURL/请求文本也做同样检查。未命中按 Step 1 缺失处理并退出码非 0。
+
+### 优化
+- **SKILL.md/scripts/README 同步目标信号门禁口径**：目标接口已知时 GATE-2 必须加 `--require-target-signal`，网络取证命令必须带 `--targets`；文档明确 `forensic_ruyipage.py` 退出码非 0 时回到 `EVIDENCE_GATE` 重采/补材料，而不是转源码搜索。
+- **`phase-flow.md`/`ruyi-tooling.md` 同步取证失败处理**：Step 1 抓包从“一次抓完不复抓”改为“目标未命中必须停在 EVIDENCE_GATE 重采或由用户补材料”。
+
 ## 2.3.31 - 2026-08-14
 
 ### 优化

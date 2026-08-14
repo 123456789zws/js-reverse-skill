@@ -37,9 +37,9 @@
 | `capture_ruyitrace_log.js` | 自动采集或手动导入 RuyiTrace NDJSON 日志（默认 `--duration 120` 秒；`--target-signal` 可多次，导入后未命中目标接口则退出码非 0） | `node scripts/capture_ruyitrace_log.js --url <目标URL> --case-dir <project-root> --target-signal handshake --ruyitrace-home <RuyiTrace目录> --import-after --markdown` |
 | `import_ruyitrace_log.js` | 导入 RuyiTrace NDJSON，生成摘要并标记截断字段；`--target-signal` 扫描目标接口命中情况，未命中退出码非 0 | `node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir <project-root> --target-signal handshake --markdown` |
 
-取证窗口默认 `--wait 120` 秒：窗口内命中 `--targets` 目标接口即提前结束并关闭浏览器，未命中到点自动关闭。目标请求需要登录 / 点击 / 验证码等手动触发时（如 handshake 类风控握手接口），浏览器打开期间应提示用户操作（登录场景可加 `--manual-pause` 在导航后暂停等待）；窗口不够可调大 `--wait`。目标接口未命中时，JS 源码搜索只能作辅助假设，不能替代 Step 1 网络记录，未捕获前不得推进到 IDENTIFY / TRACE_ANALYZE。
+取证窗口默认 `--wait 120` 秒：窗口内命中 `--targets` 目标接口的非 OPTIONS 2xx 响应即提前结束并关闭浏览器，未命中到点自动关闭。指定 `--targets/--targets-regex` 后，若未捕获到非 OPTIONS 2xx 目标响应，脚本退出码非 0（报告 `NO_TARGET` 或 `PARTIAL`），作为 Step 1 缺失硬信号。目标请求需要登录 / 点击 / 验证码等手动触发时（如 handshake 类风控握手接口），浏览器打开期间应提示用户操作（登录场景可加 `--manual-pause` 在导航后暂停等待）；窗口不够可调大 `--wait`。目标接口未命中时，JS 源码搜索只能作辅助假设，不能替代 Step 1 网络记录，未捕获前不得推进到 IDENTIFY / TRACE_ANALYZE。
 
-`check_evidence.js` 退出码是硬信号：任何步骤缺失证据（missing 非空）或材料格式错误（errors 非空）时退出 `1`；两步证据齐全退出 `0`。调用方（含 AI）必须按退出码 + 输出文本判定，不能只看输出文本。JS、截图、指纹基线和 `ruyitrace-summary.md` 可展示为辅助材料，但不能分别替代 Step 1 网络记录或 Step 2 NDJSON。可运行 `node scripts/check_evidence.js --self-test` 执行内置自测。`--require-target-signal <信号>`（可多次）要求 NDJSON 必须命中目标接口 URL / 关键词，未命中按 Step 2 缺失处理——防止“页面加载日志”冒充“目标路径已触发”。
+`check_evidence.js` 退出码是硬信号：任何步骤缺失证据（missing 非空）或材料格式错误（errors 非空）时退出 `1`；两步证据齐全退出 `0`。调用方（含 AI）必须按退出码 + 输出文本判定，不能只看输出文本。JS、截图、指纹基线和 `ruyitrace-summary.md` 可展示为辅助材料，但不能分别替代 Step 1 网络记录或 Step 2 NDJSON。可运行 `node scripts/check_evidence.js --self-test` 执行内置自测。`--require-target-signal <信号>`（可多次）要求 Step 1 capture 命中目标接口的非 OPTIONS 2xx 响应（用户 HAR/cURL 命中目标 URL/关键词），Step 2 NDJSON 出现目标接口 URL / 关键词，未命中按对应步骤缺失处理——防止“同域无关请求”或“页面加载日志”冒充“目标路径已触发”。
 
 ## Trace 分析与运行时闭环（9 个）
 

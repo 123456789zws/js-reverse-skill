@@ -60,8 +60,9 @@ function usage() {
 - Step 1 只接受有效 capture 网络记录或用户 HAR / cURL / 原始 HTTP 请求文本；JS、截图和指纹只能作为辅助材料。
 - Step 2 只接受内容可解析、记录非空且关联目标域的 NDJSON；摘要不能替代 NDJSON。
 - JS 落盘质量门禁：capture 记录到 JS 资源但全部落盘为空（0B）时按 Step 1 缺失处理（退出码 1），防止"带病 PASS"。
-- --require-target-signal <信号>（可多次）：NDJSON 里必须出现该目标接口 URL / 关键词，
-  未命中则 Step 2 判定为缺失（退出码 1）——防止“页面加载日志”冒充“目标路径已触发”。
+- --require-target-signal <信号>（可多次）：Step 1 capture 里必须命中该目标接口 URL / 关键词的
+  非 OPTIONS 2xx 响应，Step 2 NDJSON 里必须出现该目标接口 URL / 关键词；未命中则对应步骤
+  判定为缺失（退出码 1）——防止“同域无关请求”或“页面加载日志”冒充“目标路径已触发”。
 - URL 不是证据：--url 只记录目标地址，绝不作为跳过任何取证的依据；仅提供 URL → 两步全做。
 - --inputs：逗号分隔的用户声称提供材料路径（NDJSON/HAR/cURL/请求文本/JS/截图等）。
   文件必须真实存在且通过内容校验才会被计入对应步骤；失败原因会以警告列出。
@@ -196,7 +197,7 @@ function inspectJson(p, target, requiredKind) {
   return result;
 }
 
-function inspectCapture(p, target) {
+function inspectCapture(p, target, signals) {
   const inspection = inspectJson(p, target);
   if (!inspection.parseable || !inspection.value) return inspection;
   const records = Array.isArray(inspection.value) ? inspection.value : [];
@@ -210,11 +211,29 @@ function inspectCapture(p, target) {
     }
   });
   const matchedRecords = networkRecords.filter((record) => valueMatchesTarget(record, target));
-  const reason = networkRecords.length === 0
-    ? '未发现包含 HTTP(S) URL 和 method 的网络记录'
-    : matchedRecords.length === 0
-      ? `未发现与目标域 ${target.hostname} 关联的网络记录`
-      : '';
+  const acceptedRecords = networkRecords.filter((record) => isAcceptedNetworkRecord(record));
+  const sigHits = (signals || []).map((s) => ({ signal: s, hits: 0, sampleRecord: 0 }));
+  for (let recordIdx = 0; recordIdx < acceptedRecords.length; recordIdx += 1) {
+    if (!sigHits.length) break;
+    const record = acceptedRecords[recordIdx];
+    const text = JSON.stringify(record).toLowerCase();
+    for (const sig of sigHits) {
+      if (sig.hits > 0 || !text.includes(sig.signal.toLowerCase())) continue;
+      sig.hits += 1;
+      sig.sampleRecord = recordIdx + 1;
+    }
+  }
+  const signalEnabled = sigHits.length > 0;
+  const allHit = !signalEnabled || sigHits.every((sig) => sig.hits > 0);
+  const missed = sigHits.filter((sig) => sig.hits === 0).map((sig) => sig.signal);
+  let reason = '';
+  if (networkRecords.length === 0) {
+    reason = '未发现包含 HTTP(S) URL 和 method 的网络记录';
+  } else if (matchedRecords.length === 0) {
+    reason = `未发现与目标域 ${target.hostname} 关联的网络记录`;
+  } else if (!allHit) {
+    reason = `目标信号未命中：${missed.join('、')}（capture 未命中目标接口的非 OPTIONS 2xx 响应，不能当作 Step 1 证据）`;
+  }
   const result = {
     ok: !reason,
     parseable: true,
@@ -225,6 +244,9 @@ function inspectCapture(p, target) {
     kind: 'capture',
     reason,
   };
+  if (signalEnabled) {
+    result.targetSignal = { enabled: true, allHit, signals: sigHits };
+  }
   Object.defineProperty(result, 'value', { value: inspection.value, enumerable: false });
   return result;
 }
@@ -355,6 +377,12 @@ function countCapturedJs(captureInspection) {
   return captureInspection.value.filter(isJsRecord).length;
 }
 
+function isAcceptedNetworkRecord(record) {
+  const status = Number(record.response_status ?? record.status ?? 0);
+  const method = String(record.method || '').toUpperCase();
+  return Math.floor(status / 100) === 2 && method !== 'OPTIONS';
+}
+
 function detailText(inspection) {
   const parts = [];
   if (typeof inspection.recordCount === 'number') parts.push(`记录 ${inspection.recordCount}`);
@@ -417,6 +445,20 @@ function classifyUserInput(p, warnings, target, signals) {
     inspection = { ok: false, recordCount: 0, targetMatched: false, reason: `不支持的材料类型：${ext || '无扩展名'}` };
     kind = `未知类型(${ext || '无扩展名'})`;
   }
+  if (step === 1 && inspection.ok && signals && signals.length) {
+    let raw = '';
+    try { raw = readText(p).toLowerCase(); } catch {}
+    const sigHits = signals.map((s) => ({ signal: s, hits: 0 }));
+    for (const sig of sigHits) {
+      if (raw.includes(sig.signal.toLowerCase())) sig.hits += 1;
+    }
+    const missed = sigHits.filter((sig) => sig.hits === 0).map((sig) => sig.signal);
+    if (missed.length) {
+      inspection.ok = false;
+      inspection.reason = `目标信号未命中：${missed.join('、')}（Step 1 材料未覆盖目标接口，不能当作 Step 1 证据）`;
+      inspection.targetSignal = { enabled: true, allHit: false, signals: sigHits };
+    }
+  }
   const accepted = step > 0 && inspection.ok;
   if (!accepted && inspection.reason) warnings.push(`材料未通过内容校验：${p}（${inspection.reason}）`);
   return {
@@ -440,7 +482,7 @@ function check(args) {
   const step2 = { checks: [], evidence: false };
 
   const capJson = path.join(caseSubdir, 'forensic', 'capture.json');
-  const capInspection = exists(capJson) ? inspectCapture(capJson, target) : { ok: false, parseable: false, recordCount: 0, targetMatched: false, reason: '文件不存在' };
+  const capInspection = exists(capJson) ? inspectCapture(capJson, target, args.requireTargetSignal) : { ok: false, parseable: false, recordCount: 0, targetMatched: false, reason: '文件不存在' };
   step1.checks.push(makeCheck('case/forensic/capture.json（网络包元数据）', capJson, capInspection));
 
   const jsOriginalDir = path.join(caseSubdir, 'js', 'original');
@@ -508,7 +550,14 @@ function check(args) {
   const skipStep1 = step1.evidence;
   const skipStep2 = step2.evidence;
 
-  if (!step1.evidence) missing.push('Step 1 网络取证证据（无有效 capture 网络记录或用户 HAR / cURL / HTTP 请求文本）');
+  if (!step1.evidence) {
+    const required = args.requireTargetSignal || [];
+    const captureMiss = capInspection.targetSignal && capInspection.targetSignal.enabled && !capInspection.targetSignal.allHit;
+    const sigPart = captureMiss
+      ? `；且目标信号未命中：${required.join('、')}（capture 未命中目标接口的非 OPTIONS 2xx 响应，不能当作 Step 1 证据）`
+      : '';
+    missing.push(`Step 1 网络取证证据（无有效 capture 网络记录或用户 HAR / cURL / HTTP 请求文本${sigPart}）`);
+  }
   if (!step2.evidence) {
     const required = args.requireTargetSignal || [];
     const sigPart = required.length
@@ -690,13 +739,33 @@ function runSelfTest() {
     const sigTrace = path.join(sigRoot, 'case', 'ruyi-trace', 'logs');
     fs.mkdirSync(sigForensic, { recursive: true });
     fs.mkdirSync(sigTrace, { recursive: true });
-    fs.writeFileSync(path.join(sigForensic, 'capture.json'), JSON.stringify([{ url: targetUrl, method: 'POST', request_body: 'x' }]), 'utf8');
+    fs.writeFileSync(path.join(sigForensic, 'capture.json'), JSON.stringify([{ url: targetUrl, method: 'POST', response_status: 200, request_body: 'x' }]), 'utf8');
     fs.writeFileSync(path.join(sigTrace, 'trace.ndjson'), `${JSON.stringify({ api: 'fetch', url: targetUrl })}\n`, 'utf8');
     const sigHitCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', sigRoot, '--url', targetUrl, '--require-target-signal', 'handshake', '--markdown'], { encoding: 'utf8' });
     assert.strictEqual(sigHitCli.status, 1); // NDJSON 关联目标域但无 handshake 信号 → 退出码 1
     assert.match(sigHitCli.stdout, /目标信号未命中/);
     const sigBoth = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', sigRoot, '--url', targetUrl, '--require-target-signal', targetUrl, '--markdown'], { encoding: 'utf8' });
     assert.strictEqual(sigBoth.status, 0); // 信号命中 → 通过
+
+    // 目标信号同时约束 Step 1 capture：同域无关请求不得冒充目标接口已捕获
+    const capSigRoot = path.join(root, 'capture-signal');
+    const capSigForensic = path.join(capSigRoot, 'case', 'forensic');
+    fs.mkdirSync(capSigForensic, { recursive: true });
+    fs.writeFileSync(path.join(capSigForensic, 'capture.json'), JSON.stringify([
+      { url: 'https://api.example.com/other', method: 'GET', response_status: 200 },
+    ]), 'utf8');
+    const capSig = check({
+      caseDir: capSigRoot,
+      inputs: '',
+      url: targetUrl,
+      requireTargetSignal: ['team_info'],
+    });
+    assert.strictEqual(capSig.step1.checks[0].ok, false);
+    assert.strictEqual(capSig.step1.checks[0].targetSignal.allHit, false);
+    assert.strictEqual(capSig.step1.evidence, false);
+    const capSigCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', capSigRoot, '--url', targetUrl, '--require-target-signal', 'team_info', '--markdown'], { encoding: 'utf8' });
+    assert.strictEqual(capSigCli.status, 1);
+    assert.match(capSigCli.stdout, /capture 未命中目标接口的非 OPTIONS 2xx 响应/);
 
     const bothRoot = path.join(root, 'both');
     const bothForensic = path.join(bothRoot, 'case', 'forensic');
@@ -757,7 +826,7 @@ function runSelfTest() {
     fs.writeFileSync(brokenHar, '{broken', 'utf8');
     const brokenCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', path.join(root, 'empty'), '--inputs', brokenHar, '--json'], { encoding: 'utf8' });
     assert.strictEqual(brokenCli.status, 1);
-    return { clean: true, tests: 33 };
+    return { clean: true, tests: 38 };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

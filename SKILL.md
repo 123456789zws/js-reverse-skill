@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.31
+version: 2.3.32
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -35,7 +35,8 @@ GATE-1 ENV（resume 可跳过完整自检）
 
 GATE-2 EVIDENCE（硬阻断）
   node scripts/check_evidence.js --case-dir <project-root> --url <target-url> --inputs <材料路径> --markdown
-  需卡目标接口覆盖时可加: --require-target-signal <目标接口URL或关键词>
+  目标接口 URL/关键词已知时必须加: --require-target-signal <目标接口URL或关键词>
+  （同时约束 Step 1 capture/用户 HAR/cURL 与 Step 2 NDJSON，未命中任一侧均按缺失证据处理）
   退出码 0 且无「缺失证据」→ 进入状态机。
   否则停在 EVIDENCE_GATE，按 4.2 补齐证据后回本节复检。
 ```
@@ -163,22 +164,21 @@ node scripts/check_evidence.js --case-dir <project-root> --url <target-url> --in
 
 URL 不是证据。脚本确认文件真实存在并可归类，才允许跳过对应步骤。退出码非 0 或输出含「缺失证据」「不可跳过」时，停在 EVIDENCE_GATE 补证并复检，禁止进入 IDENTIFY/TRACE_ANALYZE/IMPLEMENT。
 
-- Step 1：有效 `capture.json` 网络记录，或通过内容校验的 HAR、cURL、原始 HTTP 请求文本。
+- Step 1：有效 `capture.json` 网络记录，或通过内容校验的 HAR、cURL、原始 HTTP 请求文本；目标接口已知时用 `--require-target-signal <目标接口URL或关键词>` 同时卡住 capture/用户材料与 NDJSON 的目标信号。
 - Step 2：内容可解析、记录非空且关联目标域的 RuyiTrace NDJSON/JSONL；`ruyitrace-summary.md` 不能替代 NDJSON。Step2-only 时先导入并生成摘要，再结合日志定位，不重复采集 trace，也不因缺少 Step 1 强制网络取证。
 - 单独 JS、截图或指纹基线只作辅助材料，不计为 Step 1。
 
 网络取证：
 
 ```powershell
-python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --markdown
-# 已知/疑似目标接口时加 --targets 过滤；需要登录/点击/验证码时在窗口内提示用户操作。
+# 已知/疑似目标接口时必须加 --targets 过滤；需要登录/点击/验证码时在窗口内提示用户操作。
 # 窗口默认 --wait 120，登录场景可加 --manual-pause 暂停等待；窗口不够可调大 --wait。
-python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets handshake --markdown
+python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets team_info --markdown
 ```
 
 取证会自动保存入口页面 HTML 到 `case/forensic/document.html`（含 412/JS challenge 页内联脚本，是 acw_sc__v2 等 challenge cookie 的强制证据），无论是否指定 `--targets`。
 
-目标请求未命中 = Step 1 缺失，禁止转源码搜索继续。若需用户交互，提示用户操作或请其提供 cURL/HAR/原始请求文本；命中并落盘后再回 EVIDENCE_GATE。JS 源码关键词定位只能作辅助假设。
+目标请求未命中 = Step 1 缺失，禁止转源码搜索继续。指定了 `--targets/--targets-regex` 时，脚本未捕获到非 OPTIONS 2xx 目标响应会**退出码非 0**，报告 `NO_TARGET`（完全未命中）或 `PARTIAL`（有命中但无 2xx，如仅 OPTIONS/412）；此时停在 EVIDENCE_GATE。若需用户交互，重采时提示用户操作，或请其提供 cURL/HAR/原始请求文本；命中并落盘后再回 EVIDENCE_GATE。JS 源码关键词定位只能作辅助假设。
 
 Windows 下若 Python 脚本输出仍现编码异常，用 `PYTHONUTF8=1` 前缀兜底（PowerShell：`$env:PYTHONUTF8="1"`）；仓库脚本已内置 UTF-8 强制与 emoji 安全化，正常无需手动加。
 

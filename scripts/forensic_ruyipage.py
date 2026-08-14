@@ -1034,8 +1034,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--out-dir", default="", help="取证输出目录，默认 <case-dir>/case/forensic")
     p.add_argument("--profile-dir", default="", help="独立浏览器 profile，默认 <case-dir>/case/tmp/ruyipage-profile")
     p.add_argument("--fp-dir", default="", help="智能指纹 base_dir，默认 <case-dir>/case/tmp/fingerprint")
-    p.add_argument("--targets", default="", help="目标接口子串过滤（逗号分隔），仅用于报告过滤；抓包始终抓全部")
-    p.add_argument("--targets-regex", default="", help="目标接口正则过滤（逗号分隔）")
+    p.add_argument("--targets", default="", help="目标接口子串过滤（逗号分隔）；指定后若未捕获到非 OPTIONS 2xx 目标响应则退出码非 0，作为 Step 1 缺失硬信号；抓包始终抓全部")
+    p.add_argument("--targets-regex", default="", help="目标接口正则过滤（逗号分隔）；与 --targets 同样参与取证成功判定")
     p.add_argument("--human-algorithm", default="windmouse", help="拟人算法：windmouse / bezier，默认 windmouse")
     p.add_argument("--window-size", default="1366,900", help="窗口尺寸 wxh，默认 1366,900")
     p.add_argument("--require-country", default="", help="smart_fingerprint require_country（ISO-2）；缺省不校验出口国家（适配代理出口 IP 与目标国家不一致）")
@@ -1114,13 +1114,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     result = run_forensic(args, browser_path)
-    result["ok"] = True
+    target_substrings = [s.strip() for s in (args.targets or "").split(",") if s.strip()]
+    target_regexes = [r.strip() for r in (args.targets_regex or "").split(",") if r.strip()]
+    has_target_filter = bool(target_substrings or target_regexes)
+    target_verified = bool(result.get("acceptedTargetCount"))
+    result["ok"] = (not has_target_filter) or target_verified
     result["ruyipageVersion"] = ver
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print(render_markdown(result))
+    if not result["ok"]:
+        print(
+            "[未通过] 取证目标未达成：指定了 --targets/--targets-regex，但未捕获到目标接口的非 OPTIONS 2xx 响应，"
+            "Step 1 缺失。请重采（--click/--scroll/--manual-pause）或由用户提供 cURL/HAR/原始请求文本，"
+            "不得转源码搜索。",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
@@ -1148,6 +1160,10 @@ def render_markdown(r: Dict[str, Any]) -> str:
     if r.get("getTimedOut"):
         L.append("- [警告] page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
     L.append(f"- 取证验收：{r.get('acceptance')}")
+    if r.get("acceptance") in ("NO_TARGET", "PARTIAL"):
+        L.append("")
+        L.append("[未通过] 取证目标未达成：指定 --targets/--targets-regex 后未捕获到目标接口的非 OPTIONS 2xx 响应（Step 1 缺失）。")
+        L.append("请重采（--click/--scroll/--manual-pause）或由用户提供 cURL/HAR/原始请求文本，不得转源码搜索。")
     if r.get("onlyOptionsWarning"):
         L.append(f"- [警告] 仅捕获到 OPTIONS 预检，未捕获真实业务响应：{r['onlyOptionsWarning']}")
     if r.get("webdriverCheckError"):
