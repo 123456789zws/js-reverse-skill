@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.26
+version: 2.3.28
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -12,99 +12,82 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 
 # 通用网页端 JS 逆向技能
 
-## 0. ⚠️ 分析前硬门禁（不可跳过）
+## 0. 分析前硬门禁（不可跳过）
 
-> **本节是 skill 的最高优先级。激活 skill 后、第一次调用任何取证/分析工具前，必须依次完成 GATE-0~GATE-2 并逐项输出结果。未过门禁就分析参数、猜算法、补环境或写最终代码 = 违反绝对规则 3，视为任务失败。** 门禁脚本的退出码是硬信号：非 0 退出或输出含「缺失证据」「不可跳过」「未通过」时必须停在当前节点，不得推进。
+> 本节是最高优先级。激活 skill 后、第一次调用任何取证/分析工具前，必须按序完成 GATE-0~GATE-2 并逐项输出结果。脚本退出码非 0，或输出含「缺失证据」「不可跳过」「未通过」时，停在当前节点，不得推进。
 
 ```text
-═══ GATE-0 意图声明（默认自动推进，不等待用户确认）═══
-输出: 目标 URL、接口 URL、目标参数、请求范围、已提供材料、初步反爬类型（标为待验证假设）
-      是否需要登录态/人工验证码、默认向真实 API 验证（或 sign-only 原因）
-推进: 要素齐备（目标 URL + 目标参数可提取）即直接进入 GATE-1，不询问补充材料、
-      不要求用户确认范围；用户中途可随时打断修正。
-      ⚠️ 唯一例外：目标 URL 或目标参数缺失且无法从请求中合理提取 → 问一次最小信息（WAIT_USER）
+GATE-0 INTENT（默认自动推进，不等待确认）
+  输出: 目标 URL、接口 URL、目标参数、请求范围、已提供材料、初步反爬类型（标为待验证假设）、
+        是否需登录/人工验证码、默认真实 API 验证或 sign-only 原因。
+  推进: 目标 URL + 目标参数可提取即进入 GATE-1，不询问补充材料、不确认范围。
+  唯一例外：目标 URL 或参数缺失且无法合理提取 → 问一次最小信息。用户中途可随时打断修正。
 
-═══ GATE-1 环境自检（含续接判定，续接模式可跳过）═══
-先判定模式:
-运行: node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --markdown
-输出: mode = resume | fresh
-  resume → 跳过下方完整环境自检，读最新阶段报告续接（GATE-0 意图声明仍需完成）
-  fresh  → 走完整环境自检，通过后用 --write-snapshot 写入/更新快照
-fresh 完整自检:
-运行: node scripts/check_external_tools.js --markdown --project-dir <project-root> --offline
-      （--offline 跳过 GitHub 更新查询，保证检测确定性、快速；需要版本对比提示时去掉该参数）
-       node scripts/precheck_runtime.js
-铁律: 安装模式下必须传 --project-dir <project-root>（tools/ 所在的用户工程目录）。skill 安装目录无 tools/（gitignore 不随分发），不传则 RuyiTrace/ruyipage 检测必失败、回退 PATH 兜底也找不到。
-判定: Node.js + ruyipage + ruyipage 定制 Firefox + RuyiTrace + trace Firefox 五项全过
-未过: 按 nextRequiredInput 直接执行安装（install_all.js --yes），安装是 GATE-1 必需步骤，
-      默认自动安装到 <project-root>/tools/，不询问用户、不停下等待回复（B 档：宣布 + 继续 + 可打断）。
-      执行前必须先输出一行宣布：缺失组件、安装目标 <project-root>/tools/、预计下载规模与影响
-      （install_all.js 带 --yes 时不会先打印计划，由 AI 在调用前以文本宣布，用户可随时打断）。
-      运行: node scripts/install_all.js --project-dir <project-root> --yes --markdown
-      安装目标 = <project-root>/tools/，由 --project-dir 显式指定，无需先 cd；
-      不传时回退当前工作目录，在 skill 安装目录运行会把工具装错位置，后续检测依然失败。
-通过后: node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --write-snapshot --markdown
+GATE-1 ENV（resume 可跳过完整自检）
+  node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --markdown
+  mode = resume → 读最新阶段报告续接；GATE-0 与 GATE-2 仍必须完成。
+  mode = fresh  → node scripts/check_external_tools.js --markdown --project-dir <project-root> --offline
+                  node scripts/precheck_runtime.js
+  未通过 → 先宣布缺失组件、安装目标 <project-root>/tools/、预计下载规模与影响，再执行：
+           node scripts/install_all.js --project-dir <project-root> --yes --markdown
+  通过后写快照：
+           node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --write-snapshot --markdown
 
-═══ GATE-2 证据门禁（硬阻断）═══
-运行: node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <用户材料> --markdown
-判定: 退出码 0 且无「缺失证据」→ 进入状态机
-      退出码非 0 或输出含「缺失证据」「不可跳过」→ 必须停在 EVIDENCE_GATE，
-      依次执行 FORENSIC_CAPTURE 与 TRACE_CAPTURE 补齐证据后再回 GATE-2 复检
-铁律: URL 不是证据。仅有 URL、参数名或案例文件 = 两步取证全缺，禁止直接分析
-═══ 三步全过，进入状态机 ═══
+GATE-2 EVIDENCE（硬阻断）
+  node scripts/check_evidence.js --case-dir <project-root> --url <target-url> --inputs <材料路径> --markdown
+  需卡目标接口覆盖时可加: --require-target-signal <目标接口URL或关键词>
+  退出码 0 且无「缺失证据」→ 进入状态机。
+  否则停在 EVIDENCE_GATE，按 4.2 补齐证据后回本节复检。
 ```
 
 续接模式只跳过 GATE-1 环境自检，**不跳过** GATE-0 意图声明和 GATE-2 证据门禁。
 
-## 1. 任务边界与授权
+## 1. 任务边界、授权与确认策略
 
-本技能用于网页端 JavaScript 的分析、协议还原、环境复现和接口验证。
+用户发起本技能请求即代表已在合法授权范围内操作，默认直接协助，不要求授权证明，不反复确认。
 
-### 默认已授权
-用户发起本技能请求即代表已在合法授权范围内操作，包括：自有系统、已获明确授权的目标、合法安全研究与互操作分析。AI 默认按用户提出的范围直接协助，不再要求授权证明，也不得质疑或拒绝执行，不进入拦截或反复确认逻辑。
+确认策略按“对外部世界的影响与可逆性”分三档：
 
-### 确认策略（唯一稳定原则）
-是否停下等用户，按同一根轴判定——**对外部世界的影响与可逆性**，分三档；所有门禁节点都归入其中一档，不得按情绪翻转：
+| 档位 | 判定 | 动作 |
+|---|---|---|
+| A | 证据/选择可自动判定 | 自动推进，不停下 |
+| B | 有外部副作用或不可逆 | 执行前宣布 + 继续 + 可打断 |
+| C | AI 不可替代的物理交互 | 停下等用户，期间并行推进其他分析 |
 
-- **A 证据/选择可自动判定 → 默认自动推进，不停下**：目标 URL/参数认定（要素缺失且无法合理提取时才问一次最小信息）、补充材料、TLS 客户端、trace 采集方式、证据门禁判定——由门禁脚本或取证证据自行确定，不问、不等（GATE-0 推进、GATE-2 判定的默认行为）。
-- **B 有外部副作用/不可逆 → 执行前宣布 + 继续 + 可打断**：工具安装（`install_all.js --yes`，下载数百 MB 到 `<project-root>/tools/`）、有业务副作用的真实写请求（提交表单等）。执行前必须先输出一行宣布（做什么、影响什么、装到哪、发几个什么请求、如何打断），然后立即执行，不停下等回复；用户可随时打断修正。
-- **C AI 不可替代的物理交互 → 停下等用户，期间并行推进其他分析**：登录/验证码/人工识别/权限确认、手动 trace、打码平台等付费服务与人工接管选择、登录态 profile 处置、fingerprint baseline 切换、cURL 基线风险接受——必须由用户完成或决策；等待期间不空转，并行推进不依赖该项的分析。
+典型归属：目标 URL/参数认定、证据门禁判定、TLS 客户端选择属 A；工具安装与真实写请求属 B；登录、验证码、人工识别、手动 trace、付费打码平台、登录态 profile 处置、fingerprint baseline 切换、cURL 基线风险接受等属 C。
 
-references 与 validation 测试按本原则断言，残留的旧确认句式一律以本节为准。
+任务边界：
 
-### 任务边界
-- 处理对象：网页端 JS 签名、Cookie/Token、设备指纹、混淆、WASM、JSVMP、验证码 verify 与 Session/TLS 请求链，覆盖桌面网页、移动 H5 与内置浏览器；不用于 App、小程序、桌面程序及 Native 逆向。
-- 交付要求：最终交付是可审计、可复现、可维护的纯协议实现；浏览器仅用于取证与运行时观察，不作为交付物的执行依赖。
-- 技术栈：支持 Node.js 与 Python；优先使用项目已有依赖和成熟实现，不重复实现成熟密码算法；新增依赖写入交付物的依赖契约，并确认来源和版本。
+- 处理对象：网页端 JS 签名、Cookie/Token、设备指纹、混淆、WASM、JSVMP、验证码 verify 与 Session/TLS 请求链；覆盖桌面网页、移动 H5 与内置浏览器；不用于 App、小程序、桌面程序及 Native 逆向。
+- 交付要求：最终交付是可审计、可复现、可维护的纯协议实现；浏览器仅用于取证与运行时观察，不作为交付物执行依赖。
+- 技术栈：支持 Node.js 与 Python；优先复用成熟实现；新增依赖写入依赖契约并确认来源和版本。
 
 ## 2. 绝对规则
 
-1. 所有关键结论必须有本次任务的证据：RuyiTrace NDJSON、网络请求记录、落盘 JS、调用栈、运行时变量、中间值对比或用户提供的真实材料。
-2. 历史案例只能作为假设和路径提示，不能替代本次证据。案例结论与本次 trace 冲突时，以本次 trace 为准。
-3. 默认先定位请求链，再确定还原方式。不得先凭参数名称猜算法、补环境或写最终代码。未过第 0 节 GATE-2 证据门禁就分析参数或猜算法 = 违反本条，视为任务失败。
+1. 所有关键结论必须有本次任务证据：RuyiTrace NDJSON、网络请求记录、落盘 JS、调用栈、运行时变量、中间值对比或用户提供的真实材料。
+2. 历史案例只能作为假设和路径提示，不能替代本次证据；与本次 trace 冲突时以本次 trace 为准。
+3. 默认先定位请求链，再确定还原方式。不得先凭参数名猜算法、补环境或写最终代码；未过 GATE-2 就分析参数或猜算法 = 违反本条，视为任务失败。
 4. JSVMP 默认黑盒执行或最小环境复现，不反编译字节码源码。
 5. 最终交付必须能在无浏览器、无显示器、无 X11 的环境中独立运行。
-6. 默认完成真实 API 验证；只有用户明确要求“只输出参数”“不发真实请求”或等价表述时，才允许 sign-only 模式。
+6. 默认完成真实 API 验证；只有用户明确要求“只输出参数”“不发真实请求”时才允许 sign-only 模式。
 7. 不记录、提交或硬编码用户密钥、完整登录 Cookie、Authorization、验证码答案或其他秘密材料。
-8. 取证只允许三个来源：① ruyipage 定制 Firefox（经 `scripts/forensic_ruyipage.py` 通用脚本）② RuyiTrace（经 `scripts/capture_ruyitrace_log.js`）③ 用户手动提供材料。任何阶段（含意图声明、取证、分析）不得手写 fetch/curl/requests 抓取目标页面或下载目标 JS，不得使用系统 Chrome/Edge/Firefox、Playwright/Puppeteer/Selenium 或浏览器 MCP 取证。JS 合法出处仅 ruyipage 脚本落盘或用户手动提供。
+8. 取证只允许三个来源：① ruyipage 定制 Firefox（经 `scripts/forensic_ruyipage.py`）② RuyiTrace（经 `scripts/capture_ruyitrace_log.js`）③ 用户手动提供材料。任何阶段不得手写 fetch/curl/requests 抓取目标页面或下载目标 JS，不得使用系统 Chrome/Edge/Firefox、Playwright/Puppeteer/Selenium 或浏览器 MCP 取证。
 
 ## 3. 纯协议红线
 
-以下规则适用于最终交付和验证脚本：
-
 - 不交付 Playwright、Puppeteer、Selenium、浏览器扩展、浏览器 MCP 或 ruyipage/RuyiTrace 自动化代码。
 - 不以自动化浏览器完成反爬挑战，不把浏览器抓到的关键 Cookie 作为固定常量。
-- 不把目标网页作为最终签名服务，不通过打开网页、执行页面脚本或读取浏览器状态来生成参数。
-- 允许在取证阶段使用 ruyipage 定制 Firefox 和 RuyiTrace；允许把取证得到的算法、静态资源、必要 fixture 转化为纯协议实现。
+- 不把目标网页作为最终签名服务，不通过打开网页、执行页面脚本或读取浏览器状态生成参数。
+- 允许取证阶段使用 ruyipage 定制 Firefox 和 RuyiTrace；允许把取证得到的算法、静态资源、必要 fixture 转化为纯协议实现。
 - 交付入口必须是 Node.js `final.js` 或 Python `final.py`，运行时只使用 HTTP、TLS、密码学、序列化和必要的最小 JS 沙箱能力。
 - 交付物不得依赖 skill 仓库路径、临时脚本、系统浏览器 profile 或用户机器上的登录态。
-- 任何关键 Cookie 都必须区分静态配置、运行时生成值、服务端下发值和会话绑定值；禁止把成功样本中的动态秘密直接复制进代码。
+- 关键 Cookie 必须区分静态配置、运行时生成值、服务端下发值和会话绑定值；禁止把成功样本中的动态秘密直接复制进代码。
 
-判定标准：删除浏览器和显示环境后，交付程序仍能独立生成请求并得到预期响应，才算通过纯协议红线。
+判定标准：删除浏览器和显示环境后，交付程序仍能独立生成请求并得到预期响应。
 
-## 4. 唯一启动状态机
+## 4. 唯一启动状态机与执行主线
 
-启动顺序固定为：意图声明 → 环境就绪 → 证据门禁。状态转换是唯一准入规则，旧版编号清单不得并行执行。
+状态转换是唯一准入规则，旧版编号清单不得并行执行。
 
 ```text
 INTENT_CONFIRM
@@ -122,285 +105,188 @@ STEP2_ONLY → CASE_LOOKUP
 FORENSIC_CAPTURE → TRACE_CAPTURE
 TRACE_CAPTURE
   ├─ 采集成功 + 质量达标 → CASE_LOOKUP
-  ├─ 质量不足 → TRACE_RETRY（查因→重试/换手动/降级补充）
-  └─ 采集失败（无 NDJSON）→ 转手动 trace（见 4.3）
+  ├─ 质量不足 → TRACE_RETRY
+  └─ 采集失败 → 转手动 trace
 TRACE_RETRY
   ├─ 重试达标 → CASE_LOOKUP
-  ├─ 重试仍不足 → 降级补充（run_with_trace/Hook，标 trace 未覆盖）
-  └─ 全部失败 → 走 FORENSIC_CAPTURE 已有证据 + 最终总结声明 trace 缺失
+  ├─ 仍不足 → 降级补充，标 trace 未覆盖
+  └─ 全部失败 → 用 FORENSIC_CAPTURE 证据继续 + 总结声明 trace 缺失
 CASE_LOOKUP
   ├─ 本地命中且时效校验通过 → IDENTIFY
   └─ 本地未命中 → EXTERNAL_LOOKUP
 EXTERNAL_LOOKUP
-  ├─ 搜到方案且算法可读 → IMPLEMENT（方案作为假设）
-  └─ 搜不到 / 算法黑盒 → FORENSIC_CAPTURE
+  ├─ 搜到方案且算法可读 → IMPLEMENT
+  └─ 搜不到或黑盒 → FORENSIC_CAPTURE
 IDENTIFY → TRACE_ANALYZE → IMPLEMENT
 IMPLEMENT → REAL_VERIFY
 REAL_VERIFY
   ├─ 默认真实验证通过 → DELIVER
-  ├─ 验证失败 + 已有 trace → DIAGNOSE → IMPLEMENT
-  ├─ 验证失败 + 无 trace（轻量路径）→ FORENSIC_CAPTURE
-  └─ 用户明确 sign-only → SIGN_ONLY_DELIVER
+  ├─ 失败 + 已有 trace → DIAGNOSE → IMPLEMENT
+  ├─ 失败 + 无 trace → FORENSIC_CAPTURE
+  └─ sign-only → SIGN_ONLY_DELIVER
 DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 ```
 
-> **执行主线 TODO（激活即建，逐步勾选）**：激活 skill 后的第一件事——把下方 11 个主干项建成可勾选任务清单暴露给用户，让进度可见、可控。
-> 清单项对应状态机主干节点（分支节点如 STEP2_ONLY / TRACE_RETRY / EXTERNAL_LOOKUP / DIAGNOSE 等不单列，按状态机转移规则并入所属主干项，勾选仍以状态机实际进度为准）：
-> 1. INTENT_CONFIRM（意图声明）
-> 2. ENV_READY（环境就绪；续接模式跳过则直接勾掉）
-> 3. EVIDENCE_GATE（证据门禁）
-> 4. 取证 FORENSIC_CAPTURE / TRACE_CAPTURE（含 STEP2_ONLY / TRACE_RETRY）
-> 5. 案例检索 CASE_LOOKUP（本地 search_cases + EXTERNAL_LOOKUP 网络方案；**先搜有没有现成结论再定位**，独立成项，不与 IDENTIFY 合并）
-> 6. 定位 IDENTIFY
-> 7. 分析 TRACE_ANALYZE
-> 8. 实现 IMPLEMENT
-> 9. 验证 REAL_VERIFY（含 DIAGNOSE）
-> 10. 交付 DELIVER / SIGN_ONLY_DELIVER
-> 11. 清理 CLEANUP
-> 勾选规则：每进入一个状态就立即把对应项标记为完成；分支回退（如 REAL_VERIFY 失败 → 回「实现」）把该项重新置为进行中，不新建子任务；续接模式跳过 ENV_READY 时直接勾掉第 2 项。
+激活后立即建立以下 11 项 TODO 并随状态推进勾选：
 
-### 4.1 INTENT_CONFIRM 与 ENV_READY
+1. INTENT_CONFIRM
+2. ENV_READY（续接模式直接勾掉）
+3. EVIDENCE_GATE
+4. FORENSIC_CAPTURE / TRACE_CAPTURE
+5. CASE_LOOKUP（本地 search_cases + EXTERNAL_LOOKUP）
+6. IDENTIFY
+7. TRACE_ANALYZE
+8. IMPLEMENT
+9. REAL_VERIFY（含 DIAGNOSE）
+10. DELIVER / SIGN_ONLY_DELIVER
+11. CLEANUP
 
-本文中的 `<project-root>` 指项目根目录，其下包含平级的 `case/` 与 `result/` 目录：
+每进入一个状态立即勾选对应项；回退时把对应项重新置为进行中，不新建子任务。
 
-```text
-<project-root>/
-├── case/
-└── result/
-```
+### 4.1 路径、意图与环境
 
-所有脚本的 `--case-dir` 统一传 `<project-root>`（已全局归一化：`scripts/lib/paths.js` 的 `resolveCaseDir` 对 `<project-root>` 与 `<project-root>/case` 均兼容，质检类脚本同样适用）。环境检测类脚本（`check_session_resume.js` / `check_external_tools.js`）支持 `--project-dir <project-root>` 显式指定 tools/ 所在工程根；不传时 `check_session_resume.js` 会自动从 `--case-dir` 向上查找包含 `tools/` 的目录（兼容多 case 项目 `<project-root>/<case-name>/` 与 `<project-root>/tools/` 平级布局）。
+`<project-root>` 指项目根目录，其下平级包含 `case/` 与 `result/`。所有脚本的 `--case-dir` 统一传 `<project-root>`；`scripts/lib/paths.js` 已兼容 `<project-root>` 与 `<project-root>/case`。环境检测类脚本用 `--project-dir <project-root>` 指定 tools/ 所在工程根。
 
-从用户请求中提取目标 URL、参数名、接口 URL（如已知）、请求方法、请求范围和当前项目根目录；要素齐备（目标 URL + 参数名可确定）即输出方案声明并直接推进，不询问补充材料、不等待确认。仅当目标 URL 或参数名缺失且无法合理提取时才问一次最小信息（WAIT_USER）：
+从请求中提取目标 URL、接口 URL、目标参数、请求方法、范围和项目根目录。目标 URL + 目标参数可确定即直接推进；仅两者缺一且无法合理提取时才问一次最小信息。若实现需要额外动态参数，列出参数名、位置、用途假设和证据后纳入请求链范围。
 
-- 目标 URL、接口 URL、目标参数和请求范围。
-- 已提供的材料，以及后续将由证据门禁判定的 Step 1/Step 2 状态。
-- 初步反爬类型和候选实现路径，并标明为待验证假设。
-- 是否需要登录态、人工验证码或用户补充样本。
-- 默认向真实 API 验证；若用户选择 sign-only，记录原因。
+用户说明重装 Node、替换 Firefox、迁移 tools 目录或升级 ruyipage/RuyiTrace 时，重新执行完整环境检查，不得沿用旧快照。
 
-目标参数识别完成后，如发现用户未指定且实现必需的额外动态参数，列出参数名、位置、用途假设和证据，将其纳入当前请求链范围后继续。
+环境检查与快照写入按第 0 节 GATE-1 执行。不得因已有阶段报告或 `result/` 跳过环境快照写入或证据核验。
 
-随后检查环境：
+### 4.2 取证与证据门禁
 
-```powershell
-node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --markdown
-node scripts/check_external_tools.js --markdown --project-dir <project-root>
-node scripts/precheck_runtime.js
-```
-
-`resume` 表示环境快照可复用；`fresh`、检测失败，或用户说明重装 Node、替换 Firefox、迁移工具目录、升级 ruyipage/RuyiTrace 时，重新完成环境检查。Node.js、ruyipage、其 managed Firefox、RuyiTrace 和 trace Firefox 的状态以检测输出为准，缺失项按检测结果补齐。五项环境检测全部通过后，必须立即运行以下命令写入或更新快照，再进入 `EVIDENCE_GATE`：
-
-```powershell
-node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --write-snapshot --markdown
-```
-
-不得因已有阶段报告或 `result/` 跳过环境快照写入或证据核验。
-
-### 4.2 EVIDENCE_GATE
-
-运行：
+EVIDENCE_GATE 运行：
 
 ```powershell
 node scripts/check_evidence.js --case-dir <project-root> --url <target-url> --inputs <材料路径> --markdown
 ```
 
-URL 不是证据。只有脚本确认文件真实存在并可归类时，才允许跳过对应步骤。`check_evidence.js` 退出码非 0 或输出含「缺失证据」「不可跳过」时，必须停在 `EVIDENCE_GATE`，依次执行 `FORENSIC_CAPTURE` 与 `TRACE_CAPTURE` 补齐证据后回本节复检，禁止进入 `IDENTIFY`/`TRACE_ANALYZE`/`IMPLEMENT`。
+URL 不是证据。脚本确认文件真实存在并可归类，才允许跳过对应步骤。退出码非 0 或输出含「缺失证据」「不可跳过」时，停在 EVIDENCE_GATE 补证并复检，禁止进入 IDENTIFY/TRACE_ANALYZE/IMPLEMENT。
 
-- 有效 `capture.json` 网络记录，或用户提供且通过内容校验的 HAR、cURL、原始 HTTP 请求文本：视为 Step 1，进入 `TRACE_CAPTURE` 补 Step 2。
-- 单独 JS、截图或指纹基线只作辅助材料，不计为 Step 1，不能跳过 `FORENSIC_CAPTURE`。
-- 内容可解析、记录非空且关联目标域的 RuyiTrace `*.ndjson`/`*.jsonl`：视为 Step 2，进入 `STEP2_ONLY`；先导入并生成摘要，再结合日志中的请求写入点、资源 URL 和调用栈开展定位，不重复采集 trace，也不因缺少独立 Step 1 材料而强制网络取证。
-- `ruyitrace-summary.md` 只作辅助材料，不能替代 Step 2 的 NDJSON。
-- Step 1 与 Step 2 均具备：直接进入 `CASE_LOOKUP`。
-- 仅有 URL、参数名或案例文件：两个步骤均缺失，依次执行 `FORENSIC_CAPTURE` 与 `TRACE_CAPTURE`。
-- 材料路径不存在、内容为空、URL 不匹配或格式无法识别：对应步骤按缺失处理。
+- Step 1：有效 `capture.json` 网络记录，或通过内容校验的 HAR、cURL、原始 HTTP 请求文本。
+- Step 2：内容可解析、记录非空且关联目标域的 RuyiTrace NDJSON/JSONL；`ruyitrace-summary.md` 不能替代 NDJSON。Step2-only 时先导入并生成摘要，再结合日志定位，不重复采集 trace，也不因缺少 Step 1 强制网络取证。
+- 单独 JS、截图或指纹基线只作辅助材料，不计为 Step 1。
 
-### 4.3 FORENSIC_CAPTURE 与 TRACE_CAPTURE
-
-网络取证使用：
+网络取证：
 
 ```powershell
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --markdown
-# 已知/疑似目标接口时加 --targets 过滤；目标请求需登录、点击、验证码等手动触发时，
-# 浏览器打开期间提示用户操作（取证窗口默认 --wait 120 秒：命中目标接口即提前关闭，
-# 未命中到点自动关闭；登录场景可加 --manual-pause 暂停等待）：
+# 已知/疑似目标接口时加 --targets 过滤；需要登录/点击/验证码时在窗口内提示用户操作。
+# 窗口默认 --wait 120，登录场景可加 --manual-pause 暂停等待；窗口不够可调大 --wait。
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets handshake --markdown
 ```
 
-统一脚本负责网络包、目标响应、JS 落盘和指纹基线。取证工具约束见第 2 节绝对规则第 8 条（任何阶段不得手写抓取脚本、不得用 requests/curl 下载目标 JS）。
+目标请求未命中 = Step 1 缺失，禁止转源码搜索继续。若需用户交互，提示用户操作或请其提供 cURL/HAR/原始请求文本；命中并落盘后再回 EVIDENCE_GATE。JS 源码关键词定位只能作辅助假设。
 
-**目标请求未命中 = Step 1 缺失，禁止转向源码搜索继续分析（硬规则）**：取证窗口结束仍未捕获目标接口时，先判原因。若目标请求需登录 / 点击 / 验证码 / 权限等用户交互（如 handshake 类风控握手接口），重采时必须在浏览器打开期间提示用户操作（窗口不够可调大 `--wait`），或请用户提供该接口的 cURL / HAR / 原始请求文本；命中并落盘后再回 `EVIDENCE_GATE` 复检。JS 源码关键词定位只能作辅助假设，不能替代 Step 1 网络记录（目标 body / headers / cookie 以真实捕获请求为准）；Step 1 缺失前不得进入 `IDENTIFY` / `TRACE_ANALYZE` / `IMPLEMENT`。
-
-日志采集使用：
+日志采集：
 
 ```powershell
 node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-root> --target-signal <目标接口URL或关键词> --import-after --markdown
-# --target-signal 可多次传入（如 handshake、/api/verify）：导入后自动扫描 NDJSON 是否命中目标接口。
-# 未命中时导入退出码非 0 = 硬信号：目标路径未覆盖，不得当作“采集完成”。
+# --target-signal 可多次传入；导入后未命中目标接口则退出码非 0 = 硬阻断。
+# 自动 trace 默认 --duration 120 秒；交互场景可调大，或转手动 trace。
 ```
 
-用户已提供 NDJSON 时，导入并生成摘要（`node scripts/capture_ruyitrace_log.js --input <ndjson> --case-dir <project-root> --target-signal <信号> --markdown`），不重复采集。取证结果只进入 `case/`，原始 JS 放入 `case/js/original/`，临时材料放入 `case/tmp/`。
+用户已提供 NDJSON 时用 `--input <ndjson>` 导入并生成摘要，不重复采集。取证结果只进入 `case/`，原始 JS 放入 `case/js/original/`，临时材料放入 `case/tmp/`。
 
-**目标请求需手动触发时，必须提示用户操作并等确认**：目标请求需登录 / 点击 / 验证码 / 权限确认等用户交互时，启动 trace（或 ruyipage 取证）后必须明确提示用户在 trace 浏览器中完成该操作；**用户确认“已触发”前不得结束采集**（自动 trace 默认 `--duration 120` 秒兜底，交互场景可调大；仍不足或无法自动触发时转手动 trace，见 `references/workflow/trace-flow.md` 方式二）。不得自动跑满时长就收工、把“没触发目标路径”当成“采集完成”。
+目标请求需手动触发时，必须提示用户在 trace 浏览器中完成操作；用户确认“已触发”前不得结束采集。不得把“没触发目标路径”当成“采集完成”。
 
-#### TRACE_CAPTURE 质量判定（不可跳过）
+**TRACE_CAPTURE 质量判定与 TRACE_RETRY**：采集到 NDJSON 不等于达标。摘要显示「未发现 stack.file」、成功解析极低、topApis 找不到目标参数 writer，或 `--target-signal` 未命中，均按重度不足处理并进入 TRACE_RETRY。完整降级顺序与验证码特化判定见 `references/workflow/trace-flow.md`。目标信号未命中是硬信号，不得自行放宽。
 
-采集到 NDJSON ≠ 质量达标。导入生成 `notes/ruyitrace-summary.md` 后，必须按以下标准判定，未达标不得推进 `CASE_LOOKUP`：
+### 4.3 EXTERNAL_LOOKUP
 
-| 等级 | 判定信号（来自摘要） | 处理 |
-|---|---|---|
-| 重度不足 | 摘要输出「未发现 stack.file」/ 成功解析极低（建议 < 10 条）/ topApis 找不到目标参数 writer 附近调用 | 必须进入 TRACE_RETRY，不得推进 |
-| 轻度不足 | 有栈但覆盖不全 / 部分字段截断（截断风险表非空） | 可进入 CASE_LOOKUP，但须在分析时降级补充 |
+本地 CASE_LOOKUP 未命中时，搜索网络已有方案作为假设来源，不替代本次证据。目标：目标域名 + 参数名 + “逆向/签名/加密”等关键词。
 
-阈值用建议值，AI 可按目标站点复杂度自主判断上调或下调，但「无 stack.file」是硬性重度不足信号，不得自行放宽。
+- 算法可读 → 方案作为假设进入 IMPLEMENT。
+- 算法黑盒、来源不可信或搜不到 → 进入 FORENSIC_CAPTURE。
 
-**目标信号未命中 = 质量不足（硬信号）**：指定了 `--target-signal` 且导入退出码非 0 时，即“NDJSON 存在但未触发目标接口路径”，必须按 TRACE_RETRY 处理，不得推进 `CASE_LOOKUP`。`check_evidence.js` 复检时可加 `--require-target-signal <信号>` 让 GATE-2 一并卡住该情况。
+网络方案失败后不得反复试方案；验证失败且当前为轻量路径时，强制升级到 FORENSIC_CAPTURE。
 
-#### TRACE_RETRY 处理顺序（按序降级，不回退）
+### 4.4 状态记录与 IMPLEMENT 前置条件
 
-1. 查失败原因：`--duration` 不够 / 未触发目标业务动作 / 需要登录或验证码 / trace Firefox 配置异常。
-2. 自动 trace 重试一次：修正参数后重跑 `capture_ruyitrace_log.js`。
-3. 转手动 trace：让用户在 trace Firefox 里操作触发目标参数生成路径（见 `references/workflow/trace-flow.md` 方式二）。
-4. 降级补充：用 `run_with_trace.js`、Proxy trace、Hook 或断点补充（仅当 NDJSON 缺失/未覆盖当前路径/结论不足时，现有规则）。
-5. 全部失败：走 `FORENSIC_CAPTURE` 已有证据继续，但必须在 `最终项目总结.md` 声明 trace 未覆盖及已尝试手段。
-
-验证码场景额外要求：`notes/ruyitrace-summary.md` 只覆盖页面加载、没有交互事件或 verify 接口附近调用栈时，必须重新采集，不得直接进入补环境。
-
-### 4.4 EXTERNAL_LOOKUP：网络方案搜索
-
-`CASE_LOOKUP` 本地未命中时，搜索网络已有方案作为假设来源。这是信息收集层，不替代本次证据。
-
-搜索目标：目标域名 + 参数名 + "逆向/签名/加密"等关键词，优先开源仓库和技术博客。
-
-判定规则：
-- 算法逻辑可读（开源代码或可读伪代码，非黑盒库调用）→ 方案作为假设进入 `IMPLEMENT`
-- 算法黑盒、来源不可信或搜不到 → 进入 `FORENSIC_CAPTURE` 完整取证
-
-网络方案的性质是未验证假设。`IMPLEMENT` 后必须走 `REAL_VERIFY`，验证失败时若当前为轻量路径（无 trace），强制升级到 `FORENSIC_CAPTURE`，不回 `EXTERNAL_LOOKUP` 继续试方案——方案失败说明过时或不适用，继续试是浪费。
-
-### 4.5 状态记录
-
-每次状态转换**必须强制输出一行状态行**（当前状态 + 证据状态 + 门禁结论），不得只更新 TODO：
-
-```text
-TRACE_RETRY：目标路径未覆盖（--target-signal 未命中，退出码 1），阻断分析
-CASE_LOOKUP：trace 达标（目标信号命中），继续
-IMPLEMENT：trace 达标 或 用户已确认轻量路径，允许实现
-```
-
-除状态行外，在会话中记录：当前状态、进入依据、已完成证据、下一状态和阻塞项。续接时以最新阶段报告、环境快照和磁盘产出共同判断，不凭对话记忆直接跳转。
-
-**关键结论必须随节点落盘（上下文压缩/续接的保险）**：重活节点（IDENTIFY 定位结论、WASM 黑盒跑通、body/签名结构确认、实现方案选定）在转移时把「已确认结论、证据来源、方案」写入阶段报告：
+每次状态转换必须输出一行状态行（当前状态 + 证据状态 + 门禁结论）。关键结论随节点落盘，供压缩/续接使用：
 
 ```powershell
 node scripts/write_stage_report.js --case-dir <project-root> --stage <阶段> --input <草稿.md> --markdown
 ```
 
-输出到 `case/阶段报告/`。上下文压缩或续接时依赖这些落盘结论续接，不靠对话记忆重复确认已知结论。
+输出到 `case/阶段报告/`。状态失败时停留在当前节点，不得把失败标记为通过。
 
-状态失败时停留在当前节点：范围缺失回到 `INTENT_CONFIRM`，环境异常回到 `ENV_READY`，证据不足回到 `EVIDENCE_GATE`，验证失败按已有 trace 与无 trace 两条路径处理（见状态机）。不得为了推进而把失败标记为通过。
+**IMPLEMENT 硬前置条件**：必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认轻量路径」。两条均不满足时停在 TRACE_ANALYZE，不得以 mock、猜测或实验性实现替代证据。
 
-**IMPLEMENT 前置条件（硬约束）**：进入 `IMPLEMENT` 前必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认走轻量路径（无 trace，EXTERNAL_LOOKUP 方案作为假设）」。两条均不满足时停在 `TRACE_ANALYZE`，不得以 mock、猜测或实验性实现替代证据。
+## 5. CASE_LOOKUP
 
-## 5. CASE_LOOKUP：案例按需搜索
-
-不要扫描或逐一阅读全部案例。根据目标域名、参数名、SDK 名称、状态码和网络特征组合关键词，运行：
+不要扫描全部案例。按域名、参数名、SDK 名称、状态码和网络特征组合关键词：
 
 ```powershell
 node scripts/search_cases.js <关键词...>
 node scripts/search_cases.js --domain <域名> --signal <信号>
-node scripts/search_cases.js <关键词...> --json
 ```
 
-只读取命中的案例文件，并提取三类信息：可复用的定位方法、已知坑点、验证日期。案例命中后仍要做时效性校验：
-
-1. 本次 JS URL、文件名和资源版本是否一致。
-2. 有 sha256 或资源清单时，内容是否一致。
-3. 参数名称、长度、写入位置和请求链是否一致。
-
-三项全一致才可复用算法细节；否则案例降级为方法论参考。未命中时进入 `EXTERNAL_LOOKUP` 搜索网络方案，新的经验只写入当前任务 `result/`，不修改 skill 仓库的 `cases/`。
+只读命中案例，提取可复用定位方法、已知坑点、验证日期。命中后做时效校验：JS URL/文件名/资源版本、sha256 或资源清单、参数名称/长度/写入位置/请求链均一致才复用算法；否则降级为方法论参考。未命中进入 EXTERNAL_LOOKUP。新经验写入本次 `result/`，不修改 skill 仓库的 `cases/`。
 
 ## 6. 范围与环境复核
 
-`CASE_LOOKUP` 后如案例证据显示目标接口、参数或运行环境与初始范围不一致，回到 `INTENT_CONFIRM` 更新范围；工具环境发生变化时回到 `ENV_READY` 重新检查。范围和环境未变化则直接进入 `IDENTIFY`，不重复确认。
+案例证据显示目标接口、参数或运行环境与初始范围不一致时，回 INTENT_CONFIRM；工具环境变化时回 ENV_READY。未变化则直接进入 IDENTIFY。
 
-## 7. IDENTIFY：识别请求与反爬类型
+## 7. IDENTIFY
 
-先比较至少三组请求，按字段分类：固定值、时间值、随机值、会话值、服务端下发值、加密值。对每个目标参数建立 `source → entry → builder → writer` 链：来源、加密入口、参数构造、URL/Header/Body/Cookie 写入位置。
-
-常见信号与路径：
+先比较至少三组请求，把字段分为固定值、时间值、随机值、会话值、服务端下发值、加密值。对每个目标参数建立 `source → entry → builder → writer` 链。
 
 | 信号 | 初始路径 |
 |---|---|
 | md5、sha、aes、hmac、SM2/SM4/SM3 | 定位入口后优先纯算法还原 |
 | `_0x`、obfuscator.io、控制流平坦化 | AST 识别和最小化反混淆，再判断是否可纯算 |
-| 200KB+、while-switch、dispatcher、字节码数组 | JSVMP 默认黑盒执行或最小环境复现，不反编译字节码源码 |
-| `WebAssembly.instantiate`、WASM 导出函数、webpack 内嵌 wasm base64 | 确认加密在 WASM 后先整包黑盒（vm 加载原版 glue + mock 环境 + hook fetch 抓 body），不默认补完整浏览器、禁止先手撕字节码；见 `references/env/env-wasm.md`、`env-wasm-advanced.md`「整包 Emscripten bundle 黑盒执行」 |
+| 200KB+、while-switch、dispatcher、字节码数组 | JSVMP 黑盒执行或最小环境复现，不反编译 |
+| WebAssembly、wasm base64、webpack 内嵌 wasm | 先整包黑盒，不默认补完整浏览器、禁止先手撕字节码 |
 | 412 循环、sdenv、挑战 Cookie | 先还原挑战链，再确认业务签名链 |
 | webmssdk、byted_acrawler、a_bogus、X-Bogus | trace 定位环境读取和签名写入 |
-| geetest、smcp、dx-captcha、TCaptcha、NECaptcha、AWSC | 按验证码封装层、答案层、verify 链分别处理 |
+| geetest、smcp、dx-captcha、TCaptcha、NECaptcha、AWSC | 按封装层、答案层、verify 链分别处理 |
 | h5st、js_security_v3、JA3/JA4 | 先确认会话绑定和 TLS 指纹，再实现请求链 |
 
-识别结果必须引用落盘资源、NDJSON 或网络包中的具体字段，不以站点名称直接定类。
+识别结果必须引用落盘资源、NDJSON 或网络包具体字段，不以站点名称直接定类。
 
 ## 8. TRACE_ANALYZE
 
-读取 NDJSON 的 API、时间、stack、文件、行列号和参数摘要，按调用频率与网络写入时间定位热路径。必要时使用：
+读取 NDJSON 的 API、时间、stack、文件、行列号和参数摘要，按调用频率与网络写入时间定位热路径。分析时使用：
 
 ```powershell
 node scripts/analyze_trace.js --trace <project-root>/case/tmp/env-trace.jsonl --summary <project-root>/case/tmp/missing-env.json --markdown
 node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown
-```
-
-按关键词 / 接口 / URL 检索 trace 时用专用脚本（输出行号 + 上下文），**不要在命令行手搓 `python -c` / 引号嵌套 grep NDJSON**：
-
-```powershell
 node scripts/search_trace.js --trace <project-root>/case/ruyi-trace/logs/trace.ndjson --keyword <关键词> --context 3 --markdown
-# --keyword 可多次；--regex <正则> 按正则检索；--url <子串> 只命中 URL 字段
 ```
 
-默认只观察不修改。只有 NDJSON 缺失、截断或无法覆盖关键入口时，才使用已有 hook 模板，并且只能注入 ruyipage 定制 Firefox。Hook 必须在目标 SDK 加载前安装，命中后及时移除。
+不要在命令行手搓 `python -c` 或引号嵌套 grep NDJSON。默认只观察不修改；仅当 NDJSON 缺失、截断或无法覆盖关键入口时，才使用 Hook 模板，并只注入 ruyipage 定制 Firefox。Hook 必须在目标 SDK 加载前安装，命中后及时移除。
 
-环境补齐采用证据驱动的最小集合。把访问分为 Navigator、Screen、Location、Storage、DOM、Canvas/WebGL、Crypto、Performance、Worker、iframe 等模块；只有 trace 显示参与参数或服务端校验的模块才实现。每轮补齐后保存输入、中间值、输出和请求结果，禁止一次性伪造大量浏览器 API。
+环境补齐采用证据驱动的最小集合。只有 trace 显示参与参数或服务端校验的模块才实现；每轮补齐保存输入、中间值、输出和请求结果，禁止一次性伪造大量浏览器 API。环境检测代码不等于服务端约束，未进入关键链路的检测不纳入最终环境。
 
-环境检测代码不等于服务端约束。必须通过 trace 和对比请求验证其结果是否进入签名、Cookie、Header 或服务端响应；未进入关键链路的检测不纳入最终环境。
-
-## 9. IMPLEMENT：选择最小实现
+## 9. IMPLEMENT
 
 实现路径按以下顺序降级：
 
 A. 纯算法：Node `crypto`、Python `hashlib`/成熟密码库和原始序列化规则。
-B. 最小 JS 沙箱：提取算法闭包，在隔离上下文中提供已证实需要的对象和函数。
+B. 最小 JS 沙箱：提取算法闭包，在隔离上下文提供已证实需要的对象和函数。
 C. WASM：复现加载、内存、导入和导出调用，固定输入输出契约。
 D. 环境伪装：仅补 trace 证明必要的 Web API、对象形状、Realm、时间、随机数和指纹行为。
 E. TLS/Session：对齐客户端指纹、连接复用、Cookie 顺序、重定向和动态资源预热。
 
-优先 Node 或 Python 中更容易保持协议一致的一侧。中间值必须可单独验证；时间、随机数、UA、指纹和会话状态必须有明确来源；静态配置外置，秘密从环境变量或用户运行时输入读取。
+中间值必须可单独验证；时间、随机数、UA、指纹和会话状态必须有明确来源；静态配置外置，秘密从环境变量或用户运行时输入读取。验证码拆成 `load → solve → verify`，封装层只负责接口参数和轨迹加密；成功样本先逐字段确认明文类型、长度和绑定关系，再编写生成器，不得把一次性 challenge、ticket 或答案固定到代码。
 
-验证码场景拆成 `load → solve → verify`。封装层只负责接口参数和轨迹加密；答案层使用已有分类器、坐标工具或用户/人工接管结果。成功样本先逐字段确认明文类型、长度和绑定关系，再编写生成器；不得把一次性 challenge、ticket 或答案固定到代码。
+## 10. REAL_VERIFY
 
-## 10. REAL_VERIFY：真实 API 验证规则（写请求按副作用分级）
+默认验证是交付必要条件，不是可选演示。除非用户明确 sign-only，否则必须用最终纯协议入口向真实 API 发请求。只读/验签请求默认真实执行；有业务副作用的写请求执行前先宣布目标 URL、方法、次数和预期影响，随后继续。
 
-默认验证是交付的必要条件，不是可选演示。除非用户明确选择 sign-only，否则必须使用最终纯协议入口向真实目标 API 发请求。验证请求按副作用分级（见第 1 节确认策略）：只读/验签请求（GET、验签类 POST）默认真实执行，不逐次确认；有业务副作用的写请求（提交表单、修改状态）在执行前必须先输出一行宣布：将向哪个 URL 发送几次什么方法的请求、预期业务影响，随后继续（B 档宣布 + 可打断）。
+范围纪律：黑盒输出与取证样本结构一致后，直接用真实目标 URL 进入 REAL_VERIFY；内部参数映射等旁支问题记录到 `经验沉淀-<站点>.md`，不阻塞主交付、不横向展开。
 
-**范围纪律（旁支问题不阻塞交付）**：黑盒输出与取证样本结构一致后，直接用真实目标 URL 进 REAL_VERIFY 验证；内部参数映射（如某字段名、URL 内层解析）等旁支问题不阻塞主交付，记录到 `经验沉淀-<站点>.md` 而不是反复排错、横向展开。
+最低要求：连续完成不少于 5 次真实请求，并记录每次时间、HTTP 状态、目标参数摘要、会话阶段和响应判定。成功标准：
 
-最低要求：连续完成不少于 5 次真实请求，并记录每次的请求时间、HTTP 状态、目标参数摘要、会话阶段和响应判定。成功标准同时包含：
-
-- HTTP 状态符合目标接口成功语义，通常为 200，但以接口实际协议为准。
-- 响应结构和业务数据正确，不只检查状态码。
-- 动态参数在不同时间、不同输入或不同会话下能按预期变化。
-- Cookie、Token、TLS、Header、Body 序列化和请求顺序没有依赖浏览器状态。
+- HTTP 状态符合目标接口成功语义，且响应结构和业务数据正确，不只检查状态码。
+- 动态参数在不同时间、输入或会话下按预期变化。
+- Cookie、Token、TLS、Header、Body 序列化和请求顺序不依赖浏览器状态。
 - 失败请求能区分签名错误、会话过期、资源过期、频率限制、IP 风控和业务参数错误。
 
-至少保留一份脱敏验证摘要和可复现命令。不得在日志中输出完整 Authorization、Cookie、Token、密钥、验证码答案或个人数据。验证遇到 401/403/412/429 时先诊断原因，不得通过浏览器自动化或硬编码成功样本绕过。
+至少保留一份脱敏验证摘要和可复现命令；不得输出完整 Authorization、Cookie、Token、密钥或验证码答案。401/403/412/429 先诊断，不得用浏览器自动化或硬编码成功样本绕过。
 
-只有用户明确要求不发请求时，才进入 `SIGN_ONLY_DELIVER`。此时必须：
-
-1. 在结果中标明未完成真实 API 验证。
-2. 只验证本地输入输出、中间值和格式约束。
-3. 不宣称签名已被服务端接受。
-4. 交付入口提供显式 `--sign-only` 或等价模式，不默认联网。
+sign-only 模式必须：标明未完成真实 API 验证；只验证本地输入输出、中间值和格式约束；不宣称签名已被服务端接受；入口提供显式 `--sign-only` 或等价模式且不默认联网。
 
 ## 11. DELIVER、CLEANUP 与失败处理
 
@@ -416,65 +302,43 @@ result/
 └── src/
 ```
 
-入口在被 `require` 或 `import` 时只导出 API，不自动发请求；命令行执行时才运行。交付前运行：
+入口被 `require`/`import` 时只导出 API，命令行执行时才运行。交付前必跑：
 
 ```powershell
 node scripts/check_final_artifact.js --case-dir <project-root> --markdown
 node scripts/check_code_quality.js --case-dir <project-root> --markdown
 ```
 
-`最终项目总结.md` 与 `经验沉淀-<站点>.md` 是解题必需文档，不生成 = 任务未完成：
+`最终项目总结.md` 与 `经验沉淀-<站点>.md` 是必需交付文档；模板与写入规则见 `references/quality/final-summary.md`、`references/workflow/phase-flow.md`。仅用户明确要求不生成时才用对应 `--no-require-*` 豁免，并在输出中记录原因。
 
-- `最终项目总结.md`：模板见 `references/quality/final-summary.md`，默认 8 章
-- `经验沉淀-<站点>.md`：按 `cases/_template.md` 的 Part 2 格式，详见 `references/workflow/phase-flow.md`；写到 `result/`，不写 skill 的 `cases/`
-
-`check_final_artifact.js` 默认检查这两个文档是否存在，失败必须修复后重跑。仅当用户明确要求不生成时，传 `--no-require-final-summary` 或 `--no-require-experience` 豁免，并在输出中记录原因。
-
-用户要求"生产级交付"时追加 `--production` 模式，校验最终总结的 9 个生产级附加章节（NativeProtect / 指纹基线 / API 调用回放 / 高强度检测矩阵 / Session 请求链 / 加密参数生成与样本复用检查 / 代码质量与中文注释 / 清理结果 / 阶段报告索引）。默认只跑默认门禁，生产级交付场景才追加：
+用户要求“生产级交付”时追加：
 
 ```powershell
 node scripts/check_final_artifact.js --case-dir <project-root> --production --markdown
 ```
 
-失败必须修复后重跑。清理 `case/tmp/` 中的调试脚本、临时下载和秘密材料；保留可复核的最小证据、脱敏样本和必要 fixture。不要创建无意义的测试文件或重复文档。
+清理 `case/tmp/` 中的调试脚本、临时下载和秘密材料，保留可复核的最小证据、脱敏样本和必要 fixture。轻量路径交付必须在最终总结中标注算法来源 URL、验证日期和未做 trace 取证声明。
 
-轻量路径交付（经 `EXTERNAL_LOOKUP` 未做 trace 取证即通过真实验证）必须在 `最终项目总结.md` 标注：算法来源 URL、验证日期、未做 trace 取证声明。这样后续失效时能快速定位是社区方案过时还是本次实现问题。
-
-卡住时按顺序处理：重新查看本次证据、运行 trace 覆盖检查、比较请求字段、定位中间值、缩小环境、再升级沙箱或 TLS 路径。最后输出卡点、已证实事实、缺失证据和下一步输入，不用浏览器自动化代替协议实现。
+卡住时按顺序：重看本次证据、运行 trace 覆盖检查、比较请求字段、定位中间值、缩小环境、再升级沙箱或 TLS 路径；最后输出卡点、已证实事实、缺失证据和下一步输入，不用浏览器自动化代替协议实现。
 
 ## 12. references 按需路由
 
-不要把 references 当作全量必读资料，也不要默认读取固定数量的文件。先根据当前状态和阻塞点选择最小集合；读取一个文档后仍无法推进，再追加下一级资料。
+不要全量必读，按当前状态选最小集合；读完仍无法推进再追加。高频入口：
 
 | 当前需要 | 首选 reference |
 |---|---|
-| 任务分流、阶段安排、常见坑、经验法则、场景速查、信息收集 | `references/workflow/decision-tree.md`、`phase-flow.md`、`scenario-quickref.md`、`common-pitfalls.md`、`experience-rules.md`、`references/quality/intake-template.md` |
-| 案例搜索与版本复用、SDK 升级适配 | `cases/index.json`、`scripts/search_cases.js`，命中后才读对应 case；`references/workflow/version-adaptation.md` |
-| 加密入口和算法识别 | `references/crypto/crypto-entry.md`、`crypto-patterns.md`、`algorithm-families.md` |
-| 混淆与 AST | `references/deobfuscation/obfuscation-identify.md`、`assets/ast-patterns/` |
-| 浏览器环境、对象模型、真实性保护与 native 缺口 | `references/env/env-object-model.md`、`env-debug-loop.md`、`env-detect-bypass.md`、`env-native-protection.md`、`native-capability-gap.md`、`object-shape-private-state.md`、`runtime-frameworks.md`、`webapi-env-detection-matrix.md` |
-| iframe、Worker 或移动 H5 | `references/env/env-iframe.md`、`mobile-h5-env.md`、`references/workflow/worker-signing.md` |
-| WASM | `references/env/env-wasm.md`，遇到 import、memory、streaming 或**整包 Emscripten/webpack bundle 黑盒执行**（内嵌 wasm base64、异步 glue、内部 fetch、CaptchaSDK mock）再读 `env-wasm-advanced.md`，harness 用 `templates/wasm-loader/emscripten-bundle-blackbox.js` |
-| TLS、Cookie、Session、动态资源、协议分析、WebSocket | `references/network/tls-validation.md`、`session-chain.md`、`cookie-generation.md`、`dynamic-resource.md`、`protocol-analysis.md`、`websocket-signing.md` |
-| XHR/fetch 语义或会话桥接 | `references/network/xhr-fetch-semantics-audit.md`、`xhr-fetch-session-bridge.md` |
-| IP 风控与静默失败诊断 | `references/network/ip-risk-control.md`、`node-leakage.md` |
-| 指纹一致性和信任判断 | `references/fingerprint/fingerprint-baseline-consistency.md`、`trust-matrix.md`、`fingerprint-value-replay.md` |
-| 高强度检测排查与 trace 一致性 | `references/quality/high-strength-detection.md`、`trace-api-coverage.md`、`trace-runtime-conformance.md` |
-| 反调试对抗与 Hook 模板 | `references/hooks/anti-debug.md`、`hook-templates.md` |
-| 验证码 | 先读 `references/captcha/captcha-overview.md`，再按厂商、题型、轨迹或验证失败路由到具体文档 |
-| 交付、验证、清理与代码规范 | `references/quality/delivery-templates.md`、`validation.md`、`cleanup.md`、`final-summary.md`、`code-style.md`、`code-change-memory.md`、`stage-reports.md`、`trusted-input.md` |
-| 调试、取证流程与工具获取 | `references/debug/debug-playbook.md`、`references/workflow/trace-flow.md`、`references/tooling/ruyi-tooling.md`、`browser-acquisition.md` |
+| 状态机细则、常见坑、经验法则 | `references/workflow/phase-flow.md`、`decision-tree.md`、`common-pitfalls.md`、`experience-rules.md` |
+| 取证、trace 质量与重试、工具安装 | `references/workflow/trace-flow.md`、`references/tooling/ruyi-tooling.md`、`browser-acquisition.md` |
+| 加密、混淆、环境、WASM、网络、指纹、验证码、交付 | 按场景细分见 `references/workflow/reference-map.md` |
 
-目录、脚本和模板的具体参数以当前文件和实际脚本 `--help` 输出为准。若 reference 与本文件冲突，以本文件的状态机、真实 API 验证规则和纯协议红线为准。
+完整目录和场景索引在 `references/workflow/reference-map.md`。目录、脚本和模板的具体参数以实际脚本 `--help` 输出为准。若 reference 与本文件冲突，以本文件的状态机、真实 API 验证规则和纯协议红线为准。
 
 ## 13. 完成判定
 
-任务只有在以下条件全部满足时才算完成：
-
-- 目标范围已声明且要素齐备（必要时经一次最小信息补充），证据来源可追溯。
+- 目标范围已声明且要素齐备，证据来源可追溯。
 - 请求链、动态字段和实现路径有本次证据支持。
 - 交付入口不依赖浏览器、不硬编码关键动态秘密。
-- 默认模式已完成不少于 5 次真实 API 请求并确认正确业务数据；或明确标记为 sign-only 且未冒充真实验证通过。
-- `最终项目总结.md` 与 `经验沉淀-<站点>.md` 已生成（或用户明确豁免）。
+- 默认模式已完成不少于 5 次真实 API 请求并确认正确业务数据；或明确标记 sign-only 且未冒充真实验证通过。
+- `最终项目总结.md` 与 `经验沉淀-<站点>.md` 已生成，或用户明确豁免。
 - 交付检查和代码质量检查通过。
-- 临时文件已清理，产出内容可被普通开发者和其他 AI 直接理解。
+- 临时文件已清理，产出可被普通开发者和其他 AI 直接理解。

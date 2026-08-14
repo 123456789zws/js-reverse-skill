@@ -1,6 +1,6 @@
 # 脚本索引
 
-本目录包含 51 个可执行脚本（44 个 JavaScript、7 个 Python），按功能分为 9 类。以下索引以 `scripts/` 当前实际文件为准，不包含 `README.md`。
+本目录包含 52 个可执行脚本（45 个 JavaScript、7 个 Python），按功能分为 9 类。以下索引以 `scripts/` 当前实际文件为准，不包含 `README.md`。
 
 本文中的 `<project-root>` 指项目根目录，其下包含平级的 `case/` 与 `result/` 目录。需要 case 目录的脚本使用 `<project-root>/case`，需要项目根目录的脚本直接使用 `<project-root>`。`forensic_ruyipage.py` 与 `capture_ruyitrace_log.js` 会在 `--case-dir` 下创建 `case/`，因此必须传入 `<project-root>`。`check_session_resume`/`check_fingerprint_fixture`/`check_trace_api_coverage` 已归一化，传 `<project-root>` 或 `<project-root>/case` 均可。
 
@@ -66,12 +66,13 @@
 | `check_environment_closure.js` | 汇总执行 Trace-runtime、WebAPI、对象形状与网络语义闭环检查 | `node scripts/check_environment_closure.js --case-dir <project-root> --before-real-request --markdown` |
 | `generate_fingerprint_hook.js` | 生成浏览器侧指纹终端 API 采样 Hook，仅用于取证 | `node scripts/generate_fingerprint_hook.js --types canvas,webgl,dom-geometry --out case/hooks/fingerprint-hook.js` |
 
-## 质量检查与交付门禁（6 个）
+## 质量检查与交付门禁（7 个）
 
 | 脚本 | 功能 | 典型用法 |
 |------|------|---------|
 | `check_code_quality.js` | 检查代码简洁性、模块化、编码与交付代码规则 | `node scripts/check_code_quality.js --case-dir <project-root> --markdown` |
 | `check_final_artifact.js` | 检查交付目录、单一入口、禁用浏览器自动化、总结与经验沉淀等规则 | `node scripts/check_final_artifact.js --case-dir <project-root> --markdown` |
+| `check_skill_consistency.js` | 检查 SKILL.md 关键门禁锚点、引用路径与 references 孤儿文件 | `node scripts/check_skill_consistency.js --project-dir <project-root> --markdown` |
 | `check_fingerprint_fixture.js` | 检查指纹 fixture 对 Canvas、WebGL、Audio、DOM 几何等的覆盖 | `node scripts/check_fingerprint_fixture.js --case-dir <project-root> --markdown` |
 | `check_dynamic_resources.js` | 检查动态资源是否仅作快照，并具备运行时刷新设计 | `node scripts/check_dynamic_resources.js --case-dir <project-root> --markdown` |
 | `check_change_memory.js` | 检查代码变更记忆中的修改原因、禁止回退与验证记录 | `node scripts/check_change_memory.js --case-dir <project-root> --markdown` |
@@ -113,10 +114,10 @@
 | 网络取证与日志采集 | 4 |
 | Trace 分析与运行时闭环 | 8 |
 | 补环境与网络语义检查 | 7 |
-| 质量检查与交付门禁 | 6 |
+| 质量检查与交付门禁 | 7 |
 | 安装与下载 | 3 |
 | 验证码识别与求解辅助 | 6 |
 | 验证码验证门禁 | 3 |
-| **合计** | **51** |
+| **合计** | **52** |
 
 > 滑块缺口坐标来源判定（A 接口参数 / B 图片像素 / C 纯图像三路线）见 `references/captcha/gap-coordinate-source.md`。本目录中的验证码辅助脚本负责 C 类坐标换算、轨迹生成、答案校验与打码模板，A / B 类走封装层逆向。

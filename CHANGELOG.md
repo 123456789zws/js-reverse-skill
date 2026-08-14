@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2.3.28 - 2026-08-14
+
+### 优化
+- **SKILL.md 降密度重构**：正文从约 480 行 / 38.6KB 降到约 344 行 / 22.2KB，保留 GATE-0~GATE-2、绝对规则、纯协议红线、状态机、真实 API 验证与交付检查；将完整 references 路由迁至 `references/workflow/reference-map.md`。
+- **新增 `scripts/check_skill_consistency.js`**：校验 SKILL.md frontmatter、关键门禁锚点、引用路径和 references 孤儿文件，防止后续精简误删约束。
+- **同步 `scripts/README.md`**：脚本总数更新为 52（45 JavaScript、7 Python）。
+
 ## 2.3.27 - 2026-08-14
 
 ### 修复
