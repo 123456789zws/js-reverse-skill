@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.3.34 - 2026-08-15
+
+### 优化
+- **cases 新增 `acw-sc-v2-blackbox-leisu.md`**：阿里云盾 acw_sc__v2 新版黑盒执行 + accept AES 签名 + 响应三重编码的完整案例。含 acw 黑盒执行坑点清单（NFE toString 一致性、Proxy 不改源码观测、洗牌器与主逻辑共享括号不可单独提取、裸标识符 `reload`、`alichlgref` 必带、55vs50 长度教训）+ 可验证事实清单；index.json 同步登记。
+- **check_final_artifact.js 修复 webdriver 误伤**：`AUTOMATION_PATTERNS` 的 `\bwebdriver\b` 会命中 `navigator.webdriver`（黑盒执行 acw/JSVMP 时的环境模拟，被误判为浏览器自动化）。改为负向断言 `(?<!navigator\.)` 排除点访问的环境模拟，保留 `selenium-webdriver`/`WebDriver`/`webdriver` 包的自动化检测。
+
 ## 2.3.33 - 2026-08-15
 
 ### 优化

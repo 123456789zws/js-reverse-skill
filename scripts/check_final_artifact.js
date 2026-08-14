@@ -100,7 +100,7 @@ const AUTOMATION_PATTERNS = [
   /\bpuppeteer\b/i,
   /\bpyppeteer\b/i,
   /\bselenium\b/i,
-  /\bwebdriver\b/i,
+  /(?<!navigator\.)\bwebdriver\b/i,
   /\bbrowser\.new_page\b/i,
   /\bbrowser\.newPage\b/i,
   /\blaunch_browser\s*\(/i,

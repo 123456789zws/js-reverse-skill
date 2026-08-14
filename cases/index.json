@@ -138,6 +138,14 @@
       "strategy": "B+D：vm 执行原版 js_security_v3，维护 fp/eid 会话绑定与动态密钥预热，使用 Firefox 系 TLS 指纹请求业务接口",
       "file": "jsvmp-h5st-js-security-v3-jd.md",
       "verifiedAt": "2026-08-10"
+    },
+    {
+      "title": "阿里云盾 acw_sc__v2 新版挑战（黑盒）+ accept AES 签名 + 响应三重编码",
+      "domains": ["leisu.com", "api-gateway.leisu.com", "m.leisu.com"],
+      "signals": ["acw_sc__v2", "punish-loc", "keepper", "xXRQBR", "renderData.l1", "alichlgref", "1234cf0d46", "accept", ";;", "code-100"],
+      "strategy": "A+B：纯算 accept AES-ECB 签名与响应凯撒位移+gzip+base64 解密，vm 黑盒执行 acw 挑战脚本生成挑战 Cookie",
+      "file": "acw-sc-v2-blackbox-leisu.md",
+      "verifiedAt": "2026-08-15"
     }
   ]
 }
