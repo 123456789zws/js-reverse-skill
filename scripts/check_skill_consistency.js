@@ -170,10 +170,10 @@ function renderMarkdown(result) {
   lines.push(`- 问题数量：${result.problems.length}`);
   lines.push('');
   if (result.problems.length === 0) {
-    lines.push('✅ 通过');
+    lines.push('[通过] 通过');
   } else {
     for (const p of result.problems) {
-      lines.push(`- ❌ ${p.message}`);
+      lines.push(`- [未通过] ${p.message}`);
     }
   }
   return lines.join('\n');

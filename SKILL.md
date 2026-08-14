@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.28
+version: 2.3.29
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -176,7 +176,11 @@ python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root>
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets handshake --markdown
 ```
 
+取证会自动保存入口页面 HTML 到 `case/forensic/document.html`（含 412/JS challenge 页内联脚本，是 acw_sc__v2 等 challenge cookie 的强制证据），无论是否指定 `--targets`。
+
 目标请求未命中 = Step 1 缺失，禁止转源码搜索继续。若需用户交互，提示用户操作或请其提供 cURL/HAR/原始请求文本；命中并落盘后再回 EVIDENCE_GATE。JS 源码关键词定位只能作辅助假设。
+
+Windows 下若 Python 脚本输出仍现编码异常，用 `PYTHONUTF8=1` 前缀兜底（PowerShell：`$env:PYTHONUTF8="1"`）；仓库脚本已内置 UTF-8 强制与 emoji 安全化，正常无需手动加。
 
 日志采集：
 
@@ -210,6 +214,13 @@ node scripts/write_stage_report.js --case-dir <project-root> --stage <阶段> --
 ```
 
 输出到 `case/阶段报告/`。状态失败时停留在当前节点，不得把失败标记为通过。
+
+**每个阶段结束必须落一个最小阶段报告**（至少含：当前状态、已证实事实、缺失证据、下一步输入）；续接模式靠它恢复，不得跳过。
+
+**上下文防耗尽检查点（硬约束）**：TRACE_ANALYZE 消耗大量步骤或上下文接近耗尽时，先落盘再继续：
+- `notes/entry-chain.md`：入口函数 → 请求链 → 关键 `stack.file:line:col`；
+- `notes/missing-env-priority.md`：待补环境清单（字段名 + 真实长度 unknown + 优先级）。
+判定标准：trace 已定位到关键资源/入口，或当前节点已消耗 20+ 步仍未进入 IMPLEMENT。先写这两个文件再推进，避免下次续接从零开始。
 
 **IMPLEMENT 硬前置条件**：必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认轻量路径」。两条均不满足时停在 TRACE_ANALYZE，不得以 mock、猜测或实验性实现替代证据。
 
@@ -247,12 +258,20 @@ node scripts/search_cases.js --domain <域名> --signal <信号>
 
 ## 8. TRACE_ANALYZE
 
-读取 NDJSON 的 API、时间、stack、文件、行列号和参数摘要，按调用频率与网络写入时间定位热路径。分析时使用：
+**先 trace、后读源码（硬约束）**：进入本节后先跑 `import_ruyitrace_log` 生成摘要，再用 `search_trace --url <target-signal>` 直接定位请求链和 `stack.file:line:col`，最后才按行号/字符偏移切源码片段。禁止在拿到 trace 前先读 8MB 大 bundle 手工猜 webpack module id 或写 probe1~N 静态解析——那会耗尽上下文且命中率低。定位大文件 JS 关键词必须用 `search_js.js`；禁止 grep 单行超 64KB 的压缩 JS、禁止现场手搓 `node -e`（PowerShell 转义翻车）。
+
+读取 NDJSON 的 API、时间、stack、文件、行列号和参数摘要，按调用频率与网络写入时间定位热路径。分析时按定位顺序使用：
 
 ```powershell
+# 1) 先导入生成摘要（高频 API、stack.file、目标信号命中）
+node scripts/import_ruyitrace_log.js --input <project-root>/case/ruyi-trace/logs/trace.ndjson --case-dir <project-root> --markdown
+# 2) 用目标信号直接定位请求链和 stack.file:line:col
+node scripts/search_trace.js --trace <project-root>/case/ruyi-trace/logs/trace.ndjson --url <目标接口URL或关键词> --markdown
+node scripts/search_trace.js --trace <project-root>/case/ruyi-trace/logs/trace.ndjson --keyword <关键词> --context 3 --markdown
+# 3) 按行号切源码片段；只有 trace 缺失/截断时才全资源关键词兜底
+node scripts/search_js.js --file <project-root>/case/js/original/<资源名>.js --keyword <关键词> --context 200 --markdown
 node scripts/analyze_trace.js --trace <project-root>/case/tmp/env-trace.jsonl --summary <project-root>/case/tmp/missing-env.json --markdown
 node scripts/check_trace_api_coverage.js --case-dir <project-root> --markdown
-node scripts/search_trace.js --trace <project-root>/case/ruyi-trace/logs/trace.ndjson --keyword <关键词> --context 3 --markdown
 ```
 
 不要在命令行手搓 `python -c` 或引号嵌套 grep NDJSON。默认只观察不修改；仅当 NDJSON 缺失、截断或无法覆盖关键入口时，才使用 Hook 模板，并只注入 ruyipage 定制 Firefox。Hook 必须在目标 SDK 加载前安装，命中后及时移除。

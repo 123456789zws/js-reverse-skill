@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2.3.29 - 2026-08-14
+
+### 修复
+- **脚本输出 GBK 编码崩溃（Windows PowerShell cp936）**：`check_evidence.js`/`capture_ruyitrace_log.js`/`import_ruyitrace_log.js`/`check_skill_consistency.js` 的 stdout 含 ✅/❌/⚠️ 非 GBK 字符，GBK 控制台直接 UnicodeEncodeError，把 GATE-1/GATE-2/网络取证/trace 采集四阶段输出整体吞掉。修复：状态标记统一改 `[通过]`/`[未通过]`/`[警告]`；`precheck_runtime.js` 的 emoji 测试样本在输出时转 `\uXXXX` 代理对（内部仍用真实 emoji 校验代理对处理）；`forensic_ruyipage.py` 的 `configure_utf8_stdio()` 提前到 `logging.basicConfig` 之前并加 `errors="replace"` 兜底。
+- **大 NDJSON 检索 OOM**：`search_trace.js`/`check_evidence.js`(inspectNdjson)/`analyze_trace.js`/`analyze_trace_complexity.js` 用 `readFileSync`+`split` 全量读入 26 万行 trace 触发 `JavaScript heap out of memory`。修复：`search_trace.js` 改 readline 流式 + 前后文环缓冲（顺带修掉"每命中一条就重读整个文件取上下文"的 O(matches×size) 退化）；`check_evidence.js` 用同步分块读（`fs.readSync` 64KB 块）保持 `check()`/自测同步签名；两个 analyze 脚本改流式聚合。
+- **取证缺失入口 challenge 页**：`forensic_ruyipage.py` 只保存 JS 和 `--targets` 命中包，acw_sc__v2 首次 412/challenge 页内联脚本被排除在落盘范围外。修复：始终保存入口 HTML 到 `case/forensic/document.html`（识别 text/html 或 URL 精确匹配），报告与输出区均标注，challenge cookie 类目标不再缺失挑战源码。
+
+### 优化
+- **新增 `scripts/search_js.js`**：大文件/单行 8MB 压缩 bundle 关键词检索，输出 `line:col` + 有限字符上下文，替代 grep（单行超 64KB 报 "Ripgrep JSON record exceeded 65536 bytes"）和现场 `node -e`（PowerShell 引号转义翻车）。
+- **SKILL.md TRACE_ANALYZE 加「先 trace 后读源码」硬约束**：先 `import_ruyitrace_log` 摘要 → `search_trace --url` 定位请求链与 `stack.file:line:col` → 再按行号/字符偏移切片段；禁止先读大 bundle 手猜 webpack module id 或写 probe1~N 静态解析。
+- **SKILL.md 4.4 加阶段报告最小落盘 + 上下文防耗尽检查点**：每阶段结束必落最小报告；TRACE_ANALYZE 接近耗尽或 20+ 步未进 IMPLEMENT 前，强制先写 `notes/entry-chain.md`/`notes/missing-env-priority.md`，避免续接从零开始。
+- **SKILL.md 补 `PYTHONUTF8=1` 兜底说明**。
+
 ## 2.3.28 - 2026-08-14
 
 ### 优化

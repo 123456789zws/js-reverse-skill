@@ -1,6 +1,6 @@
 # 脚本索引
 
-本目录包含 52 个可执行脚本（45 个 JavaScript、7 个 Python），按功能分为 9 类。以下索引以 `scripts/` 当前实际文件为准，不包含 `README.md`。
+本目录包含 53 个可执行脚本（46 个 JavaScript、7 个 Python），按功能分为 9 类。以下索引以 `scripts/` 当前实际文件为准，不包含 `README.md`。
 
 本文中的 `<project-root>` 指项目根目录，其下包含平级的 `case/` 与 `result/` 目录。需要 case 目录的脚本使用 `<project-root>/case`，需要项目根目录的脚本直接使用 `<project-root>`。`forensic_ruyipage.py` 与 `capture_ruyitrace_log.js` 会在 `--case-dir` 下创建 `case/`，因此必须传入 `<project-root>`。`check_session_resume`/`check_fingerprint_fixture`/`check_trace_api_coverage` 已归一化，传 `<project-root>` 或 `<project-root>/case` 均可。
 
@@ -41,12 +41,13 @@
 
 `check_evidence.js` 退出码是硬信号：任何步骤缺失证据（missing 非空）或材料格式错误（errors 非空）时退出 `1`；两步证据齐全退出 `0`。调用方（含 AI）必须按退出码 + 输出文本判定，不能只看输出文本。JS、截图、指纹基线和 `ruyitrace-summary.md` 可展示为辅助材料，但不能分别替代 Step 1 网络记录或 Step 2 NDJSON。可运行 `node scripts/check_evidence.js --self-test` 执行内置自测。`--require-target-signal <信号>`（可多次）要求 NDJSON 必须命中目标接口 URL / 关键词，未命中按 Step 2 缺失处理——防止“页面加载日志”冒充“目标路径已触发”。
 
-## Trace 分析与运行时闭环（7 个）
+## Trace 分析与运行时闭环（9 个）
 
 | 脚本 | 功能 | 典型用法 |
 |------|------|---------|
 | `analyze_trace.js` | 解析 trace JSONL，按模块归类环境访问并标注优先级 | `node scripts/analyze_trace.js --trace case/tmp/env-trace.jsonl --summary case/tmp/missing-env.json --markdown` |
 | `search_trace.js` | 按关键词 / 接口 / URL / 正则检索 NDJSON，输出行号、命名字段与上下文，替代命令行手搓 grep | `node scripts/search_trace.js --trace case/ruyi-trace/logs/trace.ndjson --keyword handshake --context 3 --markdown` |
+| `search_js.js` | 大文件 / 单行压缩 bundle 关键词检索，输出 line:col 与有限字符上下文，替代 grep 大行与 node -e | `node scripts/search_js.js --file case/js/original/app.js --keyword setRequestHeader --context 200 --markdown` |
 | `analyze_trace_complexity.js` | 评估补环境复杂度、风险点与实现优先级 | `node scripts/analyze_trace_complexity.js --trace case/ruyi-trace/logs/trace.ndjson --markdown` |
 | `build_trace_runtime_contract.js` | 从原始 Trace 生成逐 API、Realm、receiver 与行为观测组成的运行时契约 | `node scripts/build_trace_runtime_contract.js --case-dir <project-root> --markdown` |
 | `run_with_trace.js` | 在隔离 vm 探测上下文运行目标脚本并输出环境访问日志 | `node scripts/run_with_trace.js --target case/js/original/app.js --entry window.makeSign --fixture case/fixtures/sample.fixture.json` |
@@ -112,12 +113,12 @@
 | 环境与会话检测 | 7 |
 | 案例与项目管理 | 7 |
 | 网络取证与日志采集 | 4 |
-| Trace 分析与运行时闭环 | 8 |
+| Trace 分析与运行时闭环 | 9 |
 | 补环境与网络语义检查 | 7 |
 | 质量检查与交付门禁 | 7 |
 | 安装与下载 | 3 |
 | 验证码识别与求解辅助 | 6 |
 | 验证码验证门禁 | 3 |
-| **合计** | **52** |
+| **合计** | **53** |
 
 > 滑块缺口坐标来源判定（A 接口参数 / B 图片像素 / C 纯图像三路线）见 `references/captcha/gap-coordinate-source.md`。本目录中的验证码辅助脚本负责 C 类坐标换算、轨迹生成、答案校验与打码模板，A / B 类走封装层逆向。

@@ -44,19 +44,22 @@ import sys
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-logger = logging.getLogger("forensic_ruyipage")
-
-
 def configure_utf8_stdio() -> None:
-    """Windows GBK 控制台下输出含 ⚠️/✅ 等非 GBK 字符会抛 UnicodeEncodeError 且退出 1，
-    与仓库其他 Python 脚本一致：stdout/stderr 强制 UTF-8。"""
+    """Windows GBK 控制台下输出含 [警告]/[通过] 等非 GBK 字符会抛 UnicodeEncodeError 且退出 1。
+    与仓库其他 Python 脚本一致：stdout/stderr 强制 UTF-8，errors=replace 兜底避免任何编码异常
+    把整段输出吞掉。必须在 logging.basicConfig 之前调用，保证 handler 捕获到的就是 UTF-8 流。"""
     for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8")
+        try:
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 
 configure_utf8_stdio()
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+logger = logging.getLogger("forensic_ruyipage")
 
 
 # ============================================================
@@ -472,6 +475,26 @@ def build_options(args: argparse.Namespace, browser_path: str):
     return opts
 
 
+def _response_content_type(d: Dict[str, Any]) -> str:
+    headers = d.get("response_headers") or {}
+    for k, v in headers.items():
+        if str(k).lower() == "content-type":
+            return str(v or "").lower()
+    return ""
+
+
+def _is_entry_document(d: Dict[str, Any], args_url: str) -> bool:
+    """识别入口页面 HTML：content-type 为 text/html，或 URL 与目标 URL 一致（覆盖 412/challenge 页）。
+
+    acw_sc__v2 等 challenge cookie 的首次 412 响应是 text/html 内联脚本，必须保存，
+    否则后续无法还原 challenge 链。"""
+    if _response_content_type(d).startswith("text/html"):
+        return True
+    url = (d.get("url") or "").split("?")[0].split("#")[0].rstrip("/")
+    target = (args_url or "").split("?")[0].split("#")[0].rstrip("/")
+    return bool(url and target and url == target)
+
+
 def _classify_packets(steps, args, substrings, regexes):
     """遍历抓包 steps，分离三类产物。
 
@@ -487,6 +510,7 @@ def _classify_packets(steps, args, substrings, regexes):
     """
     js_records = []
     target_hits = []
+    document = None
     js_dir = os.path.join(args.case_subdir, "js", "original")
     os.makedirs(js_dir, exist_ok=True)
     records_meta = []
@@ -495,7 +519,8 @@ def _classify_packets(steps, args, substrings, regexes):
         records_meta.append(d)
         is_js = is_js_packet(d)
         is_target = match_targets(d, substrings, regexes)
-        if is_js or is_target:
+        is_doc = document is None and _is_entry_document(d, args.url)
+        if is_js or is_target or is_doc:
             d = p.to_dict(include_bodies=True)
         if is_js:
             body = _maybe_decompress(_safe_body(d.get("response_body")), d.get("response_headers"))
@@ -536,7 +561,21 @@ def _classify_packets(steps, args, substrings, regexes):
             else:
                 d["request_body"] = ""
             target_hits.append(d)
-    return records_meta, js_records, target_hits, js_dir
+        if is_doc:
+            body = _maybe_decompress(_safe_body(d.get("response_body")), d.get("response_headers"))
+            os.makedirs(args.out_dir, exist_ok=True)
+            doc_path = os.path.join(args.out_dir, "document.html")
+            if body:
+                with open(doc_path, "wb") as f:
+                    f.write(body)
+            document = {
+                "url": d.get("url"),
+                "status": d.get("response_status"),
+                "saved_to": os.path.relpath(doc_path, args.out_dir),
+                "size": len(body),
+                "body_missing": not body,
+            }
+    return records_meta, js_records, target_hits, js_dir, document
 
 
 def _split_acceptance(target_hits):
@@ -585,7 +624,7 @@ def _js_quality(js_records) -> str:
 
 def _build_result(args, browser_path, baseline_id, fingerprint, cookies,
                   records_meta, js_records, target_hits, accepted, only_options,
-                  webdriver_flag, wd_err, has_filter):
+                  webdriver_flag, wd_err, has_filter, document=None):
     """汇总取证结果为报告字典。has_filter 表示是否指定了 --targets/--targets-regex。"""
     return {
         "url": args.url,
@@ -611,6 +650,7 @@ def _build_result(args, browser_path, baseline_id, fingerprint, cookies,
             for h in target_hits
         ],
         "onlyOptionsWarning": [h.get("url") for h in only_options],
+        "entryDocument": document,
     }
 
 
@@ -907,7 +947,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             logger.warning("读取 steps 失败：%s", e)
             steps = []
 
-        records_meta, js_records, target_hits, js_dir = _classify_packets(
+        records_meta, js_records, target_hits, js_dir, document = _classify_packets(
             steps, args, substrings, regexes
         )
 
@@ -935,7 +975,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
         result = _build_result(
             args, browser_path, baseline_id, fingerprint, cookies,
             records_meta, js_records, target_hits, accepted, only_options,
-            webdriver_flag, wd_err, has_filter,
+            webdriver_flag, wd_err, has_filter, document,
         )
         result["getTimedOut"] = get_timed_out
         result["outputs"] = _write_outputs(
@@ -1069,17 +1109,22 @@ def render_markdown(r: Dict[str, Any]) -> str:
     L.append(f"- 抓包总数：{r.get('packetCount')}")
     L.append(f"- JS 文件数：{r.get('jsFileCount')}")
     L.append(f"- 目标命中数：{r.get('targetHitCount')}（验收通过 {r.get('acceptedTargetCount')}）")
+    doc = r.get("entryDocument")
+    if doc:
+        L.append(f"- 入口页面：{doc.get('saved_to')}（{doc.get('size')}B，状态 {doc.get('status')}）")
+    else:
+        L.append("- 入口页面：未捕获到 HTML 文档（纯 API 目标或无 text/html 响应属正常）")
     L.append(f"- JS 落盘质量：{r.get('jsQuality')}（{r.get('jsFileCount') - r.get('jsMissingCount', 0)}/{r.get('jsFileCount')} 完整）")
     L.append(f"- navigator.webdriver 自检：{r.get('navigatorWebdriverSelfCheck')}")
     if r.get("jsQuality") == "FAIL":
-        L.append("- ⚠️ JS 落盘 0B 比例过高（≥50%），取证质量不达标：gzip/br 大 JS 响应体未拿回，无法用于定位分析，必须重采或补采 JS。")
+        L.append("- [警告] JS 落盘 0B 比例过高（≥50%），取证质量不达标：gzip/br 大 JS 响应体未拿回，无法用于定位分析，必须重采或补采 JS。")
     elif r.get("jsQuality") == "WARN":
-        L.append("- ⚠️ 部分 JS 落盘缺失（0B）：以下 JS 未拿到响应体，定位关键资源时注意补采。")
+        L.append("- [警告] 部分 JS 落盘缺失（0B）：以下 JS 未拿到响应体，定位关键资源时注意补采。")
     if r.get("getTimedOut"):
-        L.append("- ⚠️ page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
+        L.append("- [警告] page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
     L.append(f"- 取证验收：{r.get('acceptance')}")
     if r.get("onlyOptionsWarning"):
-        L.append(f"- ⚠️ 仅捕获到 OPTIONS 预检，未捕获真实业务响应：{r['onlyOptionsWarning']}")
+        L.append(f"- [警告] 仅捕获到 OPTIONS 预检，未捕获真实业务响应：{r['onlyOptionsWarning']}")
     if r.get("webdriverCheckError"):
         L.append(f"- webdriver 检查错误：{r['webdriverCheckError']}")
     L.append("")
@@ -1102,12 +1147,14 @@ def render_markdown(r: Dict[str, Any]) -> str:
     out = r.get("outputs", {})
     L.append(f"- 全部抓包：{out.get('captureJson')}")
     L.append(f"- 目标命中：{out.get('targetHitsJson')}")
+    if doc:
+        L.append(f"- 入口页面：{doc.get('saved_to')}")
     L.append(f"- JS 目录：{out.get('jsDir')}")
     if out.get("fingerprintBaseline"):
         L.append(f"- 指纹基线：{out.get('fingerprintBaseline')}")
     L.append("")
     if r.get("navigatorWebdriverSelfCheck") == "FAIL":
-        L.append("⚠️ navigator.webdriver 为 true，本次取证不合格（疑似被识别为自动化）。")
+        L.append("[警告] navigator.webdriver 为 true，本次取证不合格（疑似被识别为自动化）。")
     return "\n".join(L) + "\n"
 
 

@@ -9,6 +9,7 @@
  */
 
 const fs = require('fs');
+const readline = require('readline');
 
 function parseArgs(argv) {
   const args = {
@@ -53,11 +54,6 @@ function usage() {
   --context <n>   每条命中前后各打印 n 行原始记录（默认 0）
   --max <n>       最多打印 n 条命中（默认 200）
   至少提供 --keyword / --regex / --url 之一；多个 --trace 合并检索。`;
-}
-
-function readLines(file) {
-  const text = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
-  return text.split(/\r?\n/);
 }
 
 function urlishFields(record) {
@@ -123,7 +119,56 @@ function matchRecord(record, args) {
   return { matched, fields };
 }
 
-function main() {
+async function searchFile(file, args, ctx, matches) {
+  const rl = readline.createInterface({
+    input: fs.createReadStream(file, { encoding: 'utf8' }),
+    crlfDelay: Infinity,
+  });
+  let lineNo = 0;
+  const before = []; // 最近 ctx 行 {no,text}，供命中行取 before-context
+  let active = null; // 正在收 after-context 的命中
+  let afterRemain = 0;
+
+  const finalize = () => {
+    if (active) { matches.push(active); active = null; }
+  };
+
+  for await (const raw of rl) {
+    lineNo += 1;
+    const text = raw.replace(/^\uFEFF/, '').trim();
+
+    if (active) {
+      active.after.push({ no: lineNo, text });
+      afterRemain -= 1;
+      if (afterRemain <= 0) finalize();
+    }
+
+    if (text) {
+      let record = null;
+      try { record = JSON.parse(text); } catch { record = null; }
+      if (record && typeof record === 'object' && !Array.isArray(record)) {
+        const res = matchRecord(record, args);
+        if (res.matched) {
+          finalize(); // 关掉上一个未收完 after 的命中，避免被覆盖丢失
+          if (ctx > 0) {
+            active = { file, lineNo, fields: res.fields, text, before: before.slice(-ctx), after: [] };
+            afterRemain = ctx;
+          } else {
+            matches.push({ file, lineNo, fields: res.fields, raw: text });
+          }
+          if (matches.length >= args.max) return true;
+        }
+      }
+    }
+
+    before.push({ no: lineNo, text });
+    if (before.length > ctx) before.shift();
+  }
+  finalize();
+  return matches.length >= args.max;
+}
+
+async function main() {
   const args = parseArgs(process.argv);
   if (args.help || !args.traces.length) {
     console.log(usage());
@@ -135,7 +180,6 @@ function main() {
     process.exit(1);
   }
 
-  const matches = [];
   const files = args.traces.filter((f) => {
     if (!fs.existsSync(f)) {
       console.error(`trace 文件不存在：${f}`);
@@ -145,25 +189,11 @@ function main() {
   });
   if (!files.length) process.exit(1);
 
+  const matches = [];
+  const ctx = args.json ? 0 : Math.max(0, Math.min(args.context, 20));
   for (const file of files) {
-    let lines = [];
-    try { lines = readLines(file); } catch (err) {
-      console.error(`读取失败 ${file}：${err.message}`);
-      continue;
-    }
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      let record;
-      try { record = JSON.parse(line); } catch (err) { continue; }
-      if (typeof record !== 'object' || record === null || Array.isArray(record)) continue;
-      const res = matchRecord(record, args);
-      if (res.matched) {
-        matches.push({ file, lineNo: i + 1, fields: res.fields, raw: line });
-        if (matches.length >= args.max) break;
-      }
-    }
-    if (matches.length >= args.max) break;
+    const reached = await searchFile(file, args, ctx, matches);
+    if (reached) break;
   }
 
   if (args.json) {
@@ -171,36 +201,30 @@ function main() {
     return;
   }
 
-  const ctx = Math.max(0, Math.min(args.context, 20));
   const lines = ['# trace 检索结果', '', `- 命中：${matches.length} 条`];
   if (matches.length >= args.max) lines.push(`- （达到 --max ${args.max} 上限，可调大）`);
   lines.push('');
+  const emit = (tag, no, text) => {
+    let t = text;
+    if (t.length > 300) t = `${t.slice(0, 300)}…`;
+    lines.push(`  ${tag} ${no}: ${t}`);
+  };
   matches.forEach((m, idx) => {
     lines.push(`## ${idx + 1}. ${m.file}:${m.lineNo}${m.fields.length ? `（字段：${m.fields.slice(0, 5).join('、')}）` : ''}`);
     if (ctx > 0) {
-      try {
-        const rawLines = readLines(m.file);
-        const start = Math.max(0, m.lineNo - 1 - ctx);
-        const end = Math.min(rawLines.length, m.lineNo - 1 + ctx + 1);
-        for (let j = start; j < end; j++) {
-          const tag = j === m.lineNo - 1 ? '>' : ' ';
-          let text = rawLines[j].trim();
-          if (text.length > 300) text = `${text.slice(0, 300)}…`;
-          lines.push(`  ${tag} ${j + 1}: ${text}`);
-        }
-      } catch (err) { /* 上下文读取失败则跳过 */ }
+      for (const b of m.before) emit(' ', b.no, b.text);
+      emit('>', m.lineNo, m.text || '');
+      for (const a of m.after) emit(' ', a.no, a.text);
     } else {
-      let text = m.raw;
-      if (text.length > 300) text = `${text.slice(0, 300)}…`;
-      lines.push(`  ${text}`);
+      emit('>', m.lineNo, m.raw || '');
     }
     lines.push('');
   });
   process.stdout.write(`${lines.join('\n')}\n`);
 }
 
-try { main(); } catch (err) {
+main().catch((err) => {
   console.error(err.stack || err.message || String(err));
   console.error(usage());
   process.exit(1);
-}
+});

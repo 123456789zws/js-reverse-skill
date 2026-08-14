@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const readline = require('readline');
 
 function parseArgs(argv) {
   const args = { trace: '', summary: '', json: false, markdown: false };
@@ -30,13 +31,29 @@ function readJsonMaybe(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); } catch { return fallback; }
 }
 
-function readTrace(file) {
-  if (!file) return [];
-  const text = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
-  return text.split(/\r?\n/).map(s => s.trim()).filter(Boolean).map((line, idx) => {
-    try { return JSON.parse(line); }
-    catch (err) { return { type: 'parse-error', path: `line:${idx + 1}`, message: err.message }; }
-  });
+// 流式读取并聚合 trace，不把全部事件留在内存（避免大 jsonl OOM）。
+async function readTrace(file) {
+  const state = { eventCount: 0, parseErrors: 0, modules: new Map(), paths: new Set(), riskSignals: new Set() };
+  if (!file) return state;
+  const rl = readline.createInterface({ input: fs.createReadStream(file, { encoding: 'utf8' }), crlfDelay: Infinity });
+  for await (const raw of rl) {
+    const line = raw.replace(/^\uFEFF/, '').trim();
+    if (!line) continue;
+    let e;
+    try { e = JSON.parse(line); } catch { state.parseErrors += 1; continue; }
+    state.eventCount += 1;
+    const pathText = e.path || e.prop || '';
+    if (pathText) state.paths.add(pathText);
+    const moduleName = moduleOf(pathText || e.type);
+    if (!state.modules.has(moduleName)) state.modules.set(moduleName, { module: moduleName, priority: priorityOf(moduleName), count: 0, examples: [], eventTypes: new Set() });
+    const item = state.modules.get(moduleName);
+    item.count += 1;
+    item.eventTypes.add(e.type || 'unknown');
+    if (item.examples.length < 8 && pathText) item.examples.push(pathText);
+    if (['ownKeys', 'getOwnPropertyDescriptor', 'getPrototypeOf', 'toPrimitive'].includes(e.type)) state.riskSignals.add(`${e.type}:${pathText}`);
+    if (String(pathText).endsWith('.toString')) state.riskSignals.add(`toString:${pathText}`);
+  }
+  return state;
 }
 
 function moduleOf(pathText) {
@@ -67,32 +84,20 @@ function priorityOf(moduleName) {
   return 5;
 }
 
-function analyze(events, summary) {
-  const modules = new Map();
+function analyze(state, summary) {
   const riskSignals = new Set(summary.proxyRiskSignals || []);
-  const paths = new Set();
-  for (const e of events) {
-    const pathText = e.path || e.prop || '';
-    if (pathText) paths.add(pathText);
-    const moduleName = moduleOf(pathText || e.type);
-    if (!modules.has(moduleName)) modules.set(moduleName, { module: moduleName, priority: priorityOf(moduleName), count: 0, examples: [], eventTypes: new Set() });
-    const item = modules.get(moduleName);
-    item.count += 1;
-    item.eventTypes.add(e.type || 'unknown');
-    if (item.examples.length < 8 && pathText) item.examples.push(pathText);
-    if (['ownKeys', 'getOwnPropertyDescriptor', 'getPrototypeOf', 'toPrimitive'].includes(e.type)) riskSignals.add(`${e.type}:${pathText}`);
-    if (String(pathText).endsWith('.toString')) riskSignals.add(`toString:${pathText}`);
-  }
+  for (const s of state.riskSignals) riskSignals.add(s);
   for (const name of summary.missingGlobals || []) {
     const moduleName = moduleOf(name);
-    if (!modules.has(moduleName)) modules.set(moduleName, { module: moduleName, priority: priorityOf(moduleName), count: 0, examples: [], eventTypes: new Set() });
-    modules.get(moduleName).examples.push(name);
+    if (!state.modules.has(moduleName)) state.modules.set(moduleName, { module: moduleName, priority: priorityOf(moduleName), count: 0, examples: [], eventTypes: new Set() });
+    state.modules.get(moduleName).examples.push(name);
   }
-  const moduleList = Array.from(modules.values()).map(m => ({ ...m, eventTypes: Array.from(m.eventTypes), examples: Array.from(new Set(m.examples)) }))
+  const moduleList = Array.from(state.modules.values()).map(m => ({ ...m, eventTypes: Array.from(m.eventTypes), examples: Array.from(new Set(m.examples)) }))
     .sort((a, b) => a.priority - b.priority || b.count - a.count || a.module.localeCompare(b.module));
   return {
-    eventCount: events.length,
-    uniquePathCount: paths.size,
+    eventCount: state.eventCount,
+    parseErrors: state.parseErrors,
+    uniquePathCount: state.paths.size,
     modulePriorities: moduleList,
     runtimeErrors: summary.runtimeErrors || [],
     missingGlobals: summary.missingGlobals || [],
@@ -105,7 +110,7 @@ function analyze(events, summary) {
 }
 
 function renderMarkdown(result) {
-  const lines = ['# trace 分析与补齐优先级', '', `- trace 事件数：${result.eventCount}`, `- 唯一路径数：${result.uniquePathCount}`, `- 运行错误数：${result.runtimeErrors.length}`];
+  const lines = ['# trace 分析与补齐优先级', '', `- trace 事件数：${result.eventCount}`, `- 解析失败：${result.parseErrors || 0}`, `- 唯一路径数：${result.uniquePathCount}`, `- 运行错误数：${result.runtimeErrors.length}`];
   lines.push('', '## 模块优先级');
   if (!result.modulePriorities.length) lines.push('- 未发现可归类的环境访问');
   for (const m of result.modulePriorities) {
@@ -125,17 +130,19 @@ function renderMarkdown(result) {
   return lines.join('\n') + '\n';
 }
 
-try {
+async function main() {
   const args = parseArgs(process.argv);
-  if (args.help) { console.log(usage()); process.exit(0); }
+  if (args.help) { console.log(usage()); return; }
   if (!args.trace && !args.summary) throw new Error('必须提供 --trace 或 --summary');
-  const events = readTrace(args.trace);
+  const state = await readTrace(args.trace);
   const summary = readJsonMaybe(args.summary, {});
-  const result = analyze(events, summary);
+  const result = analyze(state, summary);
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(renderMarkdown(result));
-} catch (err) {
+}
+
+main().catch((err) => {
   console.error(err.message || String(err));
   console.error(usage());
   process.exit(1);
-}
+});

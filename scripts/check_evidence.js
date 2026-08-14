@@ -230,46 +230,63 @@ function inspectCapture(p, target) {
 }
 
 function inspectNdjson(p, target, signals) {
-  let lines;
-  try {
-    lines = readText(p).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  } catch (err) {
+  // 同步分块逐行读取，避免大 NDJSON 用 readText().split() 全量读入内存导致 OOM。
+  // 保持同步签名：check()/runSelfTest() 无需改造成 async。
+  let fd;
+  try { fd = fs.openSync(p, 'r'); } catch (err) {
     return { ok: false, parseable: false, recordCount: 0, targetMatched: false, reason: `NDJSON 读取失败：${err.message}` };
   }
-  if (!lines.length) return { ok: false, parseable: true, recordCount: 0, targetMatched: false, reason: '记录数量为 0' };
-  const records = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    try {
-      records.push(JSON.parse(lines[i]));
-    } catch (err) {
-      return { ok: false, parseable: false, formatError: true, recordCount: records.length, targetMatched: false, reason: `第 ${i + 1} 条记录解析失败：${err.message}` };
-    }
-  }
-  const targetMatched = records.some((record) => valueMatchesTarget(record, target));
+  const buffer = Buffer.alloc(64 * 1024);
+  let leftover = '';
+  let lineNo = 0;
+  let recordCount = 0;
+  let targetMatched = false;
   const sigHits = (signals || []).map((s) => ({ signal: s, hits: 0, sampleLine: 0 }));
-  for (let i = 0; i < records.length; i += 1) {
-    if (!sigHits.length) break;
-    const text = JSON.stringify(records[i]).toLowerCase();
-    for (const sig of sigHits) {
-      if (sig.hits > 0 || !text.includes(sig.signal.toLowerCase())) continue;
-      sig.hits += 1;
-      sig.sampleLine = i + 1;
+  try {
+    let bytesRead;
+    while ((bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) {
+      leftover += buffer.toString('utf8', 0, bytesRead);
+      let nl;
+      while ((nl = leftover.indexOf('\n')) >= 0) {
+        const line = leftover.slice(0, nl).trim();
+        leftover = leftover.slice(nl + 1);
+        if (!line) continue;
+        lineNo += 1;
+        let record;
+        try { record = JSON.parse(line); } catch (err) {
+          return { ok: false, parseable: false, formatError: true, recordCount, targetMatched: false, reason: `第 ${lineNo} 条记录解析失败：${err.message}` };
+        }
+        recordCount += 1;
+        if (!targetMatched && valueMatchesTarget(record, target)) targetMatched = true;
+        if (sigHits.length) {
+          const text = JSON.stringify(record).toLowerCase();
+          for (const sig of sigHits) {
+            if (sig.hits > 0 || !text.includes(sig.signal.toLowerCase())) continue;
+            sig.hits += 1;
+            sig.sampleLine = lineNo;
+          }
+        }
+      }
     }
+  } catch (err) {
+    return { ok: false, parseable: false, recordCount: 0, targetMatched: false, reason: `NDJSON 读取失败：${err.message}` };
+  } finally {
+    try { fs.closeSync(fd); } catch {}
   }
+  if (!recordCount) return { ok: false, parseable: true, recordCount: 0, targetMatched: false, reason: '记录数量为 0' };
   const signalEnabled = sigHits.length > 0;
   const allHit = !signalEnabled || sigHits.every((sig) => sig.hits > 0);
   const missed = sigHits.filter((sig) => sig.hits === 0).map((sig) => sig.signal);
   let reason = !targetMatched ? `未发现与目标域 ${target.hostname} 关联的记录` : '';
   if (!reason && !allHit) reason = `目标信号未命中：${missed.join('、')}（日志未触发目标接口，不能当作采集完成）`;
-  const result = {
+  return {
     ok: !reason,
     parseable: true,
-    recordCount: records.length,
+    recordCount,
     targetMatched,
     reason,
     targetSignal: { enabled: signalEnabled, allHit, signals: sigHits },
   };
-  return result;
 }
 
 function inspectJs(p, target, linkedUrls = []) {
@@ -583,7 +600,7 @@ function renderMarkdown(result) {
   }
   lines.push('', '## 结论');
   if (result.urlOnly) {
-    lines.push('- ⚠️ 仅提供 URL 或现有材料未通过内容校验，URL 不是证据。必须走完整两步取证：ruyipage 网络取证 + RuyiTrace 日志采集。');
+    lines.push('- [警告] 仅提供 URL 或现有材料未通过内容校验，URL 不是证据。必须走完整两步取证：ruyipage 网络取证 + RuyiTrace 日志采集。');
   } else if (result.missing.length) {
     lines.push(`- 证据不完整，缺少：${result.missing.map((m) => m.split('（')[0]).join('；')}。对应取证步骤不可跳过。`);
     if (result.skipStep1) lines.push('- Step 1 证据已具备，可跳过 ruyipage 网络取证（或由用户材料替代）。');

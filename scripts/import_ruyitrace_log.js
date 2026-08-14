@@ -271,10 +271,10 @@ function renderMarkdown(result) {
   if (ts.enabled) {
     lines.push('', '## 目标信号命中检查');
     for (const t of ts.signals) {
-      if (t.hits > 0) lines.push(`- ✅ 命中「${t.signal}」：${t.hits} 次（示例行 ${t.sampleLine}）`);
-      else lines.push(`- ❌ 未命中「${t.signal}」：0 次`);
+      if (t.hits > 0) lines.push(`- [通过] 命中「${t.signal}」：${t.hits} 次（示例行 ${t.sampleLine}）`);
+      else lines.push(`- [未通过] 未命中「${t.signal}」：0 次`);
     }
-    if (!ts.allHit) lines.push('- ⚠️ **目标路径未覆盖：日志未触发目标接口，不得当作“采集完成”，按 TRACE_RETRY 处理（查因→重试/转手动/降级补充）**');
+    if (!ts.allHit) lines.push('- [警告] **目标路径未覆盖：日志未触发目标接口，不得当作“采集完成”，按 TRACE_RETRY 处理（查因→重试/转手动/降级补充）**');
   }
 
   const truncation = result.summary.truncation;
@@ -329,7 +329,7 @@ async function main() {
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(md);
   if (args.targetSignals.length && !summary.targetSignal.allHit) {
-    console.error('⚠️ 目标信号未命中：日志未触发目标接口，不得当作“采集完成”，按 TRACE_RETRY 处理');
+    console.error('[警告] 目标信号未命中：日志未触发目标接口，不得当作“采集完成”，按 TRACE_RETRY 处理');
     process.exitCode = 1;
   }
 }

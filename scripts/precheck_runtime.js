@@ -75,6 +75,18 @@ function collect() {
   };
 }
 
+// 只转义非 GBK 的符号/emoji/扩展区字符为 \uXXXX 代理对；保留 ASCII 控制字符与中文，
+// 避免 Windows GBK 控制台（PowerShell cp936）输出时抛编码错误或被吞掉。
+function escapeNonGbk(s) {
+  return String(s).replace(/[\u2300-\u27BF\uFE00-\uFE0F\u{1F000}-\u{1FFFF}\u{20000}-\u{2FFFF}\u{E0000}-\u{E0FFF}]/gu, (ch) => {
+    const cp = ch.codePointAt(0);
+    if (cp <= 0xFFFF) return `\\u${cp.toString(16).padStart(4, '0')}`;
+    const hi = 0xD800 + ((cp - 0x10000) >> 10);
+    const lo = 0xDC00 + ((cp - 0x10000) & 0x3FF);
+    return `\\u${hi.toString(16)}\\u${lo.toString(16)}`;
+  });
+}
+
 function renderMarkdown(result) {
   const lines = ['# Node.js 纯计算预检结果', '', `- Node.js：${result.node.version}`, `- 平台：${result.node.platform}-${result.node.arch}`, `- V8：${result.node.v8}`];
   for (const [section, value] of Object.entries(result)) {
@@ -85,14 +97,14 @@ function renderMarkdown(result) {
   lines.push('', '## 下一步');
   lines.push('- 在浏览器控制台运行同类预检片段，保存为 `notes/runtime-precheck-browser.json`。');
   lines.push('- 若 Node 与浏览器基础计算一致，再继续排查环境对象、初始化参数和样本差异。');
-  return lines.join('\n') + '\n';
+  return escapeNonGbk(lines.join('\n')) + '\n';
 }
 
 try {
   const args = parseArgs(process.argv);
   if (args.help) { console.log(usage()); process.exit(0); }
   const result = collect();
-  if (args.json) console.log(JSON.stringify(result, null, 2));
+  if (args.json) console.log(escapeNonGbk(JSON.stringify(result, null, 2)));
   if (args.markdown) process.stdout.write(renderMarkdown(result));
 } catch (err) {
   console.error(err.message || String(err));

@@ -405,7 +405,7 @@ function renderMarkdown(obj) {
   if (result.pid) lines.push(`- 进程 PID：${result.pid}`);
   lines.push(`- 是否尝试结束进程：${result.killAttempted ? '是' : '否'}`);
   if (result.killAttempted) lines.push(`- 结束方式：${result.killMethod}，是否成功：${result.killOk ? '是' : '否'}${result.killError ? `（${result.killError}）` : ''}`);
-  if (result.killAttempted && !result.killOk) lines.push('- ⚠️ **浏览器未能自动关闭，请手动关闭残留的 trace Firefox（profile: ' + plan.profileDir + '）**');
+  if (result.killAttempted && !result.killOk) lines.push('- [警告] **浏览器未能自动关闭，请手动关闭残留的 trace Firefox（profile: ' + plan.profileDir + '）**');
   lines.push(`- 发现 NDJSON 数量：${result.logs.length}`);
   for (const file of result.logs) lines.push(`  - ${file}`);
   if (!result.logs.length) {
@@ -476,7 +476,7 @@ async function main() {
   const result = await capture(args, plan);
   const obj = { args, trace, plan, result };
   if (result.killAttempted && !result.killOk) {
-    console.error(`⚠️ 浏览器未能自动关闭，请手动关闭残留的 trace Firefox（profile: ${plan.profileDir}）`);
+    console.error(`[警告] 浏览器未能自动关闭，请手动关闭残留的 trace Firefox（profile: ${plan.profileDir}）`);
   }
   if (args.json) process.stdout.write(JSON.stringify(obj, null, 2) + '\n');
   if (args.markdown) process.stdout.write(renderMarkdown(obj));

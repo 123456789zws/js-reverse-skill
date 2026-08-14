@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 const paths = require('./lib/paths');
 
 function parseArgs(argv) {
@@ -171,7 +172,8 @@ function inspectLine(text, summary) {
   }
 }
 
-function analyzeFile(file, args) {
+async function analyzeFile(file, args, summary) {
+  // 流式逐行读取 + 就地聚合，避免大 NDJSON 用 readFileSync+split 全量读入内存 OOM。
   const result = {
     file,
     lines: 0,
@@ -179,18 +181,20 @@ function analyzeFile(file, args) {
     truncatedByMaxLines: false,
     parseErrors: 0,
   };
-  const text = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
-  result.bytes = Buffer.byteLength(text);
-  const lines = text.split(/\r?\n/);
-  for (const line of lines) {
-    if (!line.trim()) continue;
+  const st = stat(file);
+  result.bytes = st ? st.size : 0;
+  const rl = readline.createInterface({ input: fs.createReadStream(file, { encoding: 'utf8' }), crlfDelay: Infinity });
+  for await (const raw of rl) {
+    const line = raw.replace(/^\uFEFF/, '').trim();
+    if (!line) continue;
     if (result.lines >= args.maxLines) {
       result.truncatedByMaxLines = true;
       break;
     }
     result.lines += 1;
+    inspectLine(line, summary);
   }
-  return { result, lines: lines.slice(0, args.maxLines) };
+  return result;
 }
 
 function scoreSummary(summary) {
@@ -227,35 +231,7 @@ function scoreSummary(summary) {
   };
 }
 
-function analyze(args) {
-  const files = discoverTraceFiles(args);
-  const root = paths.resolveCaseDir(args.caseDir || 'case');
-  const summary = {
-    files: files.map(file => rel(root, file)),
-    totalLines: 0,
-    totalBytes: 0,
-    categories: emptySignalMap(CATEGORY_PATTERNS),
-    realism: emptySignalMap(REALISM_PATTERNS),
-    async: emptySignalMap(ASYNC_PATTERNS),
-    fileSummaries: [],
-    stackSignals: new Set(),
-    parseErrors: 0,
-  };
-
-  for (const file of files) {
-    const { result, lines } = analyzeFile(file, args);
-    summary.fileSummaries.push({
-      ...result,
-      file: rel(root, file),
-    });
-    summary.totalLines += result.lines;
-    summary.totalBytes += result.bytes;
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      inspectLine(line, summary);
-    }
-  }
-
+function analyzeSummary(files, root, summary) {
   const score = scoreSummary(summary);
   return {
     passed: true,
@@ -283,6 +259,34 @@ function analyze(args) {
       note: 'Trace 复杂度评估只用于补环境范围、风险点和优先级，不自动决定是否使用 vm 或 jsEnv。',
     },
   };
+}
+
+async function analyze(args) {
+  const files = discoverTraceFiles(args);
+  const root = paths.resolveCaseDir(args.caseDir || 'case');
+  const summary = {
+    files: files.map(file => rel(root, file)),
+    totalLines: 0,
+    totalBytes: 0,
+    categories: emptySignalMap(CATEGORY_PATTERNS),
+    realism: emptySignalMap(REALISM_PATTERNS),
+    async: emptySignalMap(ASYNC_PATTERNS),
+    fileSummaries: [],
+    stackSignals: new Set(),
+    parseErrors: 0,
+  };
+
+  for (const file of files) {
+    const result = await analyzeFile(file, args, summary);
+    summary.fileSummaries.push({
+      ...result,
+      file: rel(root, file),
+    });
+    summary.totalLines += result.lines;
+    summary.totalBytes += result.bytes;
+  }
+
+  return analyzeSummary(files, root, summary);
 }
 
 function renderMarkdown(result) {
@@ -337,20 +341,18 @@ function renderMarkdown(result) {
   return lines.join('\n');
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv);
   if (args.help) {
     console.log(usage());
     return;
   }
-  const result = analyze(args);
+  const result = await analyze(args);
   if (args.json) console.log(JSON.stringify(result, null, 2));
   else console.log(renderMarkdown(result));
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   console.error(error && error.message ? error.message : String(error));
   process.exitCode = 2;
-}
+});
