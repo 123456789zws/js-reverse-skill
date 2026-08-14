@@ -64,7 +64,7 @@ function usage() {
 说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。
 --project-dir <dir>：用户工程目录（tools/ 所在），未传时从 --case-dir 推断；安装模式下需靠此定位 RuyiTrace。
 --url 与 --input 互斥：--url 为自动捕获（需 RuyiTrace 完整安装）；--input 为手动 trace 后直接导入用户指定的 NDJSON，无需 RuyiTrace 安装检测。
---target-signal <信号>（可多次）：导入时扫描日志是否命中目标接口 URL / 关键词，未命中时导入退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。`;
+--target-signal <信号>（可多次）：导入时扫描日志是否命中目标接口 URL / 关键词，未命中时导入退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。目标信号只在主 DOM trace 日志上判定；cookie/storage/event 等分类日志只做摘要，不参与 target-signal 退出码。`;
 }
 
 function exists(p) {
@@ -280,9 +280,10 @@ function killProcessTree(pid, profileDir, firefoxExe) {
   });
 }
 
-function importLog(caseDir, file, markdown, targetSignals) {
+function importLog(caseDir, file, markdown, targetSignals, writeSummary) {
   const script = path.join(__dirname, 'import_ruyitrace_log.js');
   const args = [script, '--input', file, '--case-dir', caseDir, '--truncation-threshold', '3900', markdown ? '--markdown' : '--json'];
+  if (writeSummary === false) args.push('--no-summary-write');
   for (const s of targetSignals || []) args.push('--target-signal', s);
   const ret = spawnSync(process.execPath, args, { encoding: 'utf8', windowsHide: true });
   return { ok: ret.status === 0, status: ret.status, stdout: ret.stdout || '', stderr: ret.stderr || '' };
@@ -356,7 +357,14 @@ async function capture(args, plan) {
   }
   result.logs = listNdjsonFiles(plan.outDir, startedAt);
   if (args.importAfter && result.logs.length) {
-    result.importResults = result.logs.map(file => importLog(plan.caseDir, file, args.markdown, args.targetSignals));
+    // 目标信号只在主 DOM trace 日志上判定（logs[0]：domtrace/ 主日志优先，其次 mtime 倒序）：
+    // cookie/storage/event/descriptor/eval/wasm 等分类日志不含业务目标接口路径，逐文件硬门禁
+    // 必然误报。分类日志仍导入做摘要（不带 --target-signal），但不写 summary 文件——
+    // ruyitrace-summary.md 只反映主 DOM trace 日志，避免被分类日志覆盖。
+    result.importResults = result.logs.map((file, idx) => {
+      const isMain = idx === 0;
+      return importLog(plan.caseDir, file, args.markdown, isMain ? args.targetSignals : [], isMain);
+    });
   }
   return result;
 }
@@ -473,7 +481,9 @@ async function main() {
   if (args.json) process.stdout.write(JSON.stringify(obj, null, 2) + '\n');
   if (args.markdown) process.stdout.write(renderMarkdown(obj));
   if (!result.logs.length) process.exitCode = 3;
-  if (result.importResults && result.importResults.some(r => !r.ok)) process.exitCode = 4;
+  // 目标信号硬门禁只针对主 DOM trace 日志（importResults[0]）：分类日志无业务接口路径，
+  // 逐文件判定必然误报；主日志命中即覆盖、未命中才退出 4。
+  if (result.importResults && result.importResults.length && !result.importResults[0].ok) process.exitCode = 4;
 }
 
 main().catch((err) => {

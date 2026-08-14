@@ -19,6 +19,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--target') args.target = argv[++i] || '';
     else if (a === '--required-version') args.requiredVersion = (argv[++i] || '').replace(/^v/i, '');
+    else if (a === '--case-dir' || a === '--dir' || a === '-d') args.caseDir = argv[++i] || '';
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--help' || a === '-h') args.help = true;

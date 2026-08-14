@@ -26,7 +26,7 @@ argument-hint: "<目标网站 URL> <要还原的参数名> [目标接口 URL]"
 
 ═══ GATE-1 环境自检（含续接判定，续接模式可跳过）═══
 先判定模式:
-运行: node scripts/check_session_resume.js --case-dir <project-root> --markdown
+运行: node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --markdown
 输出: mode = resume | fresh
   resume → 跳过下方完整环境自检，读最新阶段报告续接（GATE-0 意图声明仍需完成）
   fresh  → 走完整环境自检，通过后用 --write-snapshot 写入/更新快照
@@ -43,7 +43,7 @@ fresh 完整自检:
       运行: node scripts/install_all.js --project-dir <project-root> --yes --markdown
       安装目标 = <project-root>/tools/，由 --project-dir 显式指定，无需先 cd；
       不传时回退当前工作目录，在 skill 安装目录运行会把工具装错位置，后续检测依然失败。
-通过后: node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
+通过后: node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --write-snapshot --markdown
 
 ═══ GATE-2 证据门禁（硬阻断）═══
 运行: node scripts/check_evidence.js --case-dir <project-root> --url <目标URL> --inputs <用户材料> --markdown
@@ -169,7 +169,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 └── result/
 ```
 
-所有脚本的 `--case-dir` 统一传 `<project-root>`（已全局归一化：`scripts/lib/paths.js` 的 `resolveCaseDir` 对 `<project-root>` 与 `<project-root>/case` 均兼容，质检类脚本同样适用）。
+所有脚本的 `--case-dir` 统一传 `<project-root>`（已全局归一化：`scripts/lib/paths.js` 的 `resolveCaseDir` 对 `<project-root>` 与 `<project-root>/case` 均兼容，质检类脚本同样适用）。环境检测类脚本（`check_session_resume.js` / `check_external_tools.js`）支持 `--project-dir <project-root>` 显式指定 tools/ 所在工程根；不传时 `check_session_resume.js` 会自动从 `--case-dir` 向上查找包含 `tools/` 的目录（兼容多 case 项目 `<project-root>/<case-name>/` 与 `<project-root>/tools/` 平级布局）。
 
 从用户请求中提取目标 URL、参数名、接口 URL（如已知）、请求方法、请求范围和当前项目根目录；要素齐备（目标 URL + 参数名可确定）即输出方案声明并直接推进，不询问补充材料、不等待确认。仅当目标 URL 或参数名缺失且无法合理提取时才问一次最小信息（WAIT_USER）：
 
@@ -184,7 +184,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 随后检查环境：
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root> --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --markdown
 node scripts/check_external_tools.js --markdown --project-dir <project-root>
 node scripts/precheck_runtime.js
 ```
@@ -192,7 +192,7 @@ node scripts/precheck_runtime.js
 `resume` 表示环境快照可复用；`fresh`、检测失败，或用户说明重装 Node、替换 Firefox、迁移工具目录、升级 ruyipage/RuyiTrace 时，重新完成环境检查。Node.js、ruyipage、其 managed Firefox、RuyiTrace 和 trace Firefox 的状态以检测输出为准，缺失项按检测结果补齐。五项环境检测全部通过后，必须立即运行以下命令写入或更新快照，再进入 `EVIDENCE_GATE`：
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --write-snapshot --markdown
 ```
 
 不得因已有阶段报告或 `result/` 跳过环境快照写入或证据核验。

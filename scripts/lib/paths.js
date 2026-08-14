@@ -62,11 +62,23 @@ function findProjectRoot() {
   return process.cwd();
 }
 
-// 从 --case-dir 推用户工程根：若指向 case/ 子目录则取父级，否则视为工程根本身
+// 从 --case-dir 推用户工程根（tools/ 所在）：
+// 1. 指向 case/ 子目录 → 取父级为工程根；
+// 2. 否则从 case 目录向上（最多 5 层）查找包含 tools/ 的目录——多 case 项目布局
+//    <project-root>/<case-name>/ 与 <project-root>/tools/ 平级，仅凭 basename 推断会
+//    把嵌套 case 目录误当工程根（tools 检测必失败，靠 junction 临时绕过是错误修法）；
+// 3. 未命中 → 原样返回输入（视为工程根本身），保持向后兼容。
 function resolveProjectDirFromCaseDir(caseDir) {
   if (!caseDir) return process.cwd();
-  const resolved = path.resolve(caseDir);
-  return (path.basename(resolved).toLowerCase() === 'case') ? path.dirname(resolved) : resolved;
+  let cur = path.resolve(caseDir);
+  if (path.basename(cur).toLowerCase() === 'case') cur = path.dirname(cur);
+  for (let i = 0; i < 5; i++) {
+    if (isDir(path.join(cur, 'tools'))) return cur;
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return path.resolve(caseDir);
 }
 
 // 定位 RuyiTrace home 目录

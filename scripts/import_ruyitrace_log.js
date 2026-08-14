@@ -15,6 +15,7 @@ function parseArgs(argv) {
     truncationThreshold: 3900,
     maxTruncationExamples: 50,
     targetSignals: [],
+    noSummaryWrite: false,
     json: false,
     markdown: false,
   };
@@ -28,6 +29,7 @@ function parseArgs(argv) {
     else if (a === '--truncation-threshold') args.truncationThreshold = Number(nextVal('3900'));
     else if (a === '--max-truncation-examples') args.maxTruncationExamples = Number(nextVal('50'));
     else if (a === '--target-signal') args.targetSignals.push(nextVal(''));
+    else if (a === '--no-summary-write') args.noSummaryWrite = true;
     else if (a === '--json') args.json = true;
     else if (a === '--markdown') args.markdown = true;
     else if (a === '--help' || a === '-h') args.help = true;
@@ -47,7 +49,8 @@ function usage() {
   node scripts/import_ruyitrace_log.js --input <trace.ndjson> --case-dir . --target-signal handshake --target-signal /api/verify --markdown
 
 说明：--case-dir 指项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录。复制 RuyiTrace NDJSON 日志到 <case-dir>/case/ruyi-trace/logs/，生成 <case-dir>/case/notes/ruyitrace-summary.md，并标记接近 4000 / 4096 字符的字段为“疑似被 RuyiTrace 截断”。
---target-signal <信号>（可多次）：扫描日志是否命中目标接口 URL / 关键词，未命中时退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。`;
+--target-signal <信号>（可多次）：扫描日志是否命中目标接口 URL / 关键词，未命中时退出码非 0，作为“目标路径未覆盖”的硬信号，不得当作采集完成。
+--no-summary-write：不覆盖写入 notes/ruyitrace-summary.md。capture_ruyitrace_log.js 对 cookie/storage/event 等分类日志导入时使用，避免分类日志覆盖主 DOM trace 摘要。`;
 }
 
 function exists(p) {
@@ -322,7 +325,7 @@ async function main() {
   const summary = await summarizeNdjson(copiedTo, args);
   const result = { input, copiedTo, summary };
   const md = renderMarkdown(result);
-  fs.writeFileSync(path.join(notesDir, 'ruyitrace-summary.md'), md, 'utf8');
+  if (!args.noSummaryWrite) fs.writeFileSync(path.join(notesDir, 'ruyitrace-summary.md'), md, 'utf8');
   if (args.json) console.log(JSON.stringify(result, null, 2));
   if (args.markdown) process.stdout.write(md);
   if (args.targetSignals.length && !summary.targetSignal.allHit) {

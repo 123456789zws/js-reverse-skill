@@ -48,6 +48,17 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("forensic_ruyipage")
 
 
+def configure_utf8_stdio() -> None:
+    """Windows GBK 控制台下输出含 ⚠️/✅ 等非 GBK 字符会抛 UnicodeEncodeError 且退出 1，
+    与仓库其他 Python 脚本一致：stdout/stderr 强制 UTF-8。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
+configure_utf8_stdio()
+
+
 # ============================================================
 # 检测：ruyipage 包 + 定制 Firefox
 # ============================================================
@@ -121,9 +132,10 @@ def resolve_browser(args: argparse.Namespace) -> Tuple[str, str]:
     except Exception as e:
         return "", f"resolve_firefox_path(allow_system=False) 失败：{e}"
     if not resolved:
-        # 兜底：扫描项目 tools/ruyipage-browsers/ 下的 managed runtime（与 check_external_tools.js 同一来源），
-        # 避免"检测已装好、取证脚本却不认"的不一致。
-        resolved = _find_managed_runtime()
+        # 兜底：扫描工程 tools/ruyipage-browsers/ 下的 managed runtime（与 check_external_tools.js 同一来源），
+        # 避免"检测已装好、取证脚本却不认"的不一致。安装模式下 skill 安装目录无 tools/，
+        # 按 --project-dir / --case-dir 上级 / cwd 上级逐层查找真实工程目录。
+        resolved = _find_managed_runtime(args.project_dir, args.case_dir)
     if not resolved:
         return "", "未能解析到 ruyiPage 定制 Firefox（已禁用系统回退）。请传 --browser-path 或先安装 runtime。"
     if not is_ruyi_custom_firefox(resolved):
@@ -161,26 +173,72 @@ def _resolve_exe_from_install_json(runtime_dir: str) -> Optional[str]:
         return None
 
 
-def _find_managed_runtime() -> Optional[str]:
-    """扫描项目 tools/ruyipage-browsers/ 下的 managed runtime，返回 Firefox 主版本号最高的定制内核路径。"""
-    tools_dir = os.path.join(find_project_root(), "tools", "ruyipage-browsers")
-    if not os.path.isdir(tools_dir):
-        return None
-    candidates = []
-    for entry in os.listdir(tools_dir):
-        d = os.path.join(tools_dir, entry)
-        if not os.path.isdir(d):
-            continue
-        exe = _resolve_exe_from_install_json(d)
-        if exe and is_ruyi_custom_firefox(exe):
-            candidates.append((entry, exe))
-    if not candidates:
-        return None
+def _tools_browsers_candidates_under(start: str, levels: int = 5) -> List[str]:
+    """从 start 起（含自身）向上 levels 层，收集每层 <dir>/tools/ruyipage-browsers（去重）。
+    多 case 项目布局 <project-root>/<case-name>/ 与 <project-root>/tools/ 平级，逐层向上查找。"""
+    out: List[str] = []
+    cur = os.path.abspath(start or os.getcwd())
+    for _ in range(levels + 1):
+        d = os.path.join(cur, "tools", "ruyipage-browsers")
+        if d not in out:
+            out.append(d)
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return out
 
-    def rank(item) -> int:
-        m = re.search(r"firefox[-_]?(\d+)(?:\.\d+)*", item[0], re.I)
-        return int(m.group(1)) if m else 0
-    return max(candidates, key=rank)[1]
+
+def _managed_runtime_candidates(project_dir: str = "", case_dir: str = "") -> List[str]:
+    """managed runtime 候选目录列表，与 check_external_tools.js getDefaultRuyiBrowsersDirs 对齐：
+    显式 --project-dir/tools → --case-dir 及其上级/tools → RUYIPAGE_BROWSERS_PATH →
+    cwd 及其上级/tools → find_project_root()/tools → 平台缓存目录。"""
+    candidates: List[str] = []
+    for base in (project_dir, case_dir):
+        if base:
+            candidates.extend(_tools_browsers_candidates_under(base))
+    env = os.environ.get("RUYIPAGE_BROWSERS_PATH", "")
+    if env:
+        candidates.append(os.path.abspath(os.path.expanduser(env)))
+    candidates.extend(_tools_browsers_candidates_under(os.getcwd()))
+    candidates.append(os.path.join(find_project_root(), "tools", "ruyipage-browsers"))
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        candidates.append(os.path.join(base, "ruyipage", "browsers"))
+    elif sys.platform == "darwin":
+        candidates.append(os.path.join(os.path.expanduser("~"), "Library", "Caches", "ruyipage", "browsers"))
+    else:
+        base = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+        candidates.append(os.path.join(base, "ruyipage", "browsers"))
+    seen: set = set()
+    return [d for d in candidates if not (d in seen or seen.add(d))]
+
+
+def _find_managed_runtime(project_dir: str = "", case_dir: str = "") -> Optional[str]:
+    """扫描候选 tools/ruyipage-browsers/ 下的 managed runtime，返回 Firefox 主版本号最高的定制内核路径。
+
+    安装模式下 skill 安装目录无 tools/（gitignore 不随分发），find_project_root() 定位到的是
+    skill 根而非用户工程；因此必须扫描 --project-dir / --case-dir 上级 / cwd 上级等真实工程目录。
+    """
+    for tools_dir in _managed_runtime_candidates(project_dir, case_dir):
+        if not os.path.isdir(tools_dir):
+            continue
+        candidates = []
+        for entry in os.listdir(tools_dir):
+            d = os.path.join(tools_dir, entry)
+            if not os.path.isdir(d):
+                continue
+            exe = _resolve_exe_from_install_json(d)
+            if exe and is_ruyi_custom_firefox(exe):
+                candidates.append((entry, exe))
+        if not candidates:
+            continue
+
+        def rank(item) -> int:
+            m = re.search(r"firefox[-_]?(\d+)(?:\.\d+)*", item[0], re.I)
+            return int(m.group(1)) if m else 0
+        return max(candidates, key=rank)[1]
+    return None
 
 
 # ============================================================
@@ -909,6 +967,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--url", required=True, help="目标页面 URL")
     p.add_argument("--browser-path", default="", help="ruyiPage 定制 Firefox 可执行文件；缺省自动解析 managed runtime（禁系统回退）")
     p.add_argument("--case-dir", default=".", help="项目根目录（其下应有 case/ 和 result/ 两个平级子目录），默认当前目录")
+    p.add_argument("--project-dir", default="", help="用户工程目录（tools/ 所在）。未传时从 --case-dir / 当前目录向上查找 tools/；安装模式下 skill 安装目录无 tools/，靠此定位定制 Firefox runtime")
     p.add_argument("--out-dir", default="", help="取证输出目录，默认 <case-dir>/case/forensic")
     p.add_argument("--profile-dir", default="", help="独立浏览器 profile，默认 <case-dir>/case/tmp/ruyipage-profile")
     p.add_argument("--fp-dir", default="", help="智能指纹 base_dir，默认 <case-dir>/case/tmp/fingerprint")

@@ -300,6 +300,16 @@ function isEnvModulePath(relFile) {
   return /(^|\/)src\/(?:env|node-runtime\/env)\//i.test(relFile) || /(^|\/)env\//i.test(relFile);
 }
 
+// 补环境主体域：env 模块 / signer / probe / runtime-runner 等文件。
+// Object.assign 堆叠规则只对这些文件生效——普通 HTTP 客户端（src/request/ 等）合并
+// headers/options 时用 Object.assign 是正常写法，不应被误报为补环境堆叠。
+function isEnvPatchDomain(relFile) {
+  const normalized = relFile.replace(/\\/g, '/');
+  return isEnvModulePath(normalized)
+    || /(^|\/)src\/signer\//i.test(normalized)
+    || /(^|\/)[^/]*(?:probe|diagnostic|runtime-runner|runtime_probe|runtime-probe)[^/]*\.(?:js|mjs|cjs)$/i.test(normalized);
+}
+
 function inspectWebApiModuleBoundary(relFile, text, lines, args) {
   const problems = [];
   const warnings = [];
@@ -422,7 +432,7 @@ function inspectFile(root, file, args) {
     if (/(?:Object\.defineProperty|Object\.defineProperties)\s*\([^;]+\{[^{}\n]*(?:value|get|set|writable|enumerable|configurable)[^{}\n]*\}[^;]*;?$/.test(line) && line.length > 110) {
       denseLineProblems.push(`第 ${lineNo} 行把属性描述符压在一行，建议展开 value/get/set/writable/enumerable/configurable。`);
     }
-    if (/\bObject\.assign\s*\([^;]*\{.*\{.*\}/.test(line)) {
+    if (isEnvPatchDomain(relFile) && /\bObject\.assign\s*\([^;]*\{.*\{.*\}/.test(line)) {
       denseLineProblems.push(`第 ${lineNo} 行疑似用 Object.assign 堆叠对象和方法，补环境代码应拆为 createProtoChains 与 defineProperty。`);
     }
     if (/\b(?:ctx|window|globalThis|globalObject|self)\s*(?:\.|\[).*=.*\{.*(?:function\b|=>|\b[A-Za-z_$][\w$]*\s*\([^)]*\)\s*\{)/.test(line)) {

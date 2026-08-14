@@ -236,6 +236,12 @@ function isCodeLikeFile(p) {
   return ['.js', '.mjs', '.cjs', '.py', '.json'].includes(ext(p));
 }
 
+// 源码文件（硬编码加密参数检查只对源码生效：package.json 等元数据里的
+// 脚本名/配置键会命中 CRYPTO_PARAM_NAME_RE，造成"verify": "node ..." 这类误报）
+function isSourceCodeFile(p) {
+  return ['.js', '.mjs', '.cjs', '.py'].includes(ext(p));
+}
+
 function isTempOrTestFile(p) {
   const n = path.basename(p).toLowerCase();
   const normalized = String(p).replace(/\\/g, '/').toLowerCase();
@@ -378,7 +384,7 @@ function inspectReusedSampleCryptoValues(caseSubdir, caseDir, resultFiles, textF
   }
   const hardcoded = [];
   const hardcodedRe = /["']?([A-Za-z_$][\w$-]{0,80})["']?\s*(?::|=)\s*["']([^"'\r\n]{8,})["']/g;
-  for (const f of resultFiles.filter(isCodeLikeFile)) {
+  for (const f of resultFiles.filter(isSourceCodeFile)) {
     const text = readText(f);
     let m;
     while ((m = hardcodedRe.exec(text))) {
@@ -645,11 +651,13 @@ function check(args) {
       ? 'not-required'
       : null;
   const docNoRealRequest = networkMode === 'sign-only';
-  const validationRecord = exists(resultDir) && networkMode
-    ? inspectValidationRecord(resultDir, networkMode)
-    : { result: { file: path.join(resultDir, '验证记录.json'), present: false, mode: networkMode, attempts: 0, exempt: false, valid: false }, problems: [], warnings: [] };
-  problems.push(...validationRecord.problems);
-  warnings.push(...validationRecord.warnings);
+  // 请求/会话分析变量提升到 primary 块外：验证记录检查必须以"代码真实请求"为准，
+  // 不能只依赖文档声明的 networkMode（文档未声明时联网项目会把验证记录检查整个跳过）。
+  let requestHits = [];
+  let noRealRequestHits = [];
+  let online = false;
+  let signOnly = false;
+  let validationRecord = { result: { file: path.join(resultDir, '验证记录.json'), present: false, mode: null, attempts: 0, exempt: false, valid: false }, problems: [], warnings: [] };
 
   if (primary && !exists(primary)) problems.push(`指定执行入口不存在：${primary}`);
   if (primary && exists(primary)) {
@@ -672,8 +680,8 @@ function check(args) {
 
     const requestPatterns = primaryExt === '.py' ? [...PY_REQUEST_PATTERNS, /\brequests\.(?:get|post|request)\s*\(/i] : REQUEST_PATTERNS;
     const requestSearchFiles = codeFiles.filter(p => primaryExt === '.py' ? ext(p) === '.py' : ['.js', '.mjs', '.cjs'].includes(ext(p)));
-    const requestHits = [];
-    const noRealRequestHits = [];
+    requestHits = [];
+    noRealRequestHits = [];
     const sessionCreateHits = [];
     const sessionReuseHits = [];
     const sessionCleanupHits = [];
@@ -690,8 +698,8 @@ function check(args) {
       const cleanupHits = findMatches(source, SESSION_CLEANUP_PATTERNS);
       if (cleanupHits.length) sessionCleanupHits.push({ file: rel(caseDir, f), hits: cleanupHits });
     }
-    const online = networkMode === 'online' || requestHits.length > 0;
-    const signOnly = networkMode === 'sign-only' && !requestHits.length;
+    online = networkMode === 'online' || requestHits.length > 0;
+    signOnly = networkMode === 'sign-only' && !requestHits.length;
     const tlsRequired = tlsFingerprint === 'required';
     if (!signOnly && !online && !noRealRequestHits.length && !docNoRealRequest) {
       problems.push('未声明最终联网模式：请使用 FINAL_ARTIFACT_NETWORK_MODE=online 或 sign-only 明确标记。');
@@ -707,6 +715,19 @@ function check(args) {
       ].filter(Boolean).join('；')}。`);
     }
     if (online && networkMode === 'sign-only') warnings.push('代码检测到联网请求，覆盖 sign-only 声明；按联网模式执行 Session 门禁。');
+  }
+
+  // 验证记录检查以"代码真实请求"为准（防文档未声明联网模式时整个跳过）：
+  // - 代码存在真实请求 → 视为 online，强制检查验证记录.json 至少 5 条有效 attempts；
+  // - 代码/文档明确 sign-only（含代码内 noRealRequest 标记）且无真实请求 → 检查 sign-only 豁免；
+  // - 二者都不是 → 维持现状（"未声明最终联网模式"问题已在上方卡住）。
+  const validationMode = online
+    ? 'online'
+    : (signOnly || (!requestHits.length && noRealRequestHits.length)) ? 'sign-only' : null;
+  if (exists(resultDir) && validationMode) {
+    validationRecord = inspectValidationRecord(resultDir, validationMode);
+    problems.push(...validationRecord.problems);
+    warnings.push(...validationRecord.warnings);
   }
 
   const automationHits = [];

@@ -40,11 +40,12 @@ const { spawnSync } = require('child_process');
 const paths = require('./lib/paths');
 
 function parseArgs(argv) {
-  const args = { caseDir: '', ruyitraceHome: '', ruyitraceExe: '', writeSnapshot: false, json: false, markdown: false, help: false };
+  const args = { caseDir: '', projectDir: '', ruyitraceHome: '', ruyitraceExe: '', writeSnapshot: false, json: false, markdown: false, help: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     const nextVal = (fb) => (i + 1 < argv.length && typeof argv[i + 1] === 'string' && !argv[i + 1].startsWith('-')) ? argv[++i] : fb;
     if (a === '--case-dir') args.caseDir = nextVal('');
+    else if (a === '--project-dir') args.projectDir = nextVal('');
     else if (a === '--ruyitrace-home') args.ruyitraceHome = nextVal('');
     else if (a === '--ruyitrace-exe') args.ruyitraceExe = nextVal('');
     else if (a === '--write-snapshot') args.writeSnapshot = true;
@@ -65,6 +66,9 @@ function usage() {
 
 说明：判定新会话是否可跳过 ENV_READY 五项环境检测。
 --case-dir 指项目根（其下应有 case/ 和 result/ 两个平级子目录）；兼容直接传 case 目录。
+--project-dir <dir>：用户工程目录（tools/ 所在）。未传时从 --case-dir 自动推断（向上查找
+  包含 tools/ 的目录，兼容多 case 项目 <project-root>/<case-name>/ 与 <project-root>/tools/ 平级布局）；
+  显式传入可覆盖推断，安装模式下建议按 GATE-1 与 check_external_tools.js 一致显式传 <project-root>。
 --write-snapshot：仅在五项环境检测全部通过时写入/更新 case/notes/env-snapshot.json；失败退出非零且不写文件。
 不带 --write-snapshot 时只做判定，不写文件。
 --ruyitrace-home / --ruyitrace-exe：透传给 check_external_tools.js（安装模式下 tools/ 在用户工程目录而非 skill 根，靠此定位 RuyiTrace）。`;
@@ -250,7 +254,9 @@ function main() {
   }
   const projectRoot = paths.findProjectRoot();
   const caseDir = resolveCaseDir(args.caseDir);
-  const projectRootOfCase = paths.resolveProjectDirFromCaseDir(caseDir);
+  // tools/ 所在工程根：显式 --project-dir 优先；未传时从 --case-dir 自动推断（多 case 项目向上查找 tools/）。
+  // 快照的 projectRoot 字段记录真实工程根而非 skill 安装根，避免 junction / 目录布局变更后续接失败。
+  const toolsBase = args.projectDir ? path.resolve(args.projectDir) : paths.resolveProjectDirFromCaseDir(caseDir);
   const notesDir = path.join(caseDir, 'notes');
   const snapshotPath = path.join(notesDir, 'env-snapshot.json');
   const snapshotExists = exists(snapshotPath);
@@ -258,7 +264,7 @@ function main() {
 
   // 写快照模式
   if (args.writeSnapshot) {
-    const detectRet = runCheckExternalTools(projectRoot, projectRootOfCase, args);
+    const detectRet = runCheckExternalTools(projectRoot, toolsBase, args);
     if (!detectRet.ok) {
       console.error(`无法生成快照：${detectRet.error}`);
       process.exit(2);
@@ -269,7 +275,7 @@ function main() {
       console.error(`环境检测未全部通过，拒绝写入快照：${failedChecks.join(', ')}`);
       process.exit(2);
     }
-    const fresh = buildSnapshotFromDetection(detectRet.data, caseDir, projectRoot);
+    const fresh = buildSnapshotFromDetection(detectRet.data, caseDir, toolsBase);
     if (storedSnapshot) fresh.createdAt = storedSnapshot.createdAt || fresh.createdAt;
     try { fs.mkdirSync(notesDir, { recursive: true }); } catch {}
     fs.writeFileSync(snapshotPath, JSON.stringify(fresh, null, 2) + '\n', 'utf8');
@@ -302,7 +308,7 @@ function main() {
     process.exit(0);
   }
 
-  const detectRet = runCheckExternalTools(projectRoot, projectRootOfCase, args);
+  const detectRet = runCheckExternalTools(projectRoot, toolsBase, args);
   if (!detectRet.ok) {
     const out = { mode: 'fresh', caseDir, snapshotPath, snapshotExists: true, detectError: detectRet.error };
     if (args.json) console.log(JSON.stringify(out, null, 2));
@@ -310,7 +316,7 @@ function main() {
     process.exit(0);
   }
 
-  const current = buildSnapshotFromDetection(detectRet.data, caseDir, projectRoot);
+  const current = buildSnapshotFromDetection(detectRet.data, caseDir, toolsBase);
   const diffs = diffSnapshot(storedSnapshot, current);
   const stageReport = findLatestStageReport(caseDir);
   const resultProgress = findResultProgress(caseDir);

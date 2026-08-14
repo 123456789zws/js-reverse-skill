@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2.3.27 - 2026-08-14
+
+### 修复
+- **`check_session_resume.js` tools 根推断错误（多 case 项目第一遍必失败）**：`paths.resolveProjectDirFromCaseDir` 只认 `basename==='case'`，嵌套 case 目录（`<project-root>/<case-name>/` 与 `<project-root>/tools/` 平级）被误当工程根，快照写入被拒（日志里靠 junction 绕过、快照绝对路径绑定 junction，删 junction 后续接失败）。修复：① 该函数改为从 case 目录向上（最多 5 层）查找包含 `tools/` 的目录；② `check_session_resume.js` 新增 `--project-dir` 显式覆盖推断；③ 快照 `projectRoot` 记录真实工程根而非 skill 安装根。
+- **`forensic_ruyipage.py` 取证第一遍必失败 + 成功后仍退出 1**：`_find_managed_runtime` 只扫 `find_project_root()/tools`（安装模式下是 skill 根，无 tools/），明明 `check_external_tools.js` 已检测到 runtime 还是定位不到；且脚本无 UTF-8 stdio 配置，GBK 控制台输出含 `⚠️` 直接 `UnicodeEncodeError` 崩在渲染阶段。修复：runtime 兜底扫描候选对齐 JS 侧 `getDefaultRuyiBrowsersDirs`（`--project-dir` → `--case-dir` 及其上级 → `RUYIPAGE_BROWSERS_PATH` → cwd 及其上级 → skill 根 → 平台缓存），新增 `--project-dir`；模块顶部按仓库惯例 `configure_utf8_stdio()`。
+- **RuyiTrace `--target-signal` 逐文件硬门禁误报**：`capture_ruyitrace_log.js` 对每个 NDJSON（含 cookie/storage/event/descriptor/eval/wasm 分类日志）都传 `--target-signal`，任一文件未命中即退出 4——业务目标接口只可能出现在主 DOM trace 日志，分类日志必然"未命中"。且隐藏 bug：`import_ruyitrace_log.js` 每次导入都覆盖 `notes/ruyitrace-summary.md`，多文件导入后摘要被最后一个分类日志覆盖。修复：目标信号只在主 DOM trace 日志（logs[0]）上判定，退出 4 只由主日志未命中触发；分类日志照常导入做摘要但加 `--no-summary-write` 不覆盖主摘要。
+- **`check_final_artifact.js` 联网模式验证记录被绕过**：验证记录检查只认文档声明的 `networkMode`，文档未标记时真实联网项目（代码含 `https.request`/`session.request`）整体跳过"至少 5 条有效 attempts"。修复：联网模式判定以代码真实请求为准（`online = 文档声明 || 代码请求命中`），代码有真实请求即强制检查验证记录；代码/文档明确 sign-only 且无真实请求时检查 sign-only 豁免。
+- **`check_final_artifact.js` 硬编码检查误报 package.json 脚本名**：`hardcodedRe` 扫 `isCodeLikeFile`（含 .json），`"verify": "node ..."` 命中加密参数名正则。修复：硬编码加密参数检查只对源码文件（js/mjs/cjs/py）生效，元数据文件跳过。
+- **`check_code_quality.js` Object.assign 误报 HTTP 客户端**：`Object.assign(...{...{...})` 单行堆叠规则对所有文件生效，`src/request/client.js` 合并 headers/options 被报"补环境代码应拆为 createProtoChains/defineProperty"。修复：该规则只对补环境主体域（`src/env/`、`src/signer/`、probe/runtime-runner 类文件）生效。
+- **`check_node_runtime_compat.js` 与 SKILL 统一参数规则冲突**：SKILL.md 4.1 规定所有脚本 `--case-dir` 统一传 `<project-root>`，该脚本不认 `--case-dir` 直接抛"未知参数"。修复：接受 `--case-dir/--dir/-d`（本脚本只需 Node 版本信息，参数接受但不参与逻辑）。
+
+### 优化
+- **SKILL.md GATE-1 / 4.1 同步**：`check_session_resume.js` 命令模板补 `--project-dir <project-root>`（与 `check_external_tools.js` 一致），并说明未传时自动从 `--case-dir` 向上推断 tools/ 的布局兼容。
+
 ## 2.3.26 - 2026-08-13
 
 ### 修复
