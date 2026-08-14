@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.3.33 - 2026-08-15
+
+### 优化
+- **补「响应方向」链路模型（crypto-entry.md）**：新增 response→reader→decoder→parser 四层（与请求方向 source→entry→builder→writer 对称），并给两条关键原则——「先看 code 分支再判错误/风控」「先判 data 编码特征再套算法」。来源：leisu api-gateway 案例中 `code 1-130 是加密容器标识（code-100=凯撒位移量）`，被误判为 IP 风控绕了几十步。
+- **SKILL.md 第8节 trace 优先原则覆盖响应方向**：响应体非明文时先查 trace 的 xhrNative 响应记录确认响应形态，再按响应方向四层追处理链，禁止先搜源码密钥串猜解密算法（密钥可能作用于别的字段）。
+- **crypto-patterns.md 加「响应体编码识别表」**：gzip `1f8b` / zlib `789c` magic number、`mod16≠0` 排除 AES-ECB、凯撒位移、`code` 作位移量/模式标识等负向判型。
+- **SKILL.md 4.4 防耗尽检查点覆盖阶段扩展**：从仅 TRACE_ANALYZE 扩到 IMPLEMENT/REAL_VERIFY 的打转场景（黑盒调试、参数长度纠结、响应解密误判）。
+
+### 文档
+- **common-pitfalls.md 新增反模式 10**：响应体 `code 非 0 + data 乱码` 被误判为风控/错误码（leisu 案例），正确做法是先查前端 `if(code...)` 分支 + 判 data 编码特征。
+
 ## 2.3.32 - 2026-08-14
 
 ### 修复

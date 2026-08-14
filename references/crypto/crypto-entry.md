@@ -16,6 +16,24 @@
 **只有记录到 `writer`，才能确认"找到的函数"确实影响目标请求。**
 **只有记录到 `source`，才能解释为什么 Node.js 输出和浏览器样本可能不一致。**
 
+## 响应方向四层链路（解密/解析对称模型）
+
+请求方向四层（source→entry→builder→writer）只覆盖"怎么把参数写进请求"。目标接口的响应体若**不是明文 JSON**（`code` 字段非 0/非 1、`data` 是二进制或乱码），必须同步还原**响应方向**四层，不能只盯着请求签名：
+
+| 层级 | 含义 | 常见证据 |
+|---|---|---|
+| response 原始响应 | 网络层拿到的 body（可能 gzip/br 压缩、二进制） | trace 的 xhrNative 响应记录、capture target_hits 的 `response_body` |
+| reader 读取/解码入口 | 拦截器/请求封装里把响应转成中间形式的函数 | `JSON.parse`、`charCodeAt` 循环、`atob`、`pako.inflate`、axios 拦截器 |
+| decoder 解密/解压 | 真正的算法（凯撒位移 / AES / 异或 / 解压） | 调用栈、密钥/位移量参数来源 |
+| parser 业务解析 | 把解密结果转成业务对象 | `JSON.parse` 之后的字段映射 |
+
+**响应方向定位顺序与请求方向对称**：先确认"响应体是什么形态"→ 追 reader 调用链（charCodeAt/atob/inflate）→ 定位 decoder → 确认 parser。
+
+**两条关键原则**：
+
+1. **先看 code 分支，再判"错误/风控"**：响应有 `code`/`status` 字段且非 0 时，先在前端搜 `if(...code...){...}` 的响应拦截器分支——`code` 可能是加密容器标识（如 `code-100` 作为凯撒位移量）或加密模式标识，而非业务错误码。没看分支前不得假设"风控/拒绝"。
+2. **先判 data 编码特征，再套算法**：`data` 是二进制/乱码时，先 base64 解码看 magic number（`1f8b`=gzip、`789c`=zlib），或用 `长度 mod16==0` 判 AES；`mod16≠0` 基本排除 AES-ECB，转查压缩/位移/异或。别看到源码某处有 AES 密钥串就默认 data 是 AES——密钥可能作用于别的字段。
+
 ## 三类常见架构
 
 1. **直接写入型**：业务代码直接调用入口函数，然后把结果拼接到 Query/Header/Body。

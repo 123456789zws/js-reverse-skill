@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.32
+version: 2.3.33
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -217,10 +217,10 @@ node scripts/write_stage_report.js --case-dir <project-root> --stage <阶段> --
 
 **每个阶段结束必须落一个最小阶段报告**（至少含：当前状态、已证实事实、缺失证据、下一步输入）；续接模式靠它恢复，不得跳过。
 
-**上下文防耗尽检查点（硬约束）**：TRACE_ANALYZE 消耗大量步骤或上下文接近耗尽时，先落盘再继续：
+**上下文防耗尽检查点（硬约束）**：TRACE_ANALYZE / IMPLEMENT / REAL_VERIFY 任一阶段消耗大量步骤（20+ 步未推进）或上下文接近耗尽时，先落盘再继续：
 - `notes/entry-chain.md`：入口函数 → 请求链 → 关键 `stack.file:line:col`；
 - `notes/missing-env-priority.md`：待补环境清单（字段名 + 真实长度 unknown + 优先级）。
-判定标准：trace 已定位到关键资源/入口，或当前节点已消耗 20+ 步仍未进入 IMPLEMENT。先写这两个文件再推进，避免下次续接从零开始。
+判定标准：trace 已定位到关键资源/入口，或当前节点已消耗 20+ 步仍未推进（TRACE_ANALYZE 未进 IMPLEMENT、IMPLEMENT 黑盒调试打转、REAL_VERIFY 反复排查未定位根因）。先写这两个文件再推进，避免下次续接从零开始。
 
 **IMPLEMENT 硬前置条件**：必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认轻量路径」。两条均不满足时停在 TRACE_ANALYZE，不得以 mock、猜测或实验性实现替代证据。
 
@@ -258,7 +258,7 @@ node scripts/search_cases.js --domain <域名> --signal <信号>
 
 ## 8. TRACE_ANALYZE
 
-**先 trace、后读源码（硬约束）**：进入本节后先跑 `import_ruyitrace_log` 生成摘要，再用 `search_trace --url <target-signal>` 直接定位请求链和 `stack.file:line:col`，最后才按行号/字符偏移切源码片段。禁止在拿到 trace 前先读 8MB 大 bundle 手工猜 webpack module id 或写 probe1~N 静态解析——那会耗尽上下文且命中率低。定位大文件 JS 关键词必须用 `search_js.js`；禁止 grep 单行超 64KB 的压缩 JS、禁止现场手搓 `node -e`（PowerShell 转义翻车）。
+**先 trace、后读源码（硬约束）**：进入本节后先跑 `import_ruyitrace_log` 生成摘要，再用 `search_trace --url <target-signal>` 直接定位请求链和 `stack.file:line:col`，最后才按行号/字符偏移切源码片段。禁止在拿到 trace 前先读 8MB 大 bundle 手工猜 webpack module id 或写 probe1~N 静态解析——那会耗尽上下文且命中率低。定位大文件 JS 关键词必须用 `search_js.js`；禁止 grep 单行超 64KB 的压缩 JS、禁止现场手搓 `node -e`（PowerShell 转义翻车）。**响应体非明文（`code` 非 0、`data` 二进制/乱码）时同理**：先查 trace 的 xhrNative 响应记录确认响应形态，再按响应方向四层（response→reader→decoder→parser，见 `references/crypto/crypto-entry.md`）追响应处理链；禁止先搜源码里的密钥串猜解密算法——密钥可能作用于别的字段。
 
 读取 NDJSON 的 API、时间、stack、文件、行列号和参数摘要，按调用频率与网络写入时间定位热路径。分析时按定位顺序使用：
 
