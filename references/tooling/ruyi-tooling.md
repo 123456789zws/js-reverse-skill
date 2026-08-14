@@ -259,6 +259,7 @@ node scripts/download_ruyi_tool.js --tool ruyipage-firefox --dest <download-dir>
 - RuyiTrace 自动捕获或手动采集前先确认使用同一 case profile / baseline；如果 RuyiTrace 定制内核不能复用同一 profile，必须采样核心字段并写入 `case/notes/fingerprint-baseline-diff.md`，不一致时暂停。
 - 后续 Hook、截图、网络抓包、指纹 fixture 采样必须带同一 `baselineId`；缺少 `baselineId` 时不得把样本用于最终 env。
 - 如果用户更换代理、地区、语言、profile 或工具，生成新的 baseline，旧样本不能和新样本混用。
+- 出口代理（`forensic_ruyipage.py --proxy host:port` / `--proxy-auth user:pass`）只在目标站需要固定出口 IP / 国家匹配时使用，国内站点默认直连；代理账号密码由 `smart_fingerprint` 写入 fpfile，不写入业务脚本、`capture.json` 或最终交付物（与绝对规则第 7 条「不记录密钥」一致）。
 
 ### ruyiPage isTrusted 交互规则
 

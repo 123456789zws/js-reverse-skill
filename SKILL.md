@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.30
+version: 2.3.31
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、

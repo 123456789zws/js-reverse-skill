@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.3.31 - 2026-08-14
+
+### 优化
+- **`forensic_ruyipage.py` 加 `--proxy`/`--proxy-auth` 参数**：透传 `smart_fingerprint` 的 `proxy_host`/`proxy_port`/`proxy_user`/`proxy_pwd`（基于本机 ruyipage 1.2.61 内省确认参数名），支持固定出口 IP / 国家匹配的取证场景；国内站点默认直连不受影响。
+- **`ruyi-tooling.md` 补代理认证分离原则**：代理账号密码由 `smart_fingerprint` 写 fpfile，不写业务脚本 / `capture.json` / 交付物。
+
 ## 2.3.30 - 2026-08-14
 
 ### 优化

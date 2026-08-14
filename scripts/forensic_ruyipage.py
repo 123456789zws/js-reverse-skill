@@ -247,6 +247,27 @@ def _find_managed_runtime(project_dir: str = "", case_dir: str = "") -> Optional
 # ============================================================
 # 指纹
 # ============================================================
+def _parse_proxy(value: str, auth: str) -> Dict[str, Any]:
+    """解析 --proxy host:port 与 --proxy-auth user:pass，返回 smart_fingerprint 的 proxy 关键字参数。
+
+    国内站点默认直连（不传 --proxy）；仅当目标站需要固定出口 IP / 国家匹配时使用。
+    代理账号密码只透传给 smart_fingerprint 写进 fpfile，不写入业务脚本或最终交付物。
+    """
+    kwargs: Dict[str, Any] = {}
+    if not value:
+        return kwargs
+    host, _, port = value.rpartition(":")
+    if not host or not port.isdigit():
+        raise ValueError(f"--proxy 格式应为 host:port（如 1.2.3.4:8080），实际：{value}")
+    kwargs["proxy_host"] = host
+    kwargs["proxy_port"] = int(port)
+    if auth:
+        user, _, pwd = auth.partition(":")
+        kwargs["proxy_user"] = user
+        kwargs["proxy_pwd"] = pwd
+    return kwargs
+
+
 def apply_smart_fingerprint(opts, args: argparse.Namespace):
     """返回 FingerprintContext 或 None（--no-fp 时）。地理探测失败且无 manual_geo 时抛错。"""
     if args.no_fp:
@@ -263,6 +284,8 @@ def apply_smart_fingerprint(opts, args: argparse.Namespace):
     }
     if args.manual_geo:
         kwargs["manual_geo"] = load_manual_geo(args.manual_geo)
+    if args.proxy:
+        kwargs.update(_parse_proxy(args.proxy, args.proxy_auth))
 
     try:
         return opts.smart_fingerprint(**kwargs)
@@ -1016,6 +1039,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--human-algorithm", default="windmouse", help="拟人算法：windmouse / bezier，默认 windmouse")
     p.add_argument("--window-size", default="1366,900", help="窗口尺寸 wxh，默认 1366,900")
     p.add_argument("--require-country", default="", help="smart_fingerprint require_country（ISO-2）；缺省不校验出口国家（适配代理出口 IP 与目标国家不一致）")
+    p.add_argument("--proxy", default="", help="出口代理 host:port（如 1.2.3.4:8080），透传 smart_fingerprint 的 proxy_host/proxy_port；缺省直连（国内站点通常不需要）")
+    p.add_argument("--proxy-auth", default="", help="出口代理认证 user:pass（透传 proxy_user/proxy_pwd），可选；账号密码只写 fpfile，不写业务脚本/交付物")
     p.add_argument("--manual-geo", default="", help="地理探测失败时的 manual_geo（JSON 字符串或文件路径）")
     p.add_argument("--no-fp", action="store_true", help="跳过 smart_fingerprint（禁用智能指纹）")
     p.add_argument("--wait", type=int, default=120, help="完成判定的总超时秒：目标命中即提前结束 / 未命中到点自动关闭，默认 120")
