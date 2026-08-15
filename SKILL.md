@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.35
+version: 2.3.36
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -146,7 +146,7 @@ DELIVER / SIGN_ONLY_DELIVER → CLEANUP → DONE
 
 ### 4.1 路径、意图与环境
 
-`<project-root>` 指项目根目录，其下平级包含 `case/` 与 `result/`。所有脚本的 `--case-dir` 统一传 `<project-root>`；`scripts/lib/paths.js` 已兼容 `<project-root>` 与 `<project-root>/case`。环境检测类脚本用 `--project-dir <project-root>` 指定 tools/ 所在工程根。
+`<project-root>` 指项目根目录，其下平级包含 `case/` 与 `result/`。所有脚本的 `--case-dir` 统一传 `<project-root>`；`scripts/lib/paths.js` 已兼容 `<project-root>` 与 `<project-root>/case`。环境检测类脚本用 `--project-dir <project-root>` 指定 tools/ 所在工程根。多 case 项目共享 tools（`<project-root>/tools/` 与各 `<case-name>/` 平级）时，`--project-dir`/`--case-dir` 传 case 目录或共享工程根均可：脚本会自动向上查找含 `tools/` 的祖先目录，避免把已装在共享工程根的 RuyiTrace/ruyipage runtime 误判缺失或重复下载。
 
 从请求中提取目标 URL、接口 URL、目标参数、请求方法、范围和项目根目录。目标 URL + 目标参数可确定即直接推进；仅两者缺一且无法合理提取时才问一次最小信息。若实现需要额外动态参数，列出参数名、位置、用途假设和证据后纳入请求链范围。
 

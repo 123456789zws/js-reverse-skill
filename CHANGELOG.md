@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.3.36 - 2026-08-15
+
+### 修复
+- **多 case 项目共享 tools 时 RuyiTrace/ruyipage 被误判缺失、重复下载**：`check_external_tools.js`/`install_all.js` 拿到 `--project-dir` 后直接用 `path.resolve` 拼 `tools/`，不向上查找；当 AI 把 case 目录（如 `ai-js-reverse/zhihu-xzse96`）当 `<project-root>` 传入时，`zhihu-xzse96/tools/` 不存在，已装在上一级共享工程根 `ai-js-reverse/tools/RuyiTrace-2.5.5` 的组件检测不到，触发重复安装。修复：`scripts/lib/paths.js` 抽出 `findToolsRoot`（向上含自身最多 5 层找含 `tools/` 的目录），新增 `normalizeProjectDir` 供 `--project-dir` 归一（命中返回祖先、未命中原样返回，向后兼容）；`check_external_tools.js` 入口与 `install_all.js` `initPaths` 均接入，`resolveProjectDirFromCaseDir` 复用 `findToolsRoot` 并保持原兜底语义。SKILL.md 4.1 与两脚本 usage 同步「多 case 共享 tools 自动向上查找」说明。
+
 ## 2.3.35 - 2026-08-15
 
 ### 优化

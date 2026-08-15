@@ -53,7 +53,7 @@ function usage() {
 说明：检测 ruyiPage Python 包、ruyiPage 定制 Firefox runtime、是否误用系统 Firefox fallback、RuyiTrace 目录结构。
 同时顺带对比 GitHub 最新 release：发现新版只提示、不自动更新；网络失败或限流时静默跳过，不影响检测结果。
 注意：选择 ruyiPage 时，只有“ruyiPage 包可用 + 定制 Firefox runtime 验证通过”才视为可用；普通系统 Firefox fallback 不视为通过。
---project-dir <dir>：用户工程目录（tools/ 所在）。安装模式下 skill 安装目录无 tools/（gitignore 不随分发），需靠此定位；未传时回退 cwd/tools + skill 根/tools。
+--project-dir <dir>：用户工程目录（tools/ 所在）。安装模式下 skill 安装目录无 tools/（gitignore 不随分发），需靠此定位；未传时回退 cwd/tools + skill 根/tools。多 case 项目共享 tools 时，传 case 目录会自动向上查找含 tools/ 的工程根。
 --python-args <args>：--python 指定解释器附带的参数前缀（如 --python py --python-args -3），与显式 Python 配合严格探测；不传则显式 Python 无前缀，失败时仍会回退 python/python3/py -3。
 --quick：快速模式，只检测 Node.js 版本是否满足要求，不执行子命令、不扫描目录、不检测 ruyipage/ruyitrace。
 --offline：跳过 GitHub release 更新查询（不访问网络）。用于离线环境或需要快速、确定性的纯本地检测；默认每次检测都会顺带查询更新（失败静默，不影响检测结果）。`;
@@ -805,6 +805,9 @@ async function main() {
     if (args.markdown) process.stdout.write(renderQuickMarkdown(result));
     return;
   }
+  // 多 case 项目共享 tools 时，--project-dir 可能被传成 case 目录：向上查找含 tools/ 的祖先，
+  // 否则已装在共享工程根 tools/ 的 RuyiTrace/ruyipage runtime 会被误判缺失
+  if (args.projectDir) args.projectDir = paths.normalizeProjectDir(args.projectDir);
   const result = withNextSteps(detect(args));
   if (args.offline) {
     result.latest = {};

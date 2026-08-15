@@ -62,6 +62,21 @@ function findProjectRoot() {
   return process.cwd();
 }
 
+// 从 startDir 向上（含自身，最多 5 层）查找含 tools/ 的目录；命中返回该目录，未命中返回 ''。
+// 越过含 SKILL.md 的目录（skill 仓库根）即停止：skill 目录无 tools/（gitignore 不随分发），
+// 继续向上可能误命中无关祖先目录下的同名 tools/（如 <git根>/tools）。
+function findToolsRoot(startDir) {
+  let cur = path.resolve(startDir);
+  for (let i = 0; i < 5; i++) {
+    if (isDir(path.join(cur, 'tools'))) return cur;
+    if (exists(path.join(cur, 'SKILL.md'))) return '';
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return '';
+}
+
 // 从 --case-dir 推用户工程根（tools/ 所在）：
 // 1. 指向 case/ 子目录 → 取父级为工程根；
 // 2. 否则从 case 目录向上（最多 5 层）查找包含 tools/ 的目录——多 case 项目布局
@@ -72,13 +87,16 @@ function resolveProjectDirFromCaseDir(caseDir) {
   if (!caseDir) return process.cwd();
   let cur = path.resolve(caseDir);
   if (path.basename(cur).toLowerCase() === 'case') cur = path.dirname(cur);
-  for (let i = 0; i < 5; i++) {
-    if (isDir(path.join(cur, 'tools'))) return cur;
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  return path.resolve(caseDir);
+  return findToolsRoot(cur) || path.resolve(caseDir);
+}
+
+// 归一化 --project-dir：从给定目录向上（含自身，最多 5 层）查找含 tools/ 的目录。
+// 多 case 项目共享 tools 时，tools/ 与各 <case-name>/ 平级，AI 可能把 case 目录当 project-root
+// 传入，导致已装在共享工程根 tools/ 的 RuyiTrace/ruyipage runtime 检测不到、重复下载安装。
+// 命中返回祖先（真正的 tools/ 工程根）；未命中返回原输入，保持向后兼容（独立 case 仍装到自身 tools/）。
+function normalizeProjectDir(inputDir) {
+  if (!inputDir) return process.cwd();
+  return findToolsRoot(path.resolve(inputDir)) || path.resolve(inputDir);
 }
 
 // 定位 RuyiTrace home 目录
@@ -162,5 +180,6 @@ module.exports = {
   normalizeTraceHome,
   getDefaultRuyiBrowsersDirs,
   resolveProjectDirFromCaseDir,
+  normalizeProjectDir,
   resolveCaseDir,
 };

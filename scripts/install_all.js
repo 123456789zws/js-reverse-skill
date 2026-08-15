@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
+const paths = require('./lib/paths');
 
 // 默认安装目录：cwd 优先（安装模式下装到用户工作目录），开发模式下 cwd 即 skill 项目根；
 // 支持 --project-dir 显式指定，避免在 skill 安装目录运行时装错位置
@@ -31,7 +32,9 @@ function parseArgs(argv) {
 }
 
 function initPaths(args) {
-  PROJECT_ROOT = args.projectDir ? path.resolve(args.projectDir) : process.cwd();
+  // 多 case 项目共享 tools 时，--project-dir 可能被传成 case 目录：向上查找含 tools/ 的祖先，
+  // 避免把 RuyiTrace/ruyipage runtime 重复装到 <case>/tools/ 而漏用共享工程根 tools/ 里已装好的组件
+  PROJECT_ROOT = paths.normalizeProjectDir(args.projectDir || process.cwd());
   TOOLS_DIR = path.join(PROJECT_ROOT, 'tools');
   RUYIPAGE_BROWSERS_DIR = path.join(TOOLS_DIR, 'ruyipage-browsers');
   RUYITRACE_DIR = path.join(TOOLS_DIR, 'RuyiTrace');
@@ -49,7 +52,7 @@ function usage() {
 请先在项目根目录（tools/ 要安装到的用户工程目录）运行本脚本；在 skill 安装目录运行会装错位置。
 --python <cmd>：显式指定 Python 解释器，严格使用、失败不回退；未传时自动按 python → python3 → py -3 探测，安装与后验全程用同一解释器。
 --yes：跳过用户确认，直接安装缺失项。
---project-dir <dir>：用户工程目录（tools/ 安装目标）。安装模式下 skill 安装目录无 tools/，必须显式指定，避免装到 skill 根附近。未传时使用当前工作目录。`;
+--project-dir <dir>：用户工程目录（tools/ 安装目标）。安装模式下 skill 安装目录无 tools/，必须显式指定，避免装到 skill 根附近。未传时使用当前工作目录。多 case 项目共享 tools 时，传 case 目录会自动向上查找含 tools/ 的工程根。`;
 }
 
 function run(cmd, args, timeout = 300000, env = null) {
