@@ -154,6 +154,14 @@
       "strategy": "D 环境伪装：vm 沙箱构造 Firefox 151 环境，加载 acrawler+bdms+sdk-glue 三件套，_SdkGlueInit 完整调度后 XHR 触发截获 a_bogus",
       "file": "jsvmp-bdms-sdk-glue-toutiao.md",
       "verifiedAt": "2026-08-15"
+    },
+    {
+      "title": "知乎 x-zse-96 签名 + __zse_ck 挑战 Cookie（JSVMP 黑盒 + MD5 纯算 + Cookie 前缀伪造）",
+      "domains": ["zhihu.com", "static.zhihu.com"],
+      "signals": ["x-zse-96", "x-zse-93", "__zse_ck", "d_c0", "zse-ck", "root_comment", "comment_v5", "JSVMP", "module 1514", "88545"],
+      "strategy": "A+B：纯算 MD5 + source 拼接 + Cookie 静态拼接（__zse_ck 前缀 009_ 伪造），vm 黑盒执行模块 1514 JSVMP 生成 __g._encrypt",
+      "file": "zhihu-x-zse-96-jsvmp-blackbox.md",
+      "verifiedAt": "2026-08-15"
     }
   ]
 }
