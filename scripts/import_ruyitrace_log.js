@@ -300,6 +300,9 @@ function renderMarkdown(result) {
   lines.push('', '## 建议下一步');
   lines.push('- 将高频 API 映射到 `env-module-levels.md` 的 Level 1/2/3 环境模块。');
   lines.push('- 结合 stack.file / line / col 更新 `notes/entry-chain.md` 和 `notes/missing-env-priority.md`。');
+  if (ts.enabled && !ts.allHit) {
+    lines.push('- 若仅因目标 URL 由变量动态拼接而未命中字面量，改用参数写入点或参数名定位后，必须在 `ruyitrace-summary.md`、阶段报告（如已启用）和最终总结中显式声明「trace 未覆盖目标接口 URL 字面量；定位依据为 <写入点/关键词>」；未声明不得进入 IMPLEMENT。');
+  }
   lines.push('- 对长字段优先补采完整值或记录 hash / 长度 / 前后片段，避免把 RuyiTrace 的截断值误当作完整值。');
   lines.push('- 仅把摘要写入最终报告，原始 NDJSON 作为本地证据文件保存或由用户确认删除。');
   return lines.join('\n') + '\n';

@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.36
+version: 2.3.37
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -194,7 +194,7 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 
 目标请求需手动触发时，必须提示用户在 trace 浏览器中完成操作；用户确认“已触发”前不得结束采集。不得把“没触发目标路径”当成“采集完成”。
 
-**TRACE_CAPTURE 质量判定与 TRACE_RETRY**：采集到 NDJSON 不等于达标。摘要显示「未发现 stack.file」、成功解析极低、topApis 找不到目标参数 writer，或 `--target-signal` 未命中，均按重度不足处理并进入 TRACE_RETRY。完整降级顺序与验证码特化判定见 `references/workflow/trace-flow.md`。目标信号未命中是硬信号，不得自行放宽。
+**TRACE_CAPTURE 质量判定与 TRACE_RETRY**：采集到 NDJSON 不等于达标。摘要显示「未发现 stack.file」、成功解析极低、topApis 找不到目标参数 writer，或 `--target-signal` 未命中，均按重度不足处理并进入 TRACE_RETRY。完整降级顺序与验证码特化判定见 `references/workflow/trace-flow.md`。目标信号未命中是硬信号，不得自行放宽。若重试/降级后仍未命中目标接口 URL 字面量，但改用参数写入点（如 `Headers.set("x-zse-96", ...)`）或参数名定位签名链，必须显式声明「trace 未覆盖目标接口 URL 字面量；签名链定位依据为 <写入点/关键词>」，并写入 `notes/ruyitrace-summary.md`、阶段报告（如已启用）与最终总结；未声明不得进入 IMPLEMENT。
 
 ### 4.3 EXTERNAL_LOOKUP
 
@@ -204,6 +204,8 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 - 算法黑盒、来源不可信或搜不到 → 进入 FORENSIC_CAPTURE。
 
 网络方案失败后不得反复试方案；验证失败且当前为轻量路径时，强制升级到 FORENSIC_CAPTURE。
+
+**EXTERNAL_LOOKUP 豁免**：仅当本次取证已同时具备 Step 1 + Step 2，且 TRACE_ANALYZE 已定位 source/entry/builder/writer 时，可跳过 EXTERNAL_LOOKUP 直接 IMPLEMENT；需在状态行或阶段报告中声明豁免原因。仅凭「本地案例未命中」或「证据链看起来完整」不得跳过。
 
 ### 4.4 状态记录与 IMPLEMENT 前置条件
 
@@ -215,11 +217,11 @@ node scripts/write_stage_report.js --case-dir <project-root> --stage <阶段> --
 
 输出到 `case/阶段报告/`。状态失败时停留在当前节点，不得把失败标记为通过。
 
-**每个阶段结束必须落一个最小阶段报告**（至少含：当前状态、已证实事实、缺失证据、下一步输入）；续接模式靠它恢复，不得跳过。
+**阶段报告默认不生成，仅在以下场景按需落盘**：多轮复杂补环境 / 跨会话续接风险、上下文防耗尽检查点触发、或用户明确要求。关键结论随节点落盘（IDENTIFY 结论、WASM 黑盒跑通、body 结构确认、实现方案选定等）不受默认省略限制，必须写入 `case/阶段报告/`；最小报告至少含当前状态、已证实事实、缺失证据、下一步输入。
 
-**进入补环境前的证据前置（硬约束）**：走路径 D（环境伪装）进入 `env.js` 编写或缺失对象补齐前，必须先基于 RuyiTrace NDJSON 产出以下两份文件，禁止先根据 Node.js 报错盲补——盲补会导致十几轮「加载→崩→猜→再加载」的空转循环：
+**进入补环境前的证据前置（硬约束）**：走路径 B/C/D（最小 JS 沙箱、WASM、环境伪装）且需要提供或补齐浏览器对象时，必须先基于 RuyiTrace NDJSON 产出以下两份文件，禁止先根据 Node.js 报错盲补——盲补会导致十几轮「加载→崩→猜→再加载」的空转循环：
 - `notes/entry-chain.md`：入口函数 → 请求链 → 关键 `stack.file:line:col`；其中 TRACE_ANALYZE 已定位的 builder/writer 即 IMPLEMENT 第一实现目标。
-- `notes/missing-env-priority.md`：用 `scripts/analyze_trace.js --summary` 从 NDJSON 抽取的 SDK 实际读取环境清单（含 `api`、`stack.file`、`line`、`col`、环境模块、补齐优先级和「RuyiTrace 证据 / Node trace 补充 / 推断」标记）。
+- `notes/missing-env-priority.md`：用 `scripts/analyze_trace.js --summary` 从 NDJSON 抽取的 SDK 实际读取环境清单（含 `api`、`stack.file`、`line`、`col`、环境模块、补齐优先级和「RuyiTrace 证据 / Node trace 补充 / 推断」标记）。黑盒执行无法逐项精确复现时，该文件至少列出已观测的环境读取/挂载点，并标注「黑盒执行，不逐项精确复现」；不得以黑盒为由跳过。
 两文件缺一不得开始补环境；详见 `references/env/env-debug-loop.md` 的「RuyiTrace 优先诊断门禁」。
 
 **上下文防耗尽检查点（硬约束）**：TRACE_ANALYZE / IMPLEMENT / REAL_VERIFY 任一阶段消耗大量步骤（20+ 步未推进）或上下文接近耗尽时，先回看上条两份文件是否已覆盖当前崩溃点：未覆盖先补全再继续；已覆盖仍打转时落阶段报告。判定标准：trace 已定位到关键资源/入口，或当前节点已消耗 20+ 步仍未推进（TRACE_ANALYZE 未进 IMPLEMENT、IMPLEMENT 黑盒调试打转、REAL_VERIFY 反复排查未定位根因）。

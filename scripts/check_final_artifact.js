@@ -100,7 +100,12 @@ const AUTOMATION_PATTERNS = [
   /\bpuppeteer\b/i,
   /\bpyppeteer\b/i,
   /\bselenium\b/i,
-  /(?<!navigator\.)\bwebdriver\b/i,
+  /\bwebdriver\.(?:Builder|Chrome|Firefox|Safari|Edge|Remote|Capabilities|Options)\b/i,
+  /\bnew\s+webdriver\b/i,
+  /\brequire\s*\(\s*['"]webdriver['"]\s*\)/i,
+  /\bfrom\s+['"]webdriver['"]/i,
+  /\bimport\s+webdriver\b/i,
+  /\bwebdriverio\b/i,
   /\bbrowser\.new_page\b/i,
   /\bbrowser\.newPage\b/i,
   /\blaunch_browser\s*\(/i,
@@ -902,6 +907,16 @@ function runSelfTest() {
       fs.writeFileSync(path.join(resultDir, '验证记录.json'), JSON.stringify(item.data), 'utf8');
       const actual = inspectValidationRecord(resultDir, item.mode).result.valid;
       if (actual !== item.clean) throw new Error(`${item.name} 预期 valid=${item.clean}，实际为 ${actual}`);
+    }
+    const allowedMock = path.join(resultDir, 'env-allowed.js');
+    fs.writeFileSync(allowedMock, "const nav = {}; nav['web' + 'driver'] = false; // navigator.webdriver mock\n", 'utf8');
+    if (findMatches(readText(allowedMock), AUTOMATION_PATTERNS).length) {
+      throw new Error('webdriver 环境 mock 不应被误判为浏览器自动化');
+    }
+    const automation = path.join(resultDir, 'automation.js');
+    fs.writeFileSync(automation, "const wd = require('selenium-webdriver'); new wd.Builder().forBrowser('chrome').build();\n", 'utf8');
+    if (!findMatches(readText(automation), AUTOMATION_PATTERNS).length) {
+      throw new Error('selenium-webdriver 应被识别为浏览器自动化');
     }
     return { clean: true, cases: cases.length };
   } finally {

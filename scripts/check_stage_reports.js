@@ -63,7 +63,6 @@ function parseArgs(argv) {
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`未知参数：${a}`);
   }
-  if (!args.requiredStages.length) args.requiredStages.push('需求信息确认');
   if (!args.json && !args.markdown) args.markdown = true;
   return args;
 }
@@ -73,7 +72,7 @@ function usage() {
   node scripts/check_stage_reports.js --case-dir case --require-stage WebAPI补齐阶段报告 --require-dynamic-fields --markdown
   node scripts/check_stage_reports.js --case-dir case --require-stage 需求信息确认 --require-stage 请求样本与可疑参数确认 --json
 
-说明：检查阶段报告是否使用中文文件名、UTF-8 编码，并确认必要阶段报告存在。使用 --require-dynamic-fields 时会校验动态阶段报告是否包含 Trace 计划内 WebAPI、计划外新增 WebAPI 原因、功能、Bug、指纹、测试、清理和风险等章节。`;
+说明：默认只检查已存在的阶段报告是否使用中文文件名、UTF-8 编码并满足动态章节要求；目录缺失仅提醒，不失败。传入 --require-stage 或 --require-initial 时才把阶段报告缺失作为问题（退出码非 0）。使用 --require-dynamic-fields 时会校验动态阶段报告是否包含 Trace 计划内 WebAPI、计划外新增 WebAPI 原因、功能、Bug、指纹、测试、清理和风险等章节。`;
 }
 function exists(p) { try { fs.accessSync(p); return true; } catch { return false; } }
 function stat(p) { try { return fs.statSync(p); } catch { return null; } }
@@ -134,8 +133,15 @@ function check(args) {
   const reports = listMarkdown(stageDir);
   const problems = [];
   const warnings = [];
-  if (!exists(stageDir)) problems.push('缺少阶段报告目录：case/阶段报告');
-  if (!reports.length) problems.push('缺少阶段报告 Markdown 文件，至少应生成 01-需求信息确认.md');
+  const requirePresence = args.requiredStages.length > 0;
+  if (!exists(stageDir)) {
+    if (requirePresence) problems.push('缺少阶段报告目录：case/阶段报告');
+    else warnings.push('未生成阶段报告目录 case/阶段报告（默认按需生成，仅提醒）。');
+  }
+  if (!reports.length) {
+    if (requirePresence) problems.push('缺少阶段报告 Markdown 文件，至少应生成 01-需求信息确认.md');
+    else warnings.push('未生成阶段报告 Markdown 文件（默认按需生成，仅提醒）。');
+  }
   const reportResults = [];
   for (const file of reports) {
     const name = path.basename(file);

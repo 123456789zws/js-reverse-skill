@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2.3.37 - 2026-08-15
+
+### 优化
+- **统一阶段报告策略**：SKILL.md 4.4 原「每个阶段结束必须落报告」与 `references/quality/stage-reports.md`、`check_final_artifact.js` 的「默认不生成」互相冲突。改为统一口径：阶段报告默认不生成，仅多轮复杂补环境 / 上下文防耗尽检查点触发 / 用户明确要求时按需生成；关键结论（IDENTIFY、WASM 黑盒跑通、body 结构、实现方案选定）仍必须随节点落盘。`check_stage_reports.js` 默认对缺失目录/文件仅提醒，传入 `--require-stage` 或 `--require-initial` 时才硬门禁，避免快速解题被误判失败。
+- **target-signal 未命中降级必须显式声明**：目标接口 URL 因动态拼接未命中字面量时，改用参数写入点/参数名定位后，必须声明「trace 未覆盖目标接口 URL 字面量；定位依据为 <写入点/关键词>」并写入 summary、阶段报告（如已启用）和最终总结；`import_ruyitrace_log.js` 摘要同步给出该降级提示。
+- **补环境证据前置覆盖黑盒路径**：`missing-env-priority.md` 从仅路径 D 扩展为路径 B/C/D 需要提供/补齐浏览器对象时均强制；JSVMP 黑盒执行也须给出简版环境清单并标注「黑盒执行，不逐项精确复现」，不得跳过。
+- **EXTERNAL_LOOKUP 增加证据链完整豁免**：Step 1 + Step 2 齐备且 TRACE_ANALYZE 已定位 builder/writer 时，可声明豁免后直接 IMPLEMENT，避免 AI 自行裁量。
+- **check_final_artifact webdriver 误报修复**：废弃宽泛的 `(?<!navigator\.)\bwebdriver\b`，改为只匹配 `webdriver.Builder/Chrome/Firefox/...`、`new webdriver`、`require('webdriver')`、`from 'webdriver'`、`import webdriver`、`webdriverio`，不再误伤 `webdriver: false`、字符串拼接 mock 和注释；自测新增 webdriver mock / selenium-webdriver 两个回归用例。
+
 ## 2.3.36 - 2026-08-15
 
 ### 修复
