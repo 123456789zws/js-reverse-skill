@@ -146,6 +146,14 @@
       "strategy": "A+B：纯算 accept AES-ECB 签名与响应凯撒位移+gzip+base64 解密，vm 黑盒执行 acw 挑战脚本生成挑战 Cookie",
       "file": "acw-sc-v2-blackbox-leisu.md",
       "verifiedAt": "2026-08-15"
+    },
+    {
+      "title": "sdk-glue + bdms 黑盒执行 + _SdkGlueInit 调度截获 a_bogus（头条 PC）",
+      "domains": ["toutiao.com", "www.toutiao.com", "mssdk.bytedance.com"],
+      "signals": ["sdk-glue", "bdms", "_SdkGlueInit", "acrawler", "byted_acrawler", "a_bogus", "_signature", "URLSearchParams.append", "XHR 闭包捕获"],
+      "strategy": "D 环境伪装：vm 沙箱构造 Firefox 151 环境，加载 acrawler+bdms+sdk-glue 三件套，_SdkGlueInit 完整调度后 XHR 触发截获 a_bogus",
+      "file": "jsvmp-bdms-sdk-glue-toutiao.md",
+      "verifiedAt": "2026-08-15"
     }
   ]
 }

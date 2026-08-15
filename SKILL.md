@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.34
+version: 2.3.35
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -217,12 +217,14 @@ node scripts/write_stage_report.js --case-dir <project-root> --stage <阶段> --
 
 **每个阶段结束必须落一个最小阶段报告**（至少含：当前状态、已证实事实、缺失证据、下一步输入）；续接模式靠它恢复，不得跳过。
 
-**上下文防耗尽检查点（硬约束）**：TRACE_ANALYZE / IMPLEMENT / REAL_VERIFY 任一阶段消耗大量步骤（20+ 步未推进）或上下文接近耗尽时，先落盘再继续：
-- `notes/entry-chain.md`：入口函数 → 请求链 → 关键 `stack.file:line:col`；
-- `notes/missing-env-priority.md`：待补环境清单（字段名 + 真实长度 unknown + 优先级）。
-判定标准：trace 已定位到关键资源/入口，或当前节点已消耗 20+ 步仍未推进（TRACE_ANALYZE 未进 IMPLEMENT、IMPLEMENT 黑盒调试打转、REAL_VERIFY 反复排查未定位根因）。先写这两个文件再推进，避免下次续接从零开始。
+**进入补环境前的证据前置（硬约束）**：走路径 D（环境伪装）进入 `env.js` 编写或缺失对象补齐前，必须先基于 RuyiTrace NDJSON 产出以下两份文件，禁止先根据 Node.js 报错盲补——盲补会导致十几轮「加载→崩→猜→再加载」的空转循环：
+- `notes/entry-chain.md`：入口函数 → 请求链 → 关键 `stack.file:line:col`；其中 TRACE_ANALYZE 已定位的 builder/writer 即 IMPLEMENT 第一实现目标。
+- `notes/missing-env-priority.md`：用 `scripts/analyze_trace.js --summary` 从 NDJSON 抽取的 SDK 实际读取环境清单（含 `api`、`stack.file`、`line`、`col`、环境模块、补齐优先级和「RuyiTrace 证据 / Node trace 补充 / 推断」标记）。
+两文件缺一不得开始补环境；详见 `references/env/env-debug-loop.md` 的「RuyiTrace 优先诊断门禁」。
 
-**IMPLEMENT 硬前置条件**：必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认轻量路径」。两条均不满足时停在 TRACE_ANALYZE，不得以 mock、猜测或实验性实现替代证据。
+**上下文防耗尽检查点（硬约束）**：TRACE_ANALYZE / IMPLEMENT / REAL_VERIFY 任一阶段消耗大量步骤（20+ 步未推进）或上下文接近耗尽时，先回看上条两份文件是否已覆盖当前崩溃点：未覆盖先补全再继续；已覆盖仍打转时落阶段报告。判定标准：trace 已定位到关键资源/入口，或当前节点已消耗 20+ 步仍未推进（TRACE_ANALYZE 未进 IMPLEMENT、IMPLEMENT 黑盒调试打转、REAL_VERIFY 反复排查未定位根因）。
+
+**IMPLEMENT 硬前置条件**：必须满足「trace 质量达标（含目标信号命中）」或「用户明确确认轻量路径」。两条均不满足时停在 TRACE_ANALYZE，不得以 mock、猜测或实验性实现替代证据。EXTERNAL_LOOKUP 的假设若与本次 trace 定位的 builder/writer 冲突，以 trace 为准，禁止先去测未被 trace 证明的 SDK 导出接口。
 
 ## 5. CASE_LOOKUP
 
@@ -250,7 +252,7 @@ node scripts/search_cases.js --domain <域名> --signal <信号>
 | 200KB+、while-switch、dispatcher、字节码数组 | JSVMP 黑盒执行或最小环境复现，不反编译 |
 | WebAssembly、wasm base64、webpack 内嵌 wasm | 先整包黑盒，不默认补完整浏览器、禁止先手撕字节码 |
 | 412 循环、sdenv、挑战 Cookie | 先还原挑战链，再确认业务签名链 |
-| webmssdk、byted_acrawler、a_bogus、X-Bogus | trace 定位环境读取和签名写入 |
+| webmssdk、byted_acrawler、bdms、a_bogus、X-Bogus、_signature | trace 定位环境读取和签名写入；注意 `byted_acrawler.sign` 多返回老版 `_signature`，`a_bogus`/`X-Bogus` 由 `bdms` 生成，两者不可混淆 |
 | geetest、smcp、dx-captcha、TCaptcha、NECaptcha、AWSC | 按封装层、答案层、verify 链分别处理 |
 | h5st、js_security_v3、JA3/JA4 | 先确认会话绑定和 TLS 指纹，再实现请求链 |
 

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.35 - 2026-08-15
+
+### 优化
+- **补「进入补环境前的证据前置」硬约束（SKILL.md 4.4）**：来源——头条 feed a_bogus 实战中，补环境阶段先盲补 probe 十几轮崩溃才回看 trace，与 `env-debug-loop.md`「RuyiTrace 优先诊断门禁」冲突。修复：把 `notes/entry-chain.md` + `notes/missing-env-priority.md`（`analyze_trace.js --summary` 产出）从「20 步未推进兜底」提升为路径 D 补环境的硬前置，两文件缺一不得开始补环境。原防耗尽检查点改为「先回看两文件是否覆盖崩溃点」。
+- **IMPLEMENT 硬前置锚定 trace 结论（SKILL.md 4.4）**：EXTERNAL_LOOKUP 假设与本次 trace 定位的 builder/writer 冲突时以 trace 为准，禁止先测未被 trace 证明的 SDK 导出接口。来源——头条实战中 trace 已证明 a_bogus 由 bdms 生成，但 IMPLEMENT 先测了 `acrawler.sign()` 才发现返回老版 `_signature`。
+- **IDENTIFY 信号表区分 byted_acrawler 与 bdms（SKILL.md 第7节）**：`byted_acrawler.sign` 多返回老版 `_signature`，`a_bogus`/`X-Bogus` 由 `bdms` 生成，两者不可混淆。来源——头条 PC 用 acrawler+bdms+sdk-glue 三件套（无 webmssdk），与抖音三件套同源但签名产物不同。
+- **cases 新增 `jsvmp-bdms-sdk-glue-toutiao.md`**：头条 PC feed 接口 a_bogus 逆向，字节系 sdk-glue+bdms 黑盒执行案例。含 _SdkGlueInit 完整调度、XHR 闭包捕获时序差异（加载前就位 vs 抖音的加载后 patch）、环境过度设计反例、bdms 槽位 15~27 映射等可验证事实；index.json 同步登记。
+
 ## 2.3.34 - 2026-08-15
 
 ### 优化
