@@ -30,12 +30,13 @@
 
 ```
 js-reverse-skill/
-├── SKILL.md              流程骨架 + 规则 + 索引（AI 加载的主文档；版本号见 front-matter `version`）
+├── SKILL.md              流程骨架 + 规则 + 索引（AI 加载的主文档；版本号见 front-matter `version`，变更见 CHANGELOG.md）
 ├── README.md             本文件
+├── CHANGELOG.md          版本变更记录（每次 bump 同步更新）
 ├── assets/               可复用资产（AST 反混淆 + 补环境片段 + fixture 模板）
 ├── templates/            7 类交付入口模板（Node/Python、请求客户端、vm 沙箱、WASM、验证码）
-├── references/           知识参考（按需读取；含验证码封装层与答案层资产）
-├── cases/                15 个实证案例 + 2 个方法论模板 + `index.json` 机器索引
+├── references/           知识参考（11 个专题目录，按需读取；含验证码封装层与答案层资产）
+├── cases/                22 个实证案例 + `index.json` 机器索引
 └── scripts/              工具脚本（ruyipage+RuyiTrace 采集/导入/检查 + 验证码题型分类/坐标/轨迹/答案校验）
 ```
 
@@ -79,11 +80,13 @@ js-reverse-skill/
 环境检查通过后写入或更新快照，再执行证据门禁：
 
 ```powershell
-node scripts/check_session_resume.js --case-dir <project-root> --write-snapshot --markdown
+node scripts/check_session_resume.js --case-dir <project-root> --project-dir <project-root> --write-snapshot --markdown
 node scripts/check_evidence.js --case-dir <project-root> --url <target-url> --inputs <材料路径> --markdown
 ```
 
-Step 1 只接受有效 `capture.json` 网络记录，或通过内容校验的 HAR、cURL、原始 HTTP 请求文本；单独 JS、截图和指纹基线只作辅助材料，不计为 Step 1。Step 2 只接受内容可解析、记录非空且关联目标域的 RuyiTrace NDJSON/JSONL；摘要不能替代日志。脚本输出 `none`、`step1-only`、`step2-only` 或 `both`，据此补采缺失步骤。
+环境检测类脚本统一 `--project-dir` 定位 tools/ 所在工程根；多 case 项目共享 tools 时，`--project-dir`/`--case-dir` 传 case 目录或共享工程根均可（自动向上查找含 `tools/` 的祖先目录）。目标接口 URL/关键词已知时，`check_evidence.js` 加 `--require-target-signal <目标接口URL或关键词>` 同时约束 Step 1 与 Step 2。
+
+Step 1 只接受有效 `capture.json` 网络记录（纯元数据，响应体在 `target-hits.json`），或通过内容校验的 HAR、cURL、原始 HTTP 请求文本；单独 JS、截图和指纹基线只作辅助材料，不计为 Step 1。Step 2 只接受内容可解析、记录非空且关联目标域的 RuyiTrace NDJSON/JSONL（新版按进程类型分目录，脚本自动递归扫描）；摘要不能替代日志。脚本输出 `none`、`step1-only`、`step2-only` 或 `both`，据此补采缺失步骤。
 
 ## 案例查询
 
