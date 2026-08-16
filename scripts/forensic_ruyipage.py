@@ -614,18 +614,40 @@ def _split_acceptance(target_hits):
     return accepted, only_options
 
 
+def _target_acceptance(accepted, substrings, regexes):
+    """all 语义：每个 --targets/--targets-regex 目标都必须至少有一个非 OPTIONS 2xx 命中。
+    返回 (全部命中?, 未命中目标列表)。单目标时与 any 等价。"""
+    missing = []
+    for s in substrings:
+        if s and not any(s in (d.get("url") or "") or s in _match_text(d) for d in accepted):
+            missing.append(s)
+    for r in regexes:
+        if not any(r.search(d.get("url") or "") or r.search(_match_text(d)) for d in accepted):
+            missing.append(r.pattern)
+    return (len(missing) == 0), missing
+
+
 def _target_reached(steps, substrings, regexes) -> bool:
-    """轮询判定：steps 中是否已出现命中 --targets/--targets-regex 的非失败 2xx 响应。"""
-    hits = []
+    """轮询判定：--targets/--targets-regex 的每一个目标都已出现非 OPTIONS 2xx 响应（all 语义）。
+
+    背景：any 语义下多 targets 列全（如 gettype,get,ajax,login）时，页面加载只触发初始化接口
+    就提前收尾关浏览器，用户后续交互（滑动/登录）触发的接口永远抓不到——"一次会话列全"不成立
+    （geetest 案例被迫分三次重采）。all 语义：全部命中才停；永远等不到的目标由 --wait 超时兜底，
+    已抓包仍落盘。单目标时行为与 any 相同。
+    """
+    matched = []
     for p in steps:
         try:
             d = p.to_dict(include_bodies=False)
         except Exception:
             continue
         if match_targets(d, substrings, regexes):
-            hits.append(d)
-    accepted, _ = _split_acceptance(hits)
-    return bool(accepted)
+            matched.append(d)
+    accepted, _ = _split_acceptance(matched)
+    if not substrings and not regexes:
+        return bool(accepted)
+    all_hit, _ = _target_acceptance(accepted, substrings, regexes)
+    return all_hit
 
 
 def _js_quality(js_records) -> str:
@@ -647,8 +669,20 @@ def _js_quality(js_records) -> str:
 
 def _build_result(args, browser_path, baseline_id, fingerprint, cookies,
                   records_meta, js_records, target_hits, accepted, only_options,
-                  webdriver_flag, wd_err, has_filter, document=None):
+                  webdriver_flag, wd_err, has_filter, document=None,
+                  substrings=None, regexes=None):
     """汇总取证结果为报告字典。has_filter 表示是否指定了 --targets/--targets-regex。"""
+    if has_filter:
+        all_hit, missing = _target_acceptance(accepted, substrings or [], regexes or [])
+        if all_hit:
+            acceptance = "PASS"
+        elif target_hits:
+            acceptance = "PARTIAL"
+        else:
+            acceptance = "NO_TARGET"
+    else:
+        missing = []
+        acceptance = "PASS"
     return {
         "url": args.url,
         "browserPath": browser_path,
@@ -659,10 +693,11 @@ def _build_result(args, browser_path, baseline_id, fingerprint, cookies,
         "jsFileCount": len(js_records),
         "targetHitCount": len(target_hits),
         "acceptedTargetCount": len(accepted),
+        "missingTargets": missing,
         "webdriverTrue": bool(webdriver_flag) if webdriver_flag is not None else None,
         "webdriverCheckError": wd_err,
         "navigatorWebdriverSelfCheck": "FAIL" if webdriver_flag is True else ("PASS" if webdriver_flag is False else "UNKNOWN"),
-        "acceptance": "PASS" if (not has_filter) or accepted else ("PARTIAL" if target_hits and not accepted else "NO_TARGET"),
+        "acceptance": acceptance,
         "jsMissingCount": sum(1 for j in js_records if j.get("body_missing")),
         "jsQuality": _js_quality(js_records),
         "fingerprint": fingerprint,
@@ -1015,6 +1050,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             args, browser_path, baseline_id, fingerprint, cookies,
             records_meta, js_records, target_hits, accepted, only_options,
             webdriver_flag, wd_err, has_filter, document,
+            substrings=substrings, regexes=regexes,
         )
         result["getTimedOut"] = get_timed_out
         result["outputs"] = _write_outputs(
@@ -1133,7 +1169,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     target_substrings = [s.strip() for s in (args.targets or "").split(",") if s.strip()]
     target_regexes = [r.strip() for r in (args.targets_regex or "").split(",") if r.strip()]
     has_target_filter = bool(target_substrings or target_regexes)
-    target_verified = bool(result.get("acceptedTargetCount"))
+    target_verified = result.get("acceptance") == "PASS"
     result["ok"] = (not has_target_filter) or target_verified
     result["ruyipageVersion"] = ver
 
@@ -1176,6 +1212,8 @@ def render_markdown(r: Dict[str, Any]) -> str:
     if r.get("getTimedOut"):
         L.append("- [警告] page.get 超时（页面 load 未完成），但已捕获流量并已落盘；验收以实际抓包为准，非取证失败")
     L.append(f"- 取证验收：{r.get('acceptance')}")
+    if r.get("missingTargets"):
+        L.append(f"- [未命中目标] {', '.join(r['missingTargets'])}：多 targets 按全部命中判定，以下接口无非 OPTIONS 2xx 响应（Step 1 不完整，请重采或补采）")
     if r.get("acceptance") in ("NO_TARGET", "PARTIAL"):
         L.append("")
         L.append("[未通过] 取证目标未达成：指定 --targets/--targets-regex 后未捕获到目标接口的非 OPTIONS 2xx 响应（Step 1 缺失）。")

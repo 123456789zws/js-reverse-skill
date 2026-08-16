@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.42
+version: 2.3.43
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -187,7 +187,7 @@ python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root>
 
 取证会自动保存入口页面 HTML 到 `case/forensic/document.html`（含 412/JS challenge 页内联脚本，是 acw_sc__v2 等 challenge cookie 的强制证据），无论是否指定 `--targets`。
 
-目标请求未命中 = Step 1 缺失，禁止转源码搜索继续。指定了 `--targets/--targets-regex` 时，脚本未捕获到非 OPTIONS 2xx 目标响应会**退出码非 0**，报告 `NO_TARGET`（完全未命中）或 `PARTIAL`（有命中但无 2xx，如仅 OPTIONS/412）；此时停在 EVIDENCE_GATE。若需用户交互，重采时提示用户操作，或请其提供 cURL/HAR/原始请求文本；命中并落盘后再回 EVIDENCE_GATE。JS 源码关键词定位只能作辅助假设。
+目标请求未命中 = Step 1 缺失，禁止转源码搜索继续。指定了 `--targets/--targets-regex` 时，脚本按**全部命中**判定：每个目标接口都必须捕获到非 OPTIONS 2xx 响应才 `PASS` 并退出码 0；多 targets 部分命中（如验证码初始化接口命中但 verify 接口未命中）报告 `PARTIAL` 并在报告中列出未命中目标，完全未命中报告 `NO_TARGET`，两者均**退出码非 0**，停在 EVIDENCE_GATE。全部命中判定保证验证码场景一次会话列全 targets 时，脚本会等到用户完成滑动、全链路接口都出现才收尾关浏览器，不会抓到初始化接口就提前关闭。若需用户交互，重采时提示用户操作，或请其提供 cURL/HAR/原始请求文本；命中并落盘后再回 EVIDENCE_GATE。JS 源码关键词定位只能作辅助假设。
 
 Windows 下若 Python 脚本输出仍现编码异常，用 `PYTHONUTF8=1` 前缀兜底（PowerShell：`$env:PYTHONUTF8="1"`）；仓库脚本已内置 UTF-8 强制与 emoji 安全化，正常无需手动加。
 

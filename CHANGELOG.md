@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2.3.43 - 2026-08-16
+
+### 修复
+- **forensic_ruyipage.py 多 targets 命中判定 any → all（P0）**：原 `_target_reached`/`acceptance` 是 any 语义——`--targets` 列多个时，页面加载只触发第一个接口（如验证码 gettype.php）就提前收尾关浏览器，用户后续交互（滑动/登录）触发的接口（ajax.php/login）永远抓不到，"一次会话列全 targets"（2.3.40）实际不成立，geetest 案例被迫分三次重采。来源：用户指出"抓到 target 立马就会关闭浏览器吧"。修复：
+  - 新增 `_target_acceptance`：每个 target 都必须有非 OPTIONS 2xx 命中（all 语义），单 target 与 any 等价
+  - `_target_reached` 等待循环改 all 语义：全部命中才停；等不到的目标由 `--wait` 超时兜底，已抓包仍落盘
+  - `_build_result` acceptance 改 all：部分命中 → `PARTIAL`（带 `missingTargets` 未命中清单），完全未命中 → `NO_TARGET`，全部命中 → `PASS`
+  - main 退出码 `target_verified = acceptance == "PASS"`：部分命中不再误判 Step 1 通过
+  - 报告输出新增 `[未命中目标]` 行，明确列出缺哪些接口
+- 自测：13 项断言全过（含核心回归"多 targets 部分命中 = 不停止"、OPTIONS/412 不算命中）
+
+### 优化
+- **SKILL.md 4.2 同步全部命中判定**：多 targets 全部命中才 PASS；部分命中 → `PARTIAL` + 未命中清单，停在 EVIDENCE_GATE，不得视为 Step 1 通过。全部命中判定保证验证码场景一次会话列全 targets 时，脚本会等到用户滑完、全链路接口都出现才收尾关浏览器。
+
 ## 2.3.42 - 2026-08-16
 
 ### 优化
