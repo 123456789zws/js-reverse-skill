@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.3.42 - 2026-08-16
+
+### 优化
+- **SKILL.md 4.2 验证码 targets 注释去掉厂商接口名示例（修正 2.3.41）**：2.3.41 写的"极验 v3 gettype/get/ajax、v4 load/verify、易盾 get/check"仍属具体厂商细节，写进通用 SKILL.md 不通用且可能误导照抄。改为只保留通用原则（一次会话抓全 load→verify、接口名以实际链路为准、禁止分多次重采），厂商接口矩阵仅指向 `references/captcha/captcha-providers.md`。来源：用户反馈"不通用就不要写进去"。
+
 ## 2.3.41 - 2026-08-16
 
 ### 优化
