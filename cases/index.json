@@ -162,6 +162,14 @@
       "strategy": "A+B：纯算 MD5 + source 拼接 + Cookie 静态拼接（__zse_ck 前缀 009_ 伪造），vm 黑盒执行模块 1514 JSVMP 生成 __g._encrypt",
       "file": "zhihu-x-zse-96-jsvmp-blackbox.md",
       "verifiedAt": "2026-08-15"
+    },
+    {
+      "title": "B 站番剧评论接口 WBI 签名（w_rid）",
+      "domains": ["bilibili.com", "api.bilibili.com"],
+      "signals": ["w_rid", "wts", "mixin_key", "wbi_img", "WBI", "web_location", "UNIOS_WBI_ENCODE", "pagination_reply", "next_offset"],
+      "strategy": "A 纯算还原：md5(参数升序排序 + mixin_key)，密钥从 nav 接口 wbi_img 混排派生（按日轮换），零依赖 Node.js https+crypto",
+      "file": "bilibili-wbi-reply-main.md",
+      "verifiedAt": "2026-08-16"
     }
   ]
 }
