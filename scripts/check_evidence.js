@@ -101,8 +101,74 @@ function listScriptFiles(dir) {
   return listFiles(dir, (n) => /\.(?:js|mjs|cjs)$/i.test(n) || /\.(?:js|mjs|cjs)\.[a-f0-9]{10}$/i.test(n));
 }
 
+// 递归扫描目录下 NDJSON（兼容 RuyiTrace 新版分目录结构：domtrace/ 主日志 + cookie/descriptor/event/storage
+// 分类；也兼容旧版顶层单文件）。与 capture_ruyitrace_log.js 的 listNdjsonFiles 语义保持一致：
+// 优先返回 domtrace/ 下的主日志，其余按修改时间倒序。
+// 去重：顶层可能出现从子目录手动复制上来的副本（同 basename + 同 size），按内容指纹剔除，避免重复计数
+// 虚高 recordCount / 目标信号命中次数。
 function listNdjsonFiles(dir) {
-  return listFiles(dir, (n) => /\.(?:ndjson|jsonl)$/i.test(n));
+  if (!isDir(dir)) return [];
+  const out = [];
+  const walk = (d) => {
+    let entries = [];
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { entries = []; }
+    for (const ent of entries) {
+      const p = path.join(d, ent.name);
+      if (ent.isDirectory()) walk(p);
+      else if (/\.(?:ndjson|jsonl)$/i.test(ent.name)) out.push(p);
+    }
+  };
+  walk(dir);
+  // 内容指纹去重（优先保留 domtrace/ 主日志，其次 mtime 较新者）
+  const fingerprint = (p) => {
+    try {
+      const st = fs.statSync(p);
+      if (st.size <= 0) return null;
+      const fd = fs.openSync(p, 'r');
+      const head = Buffer.alloc(Math.min(st.size, 8192));
+      const tail = Buffer.alloc(Math.min(st.size, 8192));
+      try {
+        fs.readSync(fd, head, 0, head.length, 0);
+        fs.readSync(fd, tail, 0, tail.length, Math.max(0, st.size - tail.length));
+      } finally { fs.closeSync(fd); }
+      return `${st.size}:${crypto.createHash('sha1').update(head).update(tail).digest('hex')}`;
+    } catch { return null; }
+  };
+  const seen = new Map();
+  const unique = [];
+  for (const p of out) {
+    const fp = fingerprint(p);
+    if (fp === null) continue;
+    const inDom = /[\\/]domtrace[\\/]/.test(p);
+    let m = 0;
+    try { m = fs.statSync(p).mtimeMs; } catch { m = 0; }
+    const prev = seen.get(fp);
+    if (!prev) {
+      seen.set(fp, { p, inDom, m });
+      unique.push(p);
+    } else if (inDom && !prev.inDom) {
+      // domtrace/ 主日志优先：替换掉顶层副本
+      unique.splice(unique.indexOf(prev.p), 1, p);
+      seen.set(fp, { p, inDom, m });
+    } else if (!inDom && prev.inDom) {
+      // 已保留 domtrace/ 主日志版本，忽略顶层副本（mtime 更新也不替换）
+    } else if (m > prev.m) {
+      // 同一层级内（都在 domtrace 或都在顶层）按 mtime 保留最新
+      unique.splice(unique.indexOf(prev.p), 1, p);
+      seen.set(fp, { p, inDom, m });
+    }
+  }
+  const rank = (p) => {
+    const inDom = /[\\/]domtrace[\\/]/.test(p) ? 0 : 1;
+    let m = 0;
+    try { m = fs.statSync(p).mtimeMs; } catch { m = 0; }
+    return [inDom, -m];
+  };
+  return unique.sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    return ra[0] - rb[0] || ra[1] - rb[1];
+  });
 }
 
 function fmtSize(p) {
@@ -826,7 +892,29 @@ function runSelfTest() {
     fs.writeFileSync(brokenHar, '{broken', 'utf8');
     const brokenCli = childProcess.spawnSync(process.execPath, [__filename, '--case-dir', path.join(root, 'empty'), '--inputs', brokenHar, '--json'], { encoding: 'utf8' });
     assert.strictEqual(brokenCli.status, 1);
-    return { clean: true, tests: 38 };
+
+    // NDJSON 递归扫描：主日志在 domtrace/ 子目录时也能被发现（RuyiTrace 新版分目录结构）
+    const subTraceRoot = path.join(root, 'subtrace');
+    const subTraceDir = path.join(subTraceRoot, 'case', 'ruyi-trace', 'logs');
+    const subDomDir = path.join(subTraceDir, 'domtrace');
+    const subCookieDir = path.join(subTraceDir, 'cookie');
+    fs.mkdirSync(subDomDir, { recursive: true });
+    fs.mkdirSync(subCookieDir, { recursive: true });
+    const mainTraceLine = JSON.stringify({ api: 'fetch', url: targetUrl, stack: { file: scriptUrl } });
+    // 主日志（32225 行规模模拟，用循环快速生成，避免真实大文件）
+    const bigLines = [];
+    for (let i = 0; i < 1000; i += 1) bigLines.push(mainTraceLine);
+    fs.writeFileSync(path.join(subDomDir, 'trace_process_1.ndjson'), bigLines.join('\n') + '\n', 'utf8');
+    fs.writeFileSync(path.join(subCookieDir, 'trace_cookie_process_1.ndjson'), `${JSON.stringify({ type: 'cookieSetAttempts' })}\n`, 'utf8');
+    fs.writeFileSync(path.join(subTraceDir, 'trace_process_1.ndjson'), bigLines.join('\n') + '\n', 'utf8'); // 顶层副本（同内容）
+    const subFiles = listNdjsonFiles(subTraceDir);
+    assert.strictEqual(subFiles.length, 2, '递归扫描应发现 domtrace 主日志 + cookie 分类日志，顶层副本被去重');
+    assert.ok(subFiles[0].includes('domtrace'), 'domtrace/ 主日志应排在最前');
+    const subCheck = check({ caseDir: subTraceRoot, inputs: '', url: targetUrl });
+    assert.strictEqual(subCheck.step2.evidence, true, '仅子目录 NDJSON 也应通过 Step 2 证据判定');
+    assert.ok(subCheck.step2.checks[0].recordCount >= 1000, 'recordCount 应计入 domtrace 主日志记录数，而非只计顶层副本');
+
+    return { clean: true, tests: 40 };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

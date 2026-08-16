@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.38
+version: 2.3.39
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -172,8 +172,12 @@ URL 不是证据。脚本确认文件真实存在并可归类，才允许跳过�
 
 ```powershell
 # 已知/疑似目标接口时必须加 --targets 过滤；需要登录/点击/验证码时在窗口内提示用户操作。
-# --targets 逗号分隔可传多个；签名密钥/配置来源接口（如 B 站 nav 下发 wbi_img）也要加进 --targets，
-# 否则其响应体不进 target-hits.json，后续无法从证据反推密钥。
+# --targets 逗号分隔可传多个；签名密钥/配置来源接口（如 B 站 nav 下发 wbi_img、时间同步接口 time-millis/serverTime）
+# 也要加进 --targets，否则其响应体不进 target-hits.json，后续无法从证据确认响应格式。
+# 注意：capture.json 是纯请求元数据（不存响应体），响应体只落盘到两处：
+#   ① target-hits.json（--targets 命中接口）② case/js/original/（JS 资源）。
+#   需要确认某接口响应体时（如 serverTimestamp 来源接口的 data 格式），必须把它加进 --targets，
+#   不要从 capture.json 里找响应体——它没有。
 # 窗口默认 --wait 120，登录场景可加 --manual-pause 暂停等待；窗口不够可调大 --wait。
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets team_info --markdown
 ```
@@ -190,6 +194,8 @@ Windows 下若 Python 脚本输出仍现编码异常，用 `PYTHONUTF8=1` 前缀
 node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-root> --target-signal <环境API或签名写入点关键词> --import-after --markdown
 # --target-signal 匹配 RuyiTrace 记录的环境 API / 写入点（如 fetch、XMLHttpRequest.send、handshake、参数名），
 # 不传目标接口 URL——trace 记录的是 API 调用，不记录请求 URL，传 URL 字面量必然未命中。
+# 也不传密钥/常量名（如 appSignKey、bl、secret）——trace 记录运行时值与写入点，不记录密钥字面量，
+# 传密钥名必然未命中并误触发硬阻断；应选参数写入点/参数名（如 noncestr、x-zse-96、Headers.set(...)）。
 # 目标接口 URL 的命中证据由 Step 1 取证承担：forensic_ruyipage.py --targets <URL> + check_evidence.js --require-target-signal <URL>。
 # --target-signal 可多次传入；导入后未命中则退出码非 0 = 硬阻断。
 # 自动 trace 默认 --duration 120 秒；交互场景可调大，或转手动 trace。
@@ -215,11 +221,16 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 
 网络方案失败后不得反复试方案；验证失败且当前为轻量路径时，强制升级到 FORENSIC_CAPTURE。
 
-**EXTERNAL_LOOKUP 豁免**：仅当本次取证已同时具备 Step 1 + Step 2，且 TRACE_ANALYZE 已定位 source/entry/builder/writer 时，可跳过 EXTERNAL_LOOKUP 直接 IMPLEMENT；需在状态行或阶段报告中声明豁免原因。仅凭「本地案例未命中」或「证据链看起来完整」不得跳过。
+**EXTERNAL_LOOKUP 豁免**：仅当本次取证已同时具备 Step 1 + Step 2，且 TRACE_ANALYZE 已定位 source/entry/builder/writer 时，可跳过 EXTERNAL_LOOKUP 直接 IMPLEMENT；需在状态行或阶段报告中显式声明「EXTERNAL_LOOKUP 豁免：Step1+Step2 齐备 + 链已定位」。仅凭「本地案例未命中」或「证据链看起来完整」不得跳过。CASE_LOOKUP 是必经节点：先 `search_cases` 查本地相似案例（同算法族/同参数名可复用方法论），未命中才考虑豁免；不得直接从 EVIDENCE_GATE 跨过 CASE_LOOKUP/EXTERNAL_LOOKUP 进 TRACE_ANALYZE。
 
 ### 4.4 状态记录与 IMPLEMENT 前置条件
 
-每次状态转换必须输出一行状态行（当前状态 + 证据状态 + 门禁结论）。关键结论随节点落盘，供压缩/续接使用：
+每次状态转换必须输出一行状态行，格式固定为 `当前状态(证据状态) → 目标状态(关键结论)`，必须包含：
+- 当前状态名与证据状态（Step1/Step2 齐备情况、trace 质量）
+- 若跳过任何必经节点（CASE_LOOKUP / EXTERNAL_LOOKUP），必须显式写出豁免依据（如「EXTERNAL_LOOKUP 豁免：Step1+Step2 齐备 + TRACE_ANALYZE 已定位链」）
+- 若 trace 未覆盖目标接口 URL 字面量，状态行需带「trace 定位依据：<写入点/关键词>」
+
+示例：`TRACE_ANALYZE(Step1+Step2 齐备，noncestr 写入点命中) → IMPLEMENT`。关键结论随节点落盘，供压缩/续接使用：
 
 ```powershell
 node scripts/write_stage_report.js --case-dir <project-root> --stage <阶段> --input <草稿.md> --markdown

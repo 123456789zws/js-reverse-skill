@@ -530,6 +530,15 @@ const FINAL_SUMMARY_DEFAULT_SECTIONS = [
   /风险与后续建议/,
 ];
 
+// trace 未覆盖目标接口 URL 字面量时的显式声明关键词（SKILL.md 4.2：未声明不得进入 IMPLEMENT）
+const TRACE_COVERAGE_DECLARATION_PATTERNS = [
+  /trace\s*未覆盖/i,
+  /未覆盖目标接口/i,
+  /定位依据为/i,
+  /签名链定位依据/i,
+  /目标接口 URL 字面量/i,
+];
+
 // 生产级交付附加章节（用户要求"生产级交付"时才检查）
 const FINAL_SUMMARY_PRODUCTION_SECTIONS = [
   /阶段报告索引/,
@@ -542,6 +551,49 @@ const FINAL_SUMMARY_PRODUCTION_SECTIONS = [
   /Session\s*请求链|Session 模式|TLS 请求验证与 Session 请求链/i,
   /清理结果/,
 ];
+
+function inspectTraceCoverageDeclaration(caseSubdir, resultDir, requireFinalSummary) {
+  // SKILL.md 4.2：trace 未覆盖目标接口 URL 字面量时，必须在最终总结中显式声明
+  // 「trace 未覆盖目标接口 URL 字面量；签名链定位依据为 <写入点/关键词>」，未声明不得进入 IMPLEMENT。
+  // 判定依据：case/notes/ruyitrace-summary.md 的「目标信号命中检查」若出现未命中信号，
+  // 且 result/最终项目总结.md 中无对应声明 → 给出问题（规则兜底，防止文本规则无脚本校验）。
+  const result = {
+    summaryPresent: false,
+    summaryFile: path.join(caseSubdir, 'notes', 'ruyitrace-summary.md'),
+    signalMissed: false,
+    missedSignals: [],
+    declarationPresent: false,
+  };
+  const problems = [];
+  const warnings = [];
+  if (!exists(result.summaryFile)) return { result, problems, warnings };
+  result.summaryPresent = true;
+  let summaryText = '';
+  try { summaryText = readText(result.summaryFile); } catch (_) { return { result, problems, warnings }; }
+  // 提取「目标信号命中检查」段落（自该标题至下一个二级标题或文件结尾）
+  const sectionStart = summaryText.indexOf('## 目标信号命中检查');
+  if (sectionStart === -1) return { result, problems, warnings };
+  const sectionRest = summaryText.slice(sectionStart);
+  const nextSection = sectionRest.search(/\n##\s/);
+  const hitSection = nextSection === -1 ? sectionRest : sectionRest.slice(0, nextSection);
+  const missedMatches = hitSection.match(/(?:\[未通过\]|未命中)「([^」]+)」/g) || [];
+  result.missedSignals = missedMatches.map((m) => (m.match(/「([^」]+)」/) || [])[1] || m);
+  result.signalMissed = /\[未通过\]|目标信号未命中|未命中/.test(hitSection);
+  if (!result.signalMissed) return { result, problems, warnings };
+  if (!requireFinalSummary) {
+    warnings.push(`trace 目标信号存在未命中（${result.missedSignals.join('、') || '见摘要'}），但已豁免最终总结要求；请确认已在对话/阶段报告中声明 trace 覆盖情况。`);
+    return { result, problems, warnings };
+  }
+  const finalSummary = path.join(resultDir, '最终项目总结.md');
+  if (!exists(finalSummary)) return { result, problems, warnings }; // 最终总结缺失由 inspectFinalSummary 处理
+  let finalText = '';
+  try { finalText = readText(finalSummary); } catch (_) { return { result, problems, warnings }; }
+  result.declarationPresent = TRACE_COVERAGE_DECLARATION_PATTERNS.some((pattern) => pattern.test(finalText));
+  if (!result.declarationPresent) {
+    problems.push(`case/notes/ruyitrace-summary.md 的目标信号命中检查显示未命中信号（${result.missedSignals.join('、') || '见摘要'}）；SKILL.md 4.2 要求 trace 未覆盖目标接口 URL 字面量时必须在最终项目总结中显式声明「trace 未覆盖目标接口 URL 字面量；签名链定位依据为 <写入点/关键词>」，未声明不得进入 IMPLEMENT。`);
+  }
+  return { result, problems, warnings };
+}
 
 function inspectFinalSummary(resultDir, requireFinalSummary, production) {
   const finalSummary = path.join(resultDir, '最终项目总结.md');
@@ -850,6 +902,14 @@ function check(args) {
   problems.push(...finalSummary.problems);
   warnings.push(...finalSummary.warnings);
 
+  const traceCoverage = exists(caseSubdir) ? inspectTraceCoverageDeclaration(caseSubdir, resultDir, args.requireFinalSummary) : {
+    result: { summaryPresent: false, signalMissed: false, declarationPresent: false },
+    problems: [],
+    warnings: [],
+  };
+  problems.push(...traceCoverage.problems);
+  warnings.push(...traceCoverage.warnings);
+
   const experience = exists(resultDir) ? inspectExperienceReport(resultDir, args.requireExperience) : {
     result: { required: !!args.requireExperience, files: [], present: false },
     problems: [],
@@ -874,6 +934,7 @@ function check(args) {
     validationRecord: validationRecord.result,
     reusedCryptoCheck: reuse,
     finalSummary: finalSummary.result,
+    traceCoverage: traceCoverage.result,
     experience: experience.result,
     stageReports: stageReports.result,
     finalSummaryOptOut: args.finalSummaryOptOut,
@@ -997,6 +1058,38 @@ function runSelfTest() {
     if (!dynNatural.reuse.length || !dynNatural.cleanup.length) {
       throw new Error('keepAlive Agent 自然命名（agent）的复用与清理应被识别');
     }
+
+    // trace 覆盖声明兜底：summary 出现未命中信号时，最终总结必须有声明
+    const covRoot = path.join(root, 'cov');
+    const covCase = path.join(covRoot, 'case'); // inspectTraceCoverageDeclaration 第一个参数为 caseSubdir
+    const covNotes = path.join(covCase, 'notes');
+    const covResult = path.join(covRoot, 'result');
+    fs.mkdirSync(covNotes, { recursive: true });
+    fs.mkdirSync(covResult, { recursive: true });
+    const covSummary = '## 目标信号命中检查\n- [通过] 命中「noncestr」：98 次\n- [未通过] 未命中「appSignKey」：0 次\n- [警告] 目标信号未命中：若信号是环境 API / 写入点，说明目标路径未触发；若传的是目标接口 URL 字面量，则属预期，不要反复重试，改用写入点/参数名定位并声明豁免。\n';
+    fs.writeFileSync(path.join(covNotes, 'ruyitrace-summary.md'), covSummary, 'utf8');
+    fs.writeFileSync(path.join(covResult, '最终项目总结.md'), '# 测试总结\n## 目标与边界\n无声明示例\n', 'utf8');
+    const covMissing = inspectTraceCoverageDeclaration(covCase, covResult, true);
+    if (covMissing.problems.length === 0) {
+      throw new Error('summary 未命中信号 + 最终总结无声明 → 应产生问题');
+    }
+    fs.writeFileSync(path.join(covResult, '最终项目总结.md'), '# 测试总结\n## 目标与边界\ntrace 未覆盖目标接口 URL 字面量；签名链定位依据为 noncestr\n', 'utf8');
+    const covDeclared = inspectTraceCoverageDeclaration(covCase, covResult, true);
+    if (covDeclared.problems.length > 0 || covDeclared.result.declarationPresent !== true) {
+      throw new Error('summary 未命中信号 + 最终总结已声明 → 应通过');
+    }
+    const covClean = path.join(root, 'cov-clean');
+    const covCleanCase = path.join(covClean, 'case');
+    const covCleanNotes = path.join(covCleanCase, 'notes');
+    const covCleanResult = path.join(covClean, 'result');
+    fs.mkdirSync(covCleanNotes, { recursive: true });
+    fs.mkdirSync(covCleanResult, { recursive: true });
+    fs.writeFileSync(path.join(covCleanNotes, 'ruyitrace-summary.md'), '## 目标信号命中检查\n- [通过] 命中「noncestr」：98 次\n', 'utf8');
+    fs.writeFileSync(path.join(covCleanResult, '最终项目总结.md'), '# 测试总结\n## 目标与边界\n无未命中信号，无需声明\n', 'utf8');
+    const covCleanCheck = inspectTraceCoverageDeclaration(covCleanCase, covCleanResult, true);
+    if (covCleanCheck.problems.length > 0 || covCleanCheck.result.signalMissed !== false) {
+      throw new Error('summary 无未命中信号 → 不应产生问题');
+    }
     return { clean: true, cases: cases.length };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
@@ -1023,4 +1116,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { check, extractSampleCryptoValuesFromText, inspectValidationRecord, runSelfTest };
+module.exports = { check, extractSampleCryptoValuesFromText, inspectValidationRecord, inspectTraceCoverageDeclaration, runSelfTest };

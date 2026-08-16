@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.3.39 - 2026-08-16
+
+### 修复
+- **check_evidence.js NDJSON 扫描不递归子目录（P0）**：`listNdjsonFiles` 只扫 `case/ruyi-trace/logs/` 顶层，而 RuyiTrace 新版按进程类型分目录输出（`domtrace/` 主日志 + `cookie/descriptor/event/storage` 分类，`capture_ruyitrace_log.js` 已递归且 domtrace 优先）。主日志在 `domtrace/` 子目录时被漏扫，出现「Trace 只采到 1 行且无 stack.file」的误判，AI 被迫手动复制文件到顶层才能过 EVIDENCE_GATE。修复：递归扫描 + 内容指纹去重（防顶层副本重复计数，domtrace 主日志优先保留），与 `capture_ruyitrace_log.js` 语义对齐；自测新增子目录递归 + 顶层副本去重两个回归用例。来源：丁香园 DXY paid-post/page 案例复盘。
+
+### 优化
+- **trace 覆盖声明加脚本兜底（P1）**：SKILL.md 4.2「trace 未覆盖目标接口 URL 字面量须显式声明，未声明不得进入 IMPLEMENT」原为纯文本规则。`check_final_artifact.js` 新增 `inspectTraceCoverageDeclaration`：解析 `case/notes/ruyitrace-summary.md` 的「目标信号命中检查」段落，存在未命中信号时要求 `最终项目总结.md` 含「trace 未覆盖 / 定位依据为」声明，缺失则报问题；自测覆盖未命中+无声明、未命中+已声明、无未命中三种情形。
+- **capture.json 与 target-hits.json 分工写明（SKILL.md 4.2）**：明确 `capture.json` 是纯请求元数据（不含响应体），响应体只落盘到 `target-hits.json`（`--targets` 命中）与 `case/js/original/`；需确认某接口响应体时（如 serverTimestamp 来源接口 `time-millis` 的 data 格式）必须把它加进 `--targets`，不要从 capture.json 找响应体。来源：DXY 案例 AI 绕路确认 time-millis 响应格式。
+- **--target-signal 选信号指导（SKILL.md 4.2）**：补充「不传密钥/常量名（appSignKey、bl、secret）——trace 记录运行时值与写入点，不记录密钥字面量，传密钥名必然未命中并误触发硬阻断；应选参数写入点/参数名（noncestr、x-zse-96、Headers.set(...)）」。来源：DXY 案例传 appSignKey 导致摘要误报 [未通过]。
+- **EXTERNAL_LOOKUP 豁免与状态行格式强化（SKILL.md 4.3/4.4）**：豁免必须在状态行显式写「EXTERNAL_LOOKUP 豁免：Step1+Step2 齐备 + 链已定位」；CASE_LOOKUP 是必经节点，先 `search_cases` 查本地相似案例再考虑豁免，不得直接从 EVIDENCE_GATE 跨过；状态行固定格式 `当前状态(证据状态) → 目标状态(关键结论)`，跳过必经节点必须带豁免依据，trace 未覆盖 URL 字面量时带「trace 定位依据：<写入点>」。来源：DXY 案例直接跳过 CASE_LOOKUP/EXTERNAL_LOOKUP 未声明。
+
 ## 2.3.38 - 2026-08-16
 
 ### 修复
