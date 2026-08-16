@@ -1034,7 +1034,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--out-dir", default="", help="取证输出目录，默认 <case-dir>/case/forensic")
     p.add_argument("--profile-dir", default="", help="独立浏览器 profile，默认 <case-dir>/case/tmp/ruyipage-profile")
     p.add_argument("--fp-dir", default="", help="智能指纹 base_dir，默认 <case-dir>/case/tmp/fingerprint")
-    p.add_argument("--targets", default="", help="目标接口子串过滤（逗号分隔）；指定后若未捕获到非 OPTIONS 2xx 目标响应则退出码非 0，作为 Step 1 缺失硬信号；抓包始终抓全部")
+    p.add_argument("--targets", default="", help="目标接口子串过滤（逗号分隔，可传多个）；指定后若未捕获到非 OPTIONS 2xx 目标响应则退出码非 0，作为 Step 1 缺失硬信号；抓包始终抓全部。签名密钥/配置来源接口（如 B 站 nav 下发 wbi_img）也要加入，否则其响应体不进 target-hits.json，无法从证据反推密钥")
     p.add_argument("--targets-regex", default="", help="目标接口正则过滤（逗号分隔）；与 --targets 同样参与取证成功判定")
     p.add_argument("--human-algorithm", default="windmouse", help="拟人算法：windmouse / bezier，默认 windmouse")
     p.add_argument("--window-size", default="1366,900", help="窗口尺寸 wxh，默认 1366,900")

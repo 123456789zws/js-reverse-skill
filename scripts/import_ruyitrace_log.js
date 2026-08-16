@@ -274,7 +274,7 @@ function renderMarkdown(result) {
       if (t.hits > 0) lines.push(`- [通过] 命中「${t.signal}」：${t.hits} 次（示例行 ${t.sampleLine}）`);
       else lines.push(`- [未通过] 未命中「${t.signal}」：0 次`);
     }
-    if (!ts.allHit) lines.push('- [警告] **目标路径未覆盖：日志未触发目标接口，不得当作“采集完成”，按 TRACE_RETRY 处理（查因→重试/转手动/降级补充）**');
+    if (!ts.allHit) lines.push('- [警告] **目标信号未命中**：若信号是环境 API / 写入点（fetch、XMLHttpRequest.send、参数名等），说明目标路径未触发，按 TRACE_RETRY 处理（查因→重试/转手动/降级补充）；若传的是目标接口 URL 字面量，则 trace 本就记录不到请求 URL（网络请求是 Step 1 取证范畴），属预期，不要反复重试，改用写入点/参数名定位并声明豁免。');
   }
 
   const truncation = result.summary.truncation;
@@ -301,7 +301,7 @@ function renderMarkdown(result) {
   lines.push('- 将高频 API 映射到 `env-module-levels.md` 的 Level 1/2/3 环境模块。');
   lines.push('- 结合 stack.file / line / col 更新 `notes/entry-chain.md` 和 `notes/missing-env-priority.md`。');
   if (ts.enabled && !ts.allHit) {
-    lines.push('- 若仅因目标 URL 由变量动态拼接而未命中字面量，改用参数写入点或参数名定位后，必须在 `ruyitrace-summary.md`、阶段报告（如已启用）和最终总结中显式声明「trace 未覆盖目标接口 URL 字面量；定位依据为 <写入点/关键词>」；未声明不得进入 IMPLEMENT。');
+    lines.push('- 目标接口 URL 未命中 trace 字面量属预期（trace 记录环境 API、不记录请求 URL，URL 命中证据由 Step 1 capture 承担）。改用参数写入点或参数名定位签名链后，必须在 `ruyitrace-summary.md`、阶段报告（如已启用）和最终总结中显式声明「trace 未覆盖目标接口 URL 字面量；定位依据为 <写入点/关键词>」；未声明不得进入 IMPLEMENT。');
   }
   lines.push('- 对长字段优先补采完整值或记录 hash / 长度 / 前后片段，避免把 RuyiTrace 的截断值误当作完整值。');
   lines.push('- 仅把摘要写入最终报告，原始 NDJSON 作为本地证据文件保存或由用户确认删除。');

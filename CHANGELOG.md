@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2.3.38 - 2026-08-16
+
+### 修复
+- **check_final_artifact.js Session 复用检测从字面量正则改为语义检测**：原 `SESSION_REUSE_PATTERNS`/`SESSION_CLEANUP_PATTERNS` 只认 `session.`/`client.` 变量名字面量，`req`/`sess`/`agent` 等自然命名被误判「未复用/未清理」，导致反复改名返工。改为 `extractSessionVarNames` 提取 `new Agent({keepAlive})`/`new Session()` 的变量名后按变量名动态匹配复用（`X.request(...)`、`agent: X`、`{X}` 简写）与清理（`X.destroy/close/dispose/end`），保留字面量兜底。来源：B 站评论 WBI 案例 5 次返工。
+- **check_final_artifact.js AUTOMATION_PATTERNS 排除注释**：`\bRuyiTrace\b` 等工具名检测全文扫描，命中注释里的「本算法由 RuyiTrace 实证」纯说明文字，误判为引用取证工具。新增 `stripComments`（状态机去除 // 与 /* */，保留字符串/模板字面量）后再匹配；自测新增注释说明、自然命名 keepAlive 复用两个回归用例。
+
+### 优化
+- **target-signal 证据层语义拆分（SKILL.md + import_ruyitrace_log.js）**：明确 `--target-signal` 命中的是 RuyiTrace 记录的环境 API / 签名写入点，不是网络请求 URL；目标接口 URL 的命中证据由 Step 1 取证承担（`forensic_ruyipage.py --targets` + `check_evidence.js --require-target-signal`）。网络接口目标的 URL 未命中 trace 字面量属预期、不算采集失败，改走写入点定位 + 声明豁免，而非反复重试 trace；只有环境 API 信号未命中才是 TRACE_RETRY。来源：B 站评论滚动出评论但 trace 仍报「未命中目标」。
+- **密钥来源接口响应体保留（SKILL.md + forensic_ruyipage.py）**：签名密钥/配置来源接口（如 B 站 nav 下发 wbi_img）也要加入 `--targets`，否则其响应体不进 target-hits.json，无法从证据反推密钥；取证命令与 `--targets` 帮助文本同步说明。
+
 ## 2.3.37 - 2026-08-15
 
 ### 优化

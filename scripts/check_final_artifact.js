@@ -71,6 +71,46 @@ function readText(p) {
   return fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '');
 }
 
+// 去除 JS 注释（// 与 /* */），保留字符串 / 模板字面量内的 // 和 /*。
+// 供 AUTOMATION_PATTERNS 等工具名检测使用，避免注释里的说明文字（如"本算法由 RuyiTrace 实证"）
+// 被误判为引用了取证 / 自动化工具。
+function stripComments(source) {
+  const SQ = 39, DQ = 34, BT = 96, BS = 92, SL = 47, NL = 10, ST = 42;
+  let out = '';
+  let i = 0;
+  const n = source.length;
+  let state = 0; // 0=code 1=line 2=block 3=sq 4=dq 5=tpl
+  while (i < n) {
+    const c = source.charCodeAt(i);
+    const c2 = source.charCodeAt(i + 1);
+    if (state === 0) {
+      if (c === SL && c2 === SL) { state = 1; out += '  '; i += 2; continue; }
+      if (c === SL && c2 === ST) { state = 2; out += '  '; i += 2; continue; }
+      if (c === SQ) { state = 3; out += "'"; i += 1; continue; }
+      if (c === DQ) { state = 4; out += '"'; i += 1; continue; }
+      if (c === BT) { state = 5; out += '`'; i += 1; continue; }
+      out += source[i]; i += 1; continue;
+    }
+    if (state === 1) {
+      if (c === NL) { state = 0; out += source[i]; } else { out += ' '; }
+      i += 1; continue;
+    }
+    if (state === 2) {
+      if (c === ST && c2 === SL) { state = 0; out += '  '; i += 2; continue; }
+      out += c === NL ? source[i] : ' '; i += 1; continue;
+    }
+    out += source[i];
+    if (c === BS) { out += source[i + 1] || ''; i += 2; continue; }
+    if ((state === 3 && c === SQ) || (state === 4 && c === DQ) || (state === 5 && c === BT)) state = 0;
+    i += 1; continue;
+  }
+  return out;
+}
+
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function walk(p, out = []) {
   if (!exists(p)) return out;
   const st = stat(p);
@@ -177,6 +217,34 @@ const SESSION_CLEANUP_PATTERNS = [
   /\b清理\s*(?:Cookie\s*jar|敏感|运行态)/i,
   /\b销毁\s*session/i,
 ];
+
+// 从"创建的连接对象"提取变量名（keepAlive Agent 或 Session），
+// 按变量名动态检测复用 / 清理，避免只认 session/client 字面量导致 req/sess/agent 等自然命名误报。
+function extractSessionVarNames(source) {
+  const names = new Set();
+  const agentRe = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+(?:(?:https?|http2|tls)\.)?Agent\s*\(([^)]*)\)/g;
+  let m;
+  while ((m = agentRe.exec(source))) {
+    if (/keepAlive/i.test(m[2])) names.add(m[1]);
+  }
+  const sessionRe = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+Session\s*\(/g;
+  while ((m = sessionRe.exec(source))) names.add(m[1]);
+  return Array.from(names);
+}
+
+function dynamicSessionHits(source) {
+  const names = extractSessionVarNames(source);
+  const reuse = [];
+  const cleanup = [];
+  for (const name of names) {
+    const esc = escapeRe(name);
+    const reuseRe = new RegExp(`\\b${esc}\\.(?:request|get|post|put|delete)\\s*\\(|\\bagent\\s*:\\s*${esc}\\b|\\{\\s*${esc}\\s*(?:,|\\})`, 'i');
+    if (reuseRe.test(source)) reuse.push(`${name}（keepAlive 连接复用）`);
+    const cleanupRe = new RegExp(`\\b${esc}\\.(?:destroy|close|dispose|end)\\s*\\(`, 'i');
+    if (cleanupRe.test(source)) cleanup.push(`${name}（keepAlive 连接清理）`);
+  }
+  return { reuse, cleanup };
+}
 
 const DOC_ONLINE_PATTERNS = [
   /FINAL_ARTIFACT_NETWORK_MODE\s*[=:]\s*online/i,
@@ -699,9 +767,10 @@ function check(args) {
       const createHits = findMatches(source, SESSION_CREATE_PATTERNS);
       if (createHits.length) sessionCreateHits.push({ file: rel(caseDir, f), hits: createHits });
       const reuseHits = findMatches(source, SESSION_REUSE_PATTERNS);
-      if (reuseHits.length) sessionReuseHits.push({ file: rel(caseDir, f), hits: reuseHits });
+      const dynSession = dynamicSessionHits(source);
+      if (reuseHits.length || dynSession.reuse.length) sessionReuseHits.push({ file: rel(caseDir, f), hits: [...reuseHits, ...dynSession.reuse] });
       const cleanupHits = findMatches(source, SESSION_CLEANUP_PATTERNS);
-      if (cleanupHits.length) sessionCleanupHits.push({ file: rel(caseDir, f), hits: cleanupHits });
+      if (cleanupHits.length || dynSession.cleanup.length) sessionCleanupHits.push({ file: rel(caseDir, f), hits: [...cleanupHits, ...dynSession.cleanup] });
     }
     online = networkMode === 'online' || requestHits.length > 0;
     signOnly = networkMode === 'sign-only' && !requestHits.length;
@@ -737,7 +806,7 @@ function check(args) {
 
   const automationHits = [];
   for (const f of codeFiles) {
-    const hits = findMatches(readText(f), AUTOMATION_PATTERNS);
+    const hits = findMatches(stripComments(readText(f)), AUTOMATION_PATTERNS);
     if (hits.length) automationHits.push({ file: rel(caseDir, f), hits });
   }
   if (automationHits.length) {
@@ -917,6 +986,16 @@ function runSelfTest() {
     fs.writeFileSync(automation, "const wd = require('selenium-webdriver'); new wd.Builder().forBrowser('chrome').build();\n", 'utf8');
     if (!findMatches(readText(automation), AUTOMATION_PATTERNS).length) {
       throw new Error('selenium-webdriver 应被识别为浏览器自动化');
+    }
+    const commentOnly = path.join(resultDir, 'comment-only.js');
+    fs.writeFileSync(commentOnly, "// 本算法由 RuyiTrace / ruyipage 取证实证，交付物不依赖浏览器自动化\nconst a = 1;\n", 'utf8');
+    if (findMatches(stripComments(readText(commentOnly)), AUTOMATION_PATTERNS).length) {
+      throw new Error('注释中的 RuyiTrace 说明文字不应被误判为浏览器自动化');
+    }
+    const naturalSession = "const agent = new https.Agent({ keepAlive: true });\nhttps.request({ agent, host: 'x' });\nagent.destroy();\n";
+    const dynNatural = dynamicSessionHits(naturalSession);
+    if (!dynNatural.reuse.length || !dynNatural.cleanup.length) {
+      throw new Error('keepAlive Agent 自然命名（agent）的复用与清理应被识别');
     }
     return { clean: true, cases: cases.length };
   } finally {

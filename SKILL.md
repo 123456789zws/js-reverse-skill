@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.37
+version: 2.3.38
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -172,6 +172,8 @@ URL 不是证据。脚本确认文件真实存在并可归类，才允许跳过�
 
 ```powershell
 # 已知/疑似目标接口时必须加 --targets 过滤；需要登录/点击/验证码时在窗口内提示用户操作。
+# --targets 逗号分隔可传多个；签名密钥/配置来源接口（如 B 站 nav 下发 wbi_img）也要加进 --targets，
+# 否则其响应体不进 target-hits.json，后续无法从证据反推密钥。
 # 窗口默认 --wait 120，登录场景可加 --manual-pause 暂停等待；窗口不够可调大 --wait。
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets team_info --markdown
 ```
@@ -185,8 +187,11 @@ Windows 下若 Python 脚本输出仍现编码异常，用 `PYTHONUTF8=1` 前缀
 日志采集：
 
 ```powershell
-node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-root> --target-signal <目标接口URL或关键词> --import-after --markdown
-# --target-signal 可多次传入；导入后未命中目标接口则退出码非 0 = 硬阻断。
+node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-root> --target-signal <环境API或签名写入点关键词> --import-after --markdown
+# --target-signal 匹配 RuyiTrace 记录的环境 API / 写入点（如 fetch、XMLHttpRequest.send、handshake、参数名），
+# 不传目标接口 URL——trace 记录的是 API 调用，不记录请求 URL，传 URL 字面量必然未命中。
+# 目标接口 URL 的命中证据由 Step 1 取证承担：forensic_ruyipage.py --targets <URL> + check_evidence.js --require-target-signal <URL>。
+# --target-signal 可多次传入；导入后未命中则退出码非 0 = 硬阻断。
 # 自动 trace 默认 --duration 120 秒；交互场景可调大，或转手动 trace。
 ```
 
@@ -194,7 +199,12 @@ node scripts/capture_ruyitrace_log.js --url <target-url> --case-dir <project-roo
 
 目标请求需手动触发时，必须提示用户在 trace 浏览器中完成操作；用户确认“已触发”前不得结束采集。不得把“没触发目标路径”当成“采集完成”。
 
-**TRACE_CAPTURE 质量判定与 TRACE_RETRY**：采集到 NDJSON 不等于达标。摘要显示「未发现 stack.file」、成功解析极低、topApis 找不到目标参数 writer，或 `--target-signal` 未命中，均按重度不足处理并进入 TRACE_RETRY。完整降级顺序与验证码特化判定见 `references/workflow/trace-flow.md`。目标信号未命中是硬信号，不得自行放宽。若重试/降级后仍未命中目标接口 URL 字面量，但改用参数写入点（如 `Headers.set("x-zse-96", ...)`）或参数名定位签名链，必须显式声明「trace 未覆盖目标接口 URL 字面量；签名链定位依据为 <写入点/关键词>」，并写入 `notes/ruyitrace-summary.md`、阶段报告（如已启用）与最终总结；未声明不得进入 IMPLEMENT。
+**TRACE_CAPTURE 质量判定与 TRACE_RETRY**：采集到 NDJSON 不等于达标。摘要显示「未发现 stack.file」、成功解析极低、topApis 找不到目标参数 writer，均按重度不足处理并进入 TRACE_RETRY。完整降级顺序与验证码特化判定见 `references/workflow/trace-flow.md`。
+
+`--target-signal` 命中的是 trace 覆盖得到的「环境 API / 签名写入点」，不是网络请求 URL，判定分两类：
+
+- 信号是环境 API（`fetch`、`XMLHttpRequest.send`、`handshake`、参数名等）未命中 → 目标路径未触发，是硬信号，进入 TRACE_RETRY，不得自行放宽。
+- 目标是纯网络接口、trace 未覆盖 URL 字面量 → 属预期，不算采集失败，不要反复重试 trace；改用参数写入点（如 `Headers.set("x-zse-96", ...)`）或参数名定位签名链，并显式声明「trace 未覆盖目标接口 URL 字面量；签名链定位依据为 <写入点/关键词>」，写入 `notes/ruyitrace-summary.md`、阶段报告（如已启用）与最终总结；未声明不得进入 IMPLEMENT。目标接口 URL 的命中证据由 Step 1 取证承担（`forensic_ruyipage.py --targets` + `check_evidence.js --require-target-signal`）。
 
 ### 4.3 EXTERNAL_LOOKUP
 
