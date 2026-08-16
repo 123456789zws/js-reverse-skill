@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.3.41 - 2026-08-16
+
+### 优化
+- **SKILL.md 4.2 验证码 targets 示例通用化**：原"如 gettype.php,get.php,ajax.php"是极验 GT3 专用，其他厂商（GT4 的 load/verify、易盾的 get/check、TCaptcha 的 ticket+randstr 等）接口名不同，写死会误导照抄。改为"接口名因厂商/版本而异，以实际抓包链路为准"并给多厂商代表性示例 + "勿照抄"提示。来源：用户反馈 target 三个不是所有验证码都有。
+
 ## 2.3.40 - 2026-08-16
 
 ### 修复

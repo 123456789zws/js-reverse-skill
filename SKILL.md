@@ -1,6 +1,6 @@
 ---
 name: js-reverse-skill
-version: 2.3.40
+version: 2.3.41
 description: >
   网页端 JavaScript 加密参数逆向与纯协议还原。逆向还原浏览器请求中加密参数、签名、token、
   cookie、设备指纹的生成逻辑；适用于各类动态参数的生成逻辑分析，覆盖标准算法、自定义混淆、
@@ -179,9 +179,10 @@ URL 不是证据。脚本确认文件真实存在并可归类，才允许跳过�
 #   需要确认某接口响应体时（如 serverTimestamp 来源接口的 data 格式），必须把它加进 --targets，
 #   不要从 capture.json 里找响应体——它没有。
 # 窗口默认 --wait 120，登录场景可加 --manual-pause 暂停等待（AI 后台运行遇非交互 stdin 时自动退化为等待 --wait，不阻塞）；窗口不够可调大 --wait。
-# 验证码场景（geetest/易盾/TCaptcha 等）应一次会话抓全三段链（load/get → solve 间接 → verify），
-# --targets 逗号分隔列全（如 gettype.php,get.php,ajax.php），用户滑动一次即拿全链路；
-# 禁止分多次重采——challenge 强绑定 Session，每次新会话 profile 必然失效，重采等于从零再来。
+# 验证码场景（geetest/易盾/TCaptcha 等）应一次会话抓全 load → verify 三段链，
+# --targets 逗号分隔列全该验证码的全部接口（接口名因厂商/版本而异，以实际抓包链路为准；
+# 如极验 v3 的 gettype/get/ajax、v4 的 load/verify、易盾的 get/check 等，勿照抄示例），
+# 用户滑动一次即拿全链路；禁止分多次重采——challenge 强绑定 Session，每次新会话 profile 必然失效。
 python scripts/forensic_ruyipage.py --url <target-url> --case-dir <project-root> --targets team_info --markdown
 ```
 
