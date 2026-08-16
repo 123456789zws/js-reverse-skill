@@ -906,7 +906,13 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             logger.warning("page.get 超时/异常（页面 load 未完成不影响已捕获流量），继续收尾：%s", e)
 
         if args.manual_pause:
-            input("在浏览器中完成登录 / 业务操作后按回车继续取证...")
+            # 后台/非交互 stdin（AI 通过工具调用运行）会立即 EOF 抛异常导致脚本退出 →
+            # finally 强制关浏览器，用户还没操作。容错：EOF 时不崩溃，跳过暂停直接进入
+            # 后续 --wait 等待循环（默认 120s，可调大），让用户有时间在窗口完成操作。
+            try:
+                input("在浏览器中完成登录 / 业务操作后按回车继续取证...")
+            except EOFError:
+                logger.warning("--manual-pause 遇非交互 stdin（EOF），跳过暂停；请在浏览器窗口完成操作，脚本将在 --wait 时间内等待目标命中")
 
         _trigger_actions(page, args, args.human_algorithm)
 
@@ -916,6 +922,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             import time
             deadline = time.time() + args.wait
             target_done = False
+            wait_fail = 0
             while time.time() < deadline:
                 try:
                     steps_now = page.capture.steps
@@ -927,11 +934,15 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
                     break
                 try:
                     pkt = page.capture.wait(timeout=2, count=1)
+                    wait_fail = 0
                 except Exception as e:
-                    logger.warning("capture.wait 异常：%s", e)
-                    break
+                    wait_fail += 1
+                    logger.warning("capture.wait 异常（连续第 %s 次）：%s", wait_fail, e)
+                    if wait_fail >= 5:
+                        logger.warning("capture.wait 连续 %s 次异常，放弃等待", wait_fail)
+                        break
             if not target_done:
-                logger.info("未在 %ss 内命中目标接口，按 --wait 超时收尾", args.wait)
+                logger.warning("[超时] 未在 %ss 内命中目标接口，按 --wait 收尾。若用户尚未在浏览器完成操作（登录/滑动验证码等），请调大 --wait 或重采；已捕获的包仍会落盘供分析", args.wait)
         else:
             # 未指定目标：网络静默即停——包数不再增长且连续 settle 秒无新包视为抓包完成。
             # 比"首个包+固定 sleep"更早结束（早完成早停），避免页面加载完仍在空等。
@@ -940,6 +951,7 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
             prev_count = 0
             last_seen = time.time()
             done = False
+            wait_fail = 0
             while time.time() < deadline:
                 try:
                     steps_now = page.capture.steps
@@ -955,9 +967,13 @@ def run_forensic(args: argparse.Namespace, browser_path: str) -> Dict[str, Any]:
                     break
                 try:
                     pkt = page.capture.wait(timeout=2, count=1)
+                    wait_fail = 0
                 except Exception as e:
-                    logger.warning("capture.wait 异常：%s", e)
-                    break
+                    wait_fail += 1
+                    logger.warning("capture.wait 异常（连续第 %s 次）：%s", wait_fail, e)
+                    if wait_fail >= 5:
+                        logger.warning("capture.wait 连续 %s 次异常，放弃等待", wait_fail)
+                        break
             if not done:
                 logger.info("未在 %ss 内达到静默，按 --wait 超时收尾（已捕获 %s 个包）", args.wait, prev_count)
 
@@ -1043,12 +1059,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--proxy-auth", default="", help="出口代理认证 user:pass（透传 proxy_user/proxy_pwd），可选；账号密码只写 fpfile，不写业务脚本/交付物")
     p.add_argument("--manual-geo", default="", help="地理探测失败时的 manual_geo（JSON 字符串或文件路径）")
     p.add_argument("--no-fp", action="store_true", help="跳过 smart_fingerprint（禁用智能指纹）")
-    p.add_argument("--wait", type=int, default=120, help="完成判定的总超时秒：目标命中即提前结束 / 未命中到点自动关闭，默认 120")
+    p.add_argument("--wait", type=int, default=120, help="完成判定的总超时秒：目标命中即提前结束 / 未命中到点自动关闭，默认 120；验证码/登录等需人工操作的场景建议调大（如 300）")
     p.add_argument("--settle", type=int, default=5, help="未指定 --targets 时的静默窗口：包数不再增长且连续 N 秒无新包视为抓包完成，默认 5")
     p.add_argument("--max-body-bytes", type=int, default=1048576, help="target-hits 响应体截断阈值，默认 1MB")
     p.add_argument("--click", default="", help="导航后拟人点击的 CSS 选择器")
     p.add_argument("--scroll", type=int, default=0, help="导航后滚动像素数")
-    p.add_argument("--manual-pause", action="store_true", help="导航后暂停，等待手动完成登录/业务再继续")
+    p.add_argument("--manual-pause", action="store_true", help="导航后暂停，等待手动完成登录/业务再继续；AI 后台运行遇非交互 stdin（EOF）时自动退化为等待 --wait，不阻塞")
     p.add_argument("--baseline-id", default="", help="指定 baselineId（复用已有指纹基线）")
     p.add_argument("--dry-run", action="store_true", help="只检测环境并打印计划，不启动浏览器")
     p.add_argument("--json", action="store_true", help="输出 JSON")

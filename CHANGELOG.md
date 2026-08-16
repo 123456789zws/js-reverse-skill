@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.3.40 - 2026-08-16
+
+### 修复
+- **forensic_ruyipage.py 取证等待机制三处断裂（P0）**：验证码/登录等需人工交互的取证场景下，AI 后台运行脚本时浏览器被提前关闭，用户还没操作就收尾。来源：geetest 滑动验证码取证复现（`--manual-pause` 后台 EOF 崩溃 → 改用 `--wait` 死等 → 分三次重采才凑齐链路）。
+  - `--manual-pause` EOF 容错：`input()` 遇非交互 stdin（EOF）不再抛异常崩溃导致 finally 强制关浏览器，改为跳过暂停并进入 `--wait` 等待循环，让用户有时间在窗口完成操作。
+  - `capture.wait` 连续异常计数容错：原单次异常即 `break` 提前收尾关浏览器（BiDi 抖动一次就放弃整个等待窗口）；改为连续 5 次异常才放弃，单次抖动继续等 deadline。有目标/无目标两处等待循环均已接入。
+  - `--wait` 超时收尾警告强化：目标未命中超时收尾从 `logger.info` 提升为 `logger.warning` 并带 `[超时]` 标记，明确提示"若用户尚未完成操作请调大 `--wait` 或重采；已捕获的包仍会落盘"。
+
+### 优化
+- **SKILL.md 4.2 验证码取证一次会话抓全三段链（P1）**：验证码场景（geetest/易盾/TCaptcha 等）`--targets` 应逗号分隔列全 load/get → verify 三段链接口（如 `gettype.php,get.php,ajax.php`），用户滑动一次即拿全链路；明确禁止分多次重采——challenge 强绑定 Session，每次新会话 profile 必然失效。同步更新 `--manual-pause` 说明（AI 后台遇非交互 stdin 自动退化为等待 `--wait`）与 `--wait` help（验证码/登录场景建议调大至 300）。
+
 ## 2.3.39 - 2026-08-16
 
 ### 修复
