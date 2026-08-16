@@ -170,6 +170,14 @@
       "strategy": "A 纯算还原：md5(参数升序排序 + mixin_key)，密钥从 nav 接口 wbi_img 混排派生（按日轮换），零依赖 Node.js https+crypto",
       "file": "bilibili-wbi-reply-main.md",
       "verifiedAt": "2026-08-16"
+    },
+    {
+      "title": "SHA1 参数排序签名 + appSignKey 静态密钥（丁香园 BBS）",
+      "domains": ["dxy.cn"],
+      "signals": ["sign", "appSignKey", "noncestr", "serverTimestamp", "time-millis", "crypto-js"],
+      "strategy": "A 纯算还原：webpack 模块链定位 sign(88086)+密钥(4070)，SHA1(过滤空值+appSignKey 后字典序 k=v&拼接)",
+      "file": "sha1-sort-params-appsignkey-dxy.md",
+      "verifiedAt": "2026-08-16"
     }
   ]
 }
